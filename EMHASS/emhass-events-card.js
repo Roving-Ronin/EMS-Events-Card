@@ -1,4 +1,4 @@
-// EMHASS Events Card v2.0.9
+// EMHASS Events Card v2.1.5
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Modelled on haeo-events-card structure and style
 // Copy to /config/www/emhass-events-card.js
@@ -25,14 +25,22 @@
 //   net_cost:             sensor.mpc_cost_fun
 //   past_buy_price:       sensor.amber_general_price        # Actual buy price for Past Events tab
 //   past_sell_price:      sensor.amber_feed_in_price        # Actual sell price for Past Events tab
-//   energy_load:          sensor.your_total_load_energy
-//   energy_solar:         sensor.your_total_pv_energy
-//   energy_grid_import:   sensor.your_total_imported_energy
-//   energy_grid_export:   sensor.your_total_exported_energy
-//   energy_batt_charge:   sensor.your_daily_batt_charge_energy
-//   energy_batt_discharge: sensor.your_daily_batt_discharge_energy
+//
+// BESS actual inverter sensors (Past tab — 🕐 BESS Data mode):
+// Sign convention: battery +ve=charging, -ve=discharging (opposite to MPC sensors)
+//   bess_batt_power:      sensor.sigen_plant_battery_power
+//   bess_grid_power:      sensor.sigen_plant_grid_active_power
+//   bess_pv_power:        sensor.sigen_plant_pv_power
+//   bess_load_power:      sensor.sigen_plant_consumed_power
+//   bess_soc:             sensor.sigen_plant_battery_state_of_charge
+//   energy_load:           sensor.sigen_plant_total_load_consumption         # MUST be lifetime/total — daily sensors reset at midnight causing gaps
+//   energy_solar:          sensor.sigen_plant_total_pv_generation              # MUST be lifetime/total
+//   energy_grid_import:    sensor.sigen_plant_total_imported_energy            # MUST be lifetime/total
+//   energy_grid_export:    sensor.sigen_plant_total_exported_energy            # MUST be lifetime/total
+//   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
+//   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.0.9';
+const _EMHASS_VERSION = 'v2.1.5';
 
 // ── Tier 2: Sigenergy / annable.me MPC sensor names ─────────────────────────
 const _EMHASS_MPC = {
@@ -47,12 +55,22 @@ const _EMHASS_MPC = {
   net_cost:              'sensor.mpc_cost_fun',
   past_buy_price:        'sensor.amber_express_home_general_price',
   past_sell_price:       'sensor.amber_express_home_feed_in_price',
-  energy_load:           null,
-  energy_solar:          null,
-  energy_grid_import:    null,
-  energy_grid_export:    null,
-  energy_batt_charge:    null,
-  energy_batt_discharge: null,
+  // Energy sensors — MUST use lifetime/total sensors (never reset).
+  // Daily/monthly sensors cause gaps at midnight/month-end boundaries.
+  energy_load:           'sensor.sigen_plant_total_load_consumption',
+  energy_solar:          'sensor.sigen_plant_total_pv_generation',
+  energy_grid_import:    'sensor.sigen_plant_total_imported_energy',
+  energy_grid_export:    'sensor.sigen_plant_total_exported_energy',
+  energy_batt_charge:    'sensor.sigen_plant_total_charged_energy_of_the_ess',
+  energy_batt_discharge: 'sensor.sigen_plant_total_discharged_energy_of_the_ess',
+  // BESS actual inverter sensors (Past tab — BESS mode)
+  // Sign convention: battery +ve=charging, -ve=discharging (opposite to MPC sensors)
+  // Grid: +ve=import, -ve=export (same as MPC sensors)
+  bess_batt_power:       'sensor.sigen_plant_battery_power',
+  bess_grid_power:       'sensor.sigen_plant_grid_active_power',
+  bess_pv_power:         'sensor.sigen_plant_pv_power',
+  bess_load_power:       'sensor.sigen_plant_consumed_power',
+  bess_soc:              'sensor.sigen_plant_battery_state_of_charge',
 };
 
 // ── Tier 3: Standard EMHASS sensor names ────────────────────────────────────
@@ -74,6 +92,12 @@ const _EMHASS_STD = {
   energy_grid_export:    null,
   energy_batt_charge:    null,
   energy_batt_discharge: null,
+  // BESS sensors — no standard EMHASS equivalent, must be configured via card YAML
+  bess_batt_power:       null,
+  bess_grid_power:       null,
+  bess_pv_power:         null,
+  bess_load_power:       null,
+  bess_soc:              null,
 };
 
 // ── Forecast attribute + value key candidates per sensor role ────────────────
@@ -213,6 +237,7 @@ function _emhass_classifyFuture(pvW, loadW, battW, gridW) {
 
 // ── Classify past ─────────────────────────────────────────────────────────────
 // Same sign convention: battW +ve = discharging, -ve = charging
+// Mode is inferred from power values — same logic as future classifier
 function _emhass_classifyPast(pvW, loadW, battW, gridW) {
   const T = 50;
   const charging    = battW < -T;
@@ -223,46 +248,46 @@ function _emhass_classifyPast(pvW, loadW, battW, gridW) {
 
   // Force export (battery discharging to grid)
   if (exporting && discharging && hasPV)
-    return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'green' };
+    return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'green',      mode: 'Command Discharging (PV First)' };
   if (exporting && discharging)
-    return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)',             color: 'solar' };
+    return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)',             color: 'solar',      mode: 'Command Discharging' };
   // Solar with export
   if (hasPV && exporting && charging)
-    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid',         color: 'solar_green' };
+    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid',         color: 'solar_green', mode: 'Maximum Self Consumption' };
   if (hasPV && exporting)
-    return { label: '🌞 Solar → 🏠 Home + ⚡ Grid',                      color: 'solar_green' };
+    return { label: '🌞 Solar → 🏠 Home + ⚡ Grid',                      color: 'solar_green', mode: 'Maximum Self Consumption' };
   // Forced grid charge
   if (charging && importing && hasPV)
-    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)', color: 'pink' };
+    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)', color: 'pink',       mode: 'Command Charging (PV First)' };
   if (charging && importing)
-    return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)',             color: 'red' };
+    return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)',             color: 'red',        mode: 'Command Charging' };
   if (charging && hasPV)
-    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery',                   color: 'solar_green' };
+    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery',                   color: 'solar_green', mode: 'Maximum Self Consumption' };
   // Solar self-consumption
   if (hasPV && discharging && importing)
-    return { label: '🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Home',         color: 'pink' };
+    return { label: '🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Home',         color: 'pink',       mode: 'Maximum Self Consumption' };
   if (hasPV && discharging)
-    return { label: '🌞 Solar + 🔋 Battery → 🏠 Home',                   color: 'teal' };
+    return { label: '🌞 Solar + 🔋 Battery → 🏠 Home',                   color: 'teal',       mode: 'Maximum Self Consumption' };
   if (hasPV && importing)
-    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home',                      color: 'pink' };
+    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home',                      color: 'pink',       mode: 'Maximum Self Consumption' };
   if (hasPV && charging)
-    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery',                   color: 'solar_green' };
+    return { label: '🌞 Solar → 🏠 Home + 🔋 Battery',                   color: 'solar_green', mode: 'Maximum Self Consumption' };
   if (hasPV)
-    return { label: '🌞 Solar → 🏠 Home',                                 color: 'solar_green' };
+    return { label: '🌞 Solar → 🏠 Home',                                 color: 'solar_green', mode: 'Maximum Self Consumption' };
   // No solar
   if (discharging && exporting)
-    return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)',             color: 'solar' };
+    return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)',             color: 'solar',      mode: 'Command Discharging' };
   if (discharging && importing)
-    return { label: '🔋 Battery + ⚡ Grid → 🏠 Home',                     color: 'pink' };
+    return { label: '🔋 Battery + ⚡ Grid → 🏠 Home',                     color: 'pink',       mode: 'Maximum Self Consumption' };
   if (discharging)
-    return { label: '🔋 Battery → 🏠 Home',                               color: 'teal' };
+    return { label: '🔋 Battery → 🏠 Home',                               color: 'teal',       mode: 'Maximum Self Consumption' };
   if (importing && charging)
-    return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)',             color: 'red' };
+    return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)',             color: 'red',        mode: 'Command Charging' };
   if (importing)
-    return { label: '⚡ Grid → 🏠 Home',                                   color: 'red' };
+    return { label: '⚡ Grid → 🏠 Home',                                   color: 'red',        mode: 'Standby' };
   if (loadW > T)
-    return { label: '⚡ Grid → 🏠 Home',                                   color: 'red' };
-  return { label: '—', color: '' };
+    return { label: '⚡ Grid → 🏠 Home',                                   color: 'red',        mode: 'Standby' };
+  return { label: '—', color: '', mode: '' };
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -299,6 +324,38 @@ function _emhass_getDelta(arr, ts, prevTs, mult) {
   if (isNaN(curr) || isNaN(prev)) return null;
   const delta = curr - prev;
   return delta < 0 ? 0 : delta * (mult || 1);
+}
+
+// Aggregate a lookup array into 5-minute buckets.
+// avgEids: average within bucket. lastEids: take last value in bucket.
+// Returns a new lookup map keyed by bucket start timestamp.
+function _emhass_bucket5min(lookup, eids, avgEids, lastEids) {
+  const step = 5 * 60 * 1000;
+  const buckets = {}; // { eid: { bucketTs: { sum, count, last } } }
+  for (const eid of eids) {
+    if (!lookup[eid]) continue;
+    buckets[eid] = {};
+    for (const s of lookup[eid]) {
+      const bk = Math.floor(s.t / step) * step;
+      if (!buckets[eid][bk]) buckets[eid][bk] = { sum: 0, count: 0, last: null };
+      const v = parseFloat(s.s);
+      if (!isNaN(v)) { buckets[eid][bk].sum += v; buckets[eid][bk].count++; }
+      buckets[eid][bk].last = s.s;
+    }
+  }
+  // Build aggregated lookup arrays
+  const agg = {};
+  for (const eid of eids) {
+    if (!buckets[eid]) continue;
+    const useAvg = avgEids.includes(eid);
+    agg[eid] = Object.entries(buckets[eid])
+      .map(([bk, b]) => ({
+        t: parseInt(bk),
+        s: useAvg && b.count > 0 ? String((b.sum / b.count).toFixed(2)) : b.last,
+      }))
+      .sort((a, b) => a.t - b.t);
+  }
+  return agg;
 }
 
 function _emhass_powerMult(hass, entityId) {
@@ -404,6 +461,17 @@ const _EMHASS_STYLE = [
   '.dr td.bgi, .dr td.bgl { text-align: right !important; }',
   '.msg { padding: 20px; text-align: center; color: var(--secondary-text-color); }',
   '.err { padding: 10px; color: #f44336; }',
+  // BESS/EMHASS toggle switch
+  '.bess-toggle-wrap { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--primary-text-color); }',
+  '.bess-toggle-wrap .tl { font-size:11px; white-space:nowrap; }',
+  '.bess-toggle-wrap .tl.inactive { color:var(--secondary-text-color); }',
+  '.toggle-sw { position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0; }',
+  '.toggle-sw input { opacity:0; width:0; height:0; }',
+  '.toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#4caf50; border-radius:20px; transition:.3s; }',
+  '.toggle-slider.disabled { background:#555; cursor:default; }',
+  '.toggle-slider:before { position:absolute; content:""; height:14px; width:14px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }',
+  'input:checked + .toggle-slider { background:#2196F3; }',
+  'input:checked + .toggle-slider:before { transform:translateX(16px); }',
 ].join('\n');
 
 // ── HTML template ─────────────────────────────────────────────────────────────
@@ -413,7 +481,12 @@ function _emhass_buildHTML() {
     '<div class="tabs">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
-    '<span id="range-past-wrap" style="display:none;margin-left:auto;align-self:center;padding-right:4px;">' +
+    '<span id="range-past-wrap" style="display:none;margin-left:auto;align-self:center;padding-right:4px;gap:8px;display:none;align-items:center;">' +
+    '<span class="bess-toggle-wrap" id="bess-toggle-wrap">' +
+    '<span class="tl" id="bess-lbl-bess">🕐 BESS Data</span>' +
+    '<label class="toggle-sw"><input type="checkbox" id="bess-toggle"><span class="toggle-slider" id="bess-slider"></span></label>' +
+    '<span class="tl inactive" id="bess-lbl-emhass">📊 EMHASS Data</span>' +
+    '</span>' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option><option value="yesterday">Yesterday</option>' +
     '<option value="24">Last 24h</option><option value="48">Last 48h</option>' +
@@ -633,7 +706,7 @@ class EmhassEventsCard extends HTMLElement {
       sr.getElementById('pane-' + t).classList.toggle('active', t === tab);
     });
     const wrap = sr.getElementById('range-past-wrap');
-    if (wrap) wrap.style.display = tab === 'past' ? 'inline-flex' : 'none';
+    if (wrap) wrap.style.display = tab === 'past' ? 'flex' : 'none';
     requestAnimationFrame(() => this._setWrapHeight());
   }
 
@@ -649,6 +722,31 @@ class EmhassEventsCard extends HTMLElement {
         this._pastState = 'loading';
         const tb = this.shadowRoot.getElementById('tb-past');
         if (tb) tb.innerHTML = '<tr><td colspan="15" class="msg">⏳ Fetching history...</td></tr>';
+        this._loadPast();
+      });
+    }
+    const tog = this.shadowRoot.getElementById('bess-toggle');
+    if (tog && !tog._wired) {
+      tog._wired = true;
+      // Init toggle state — default BESS (unchecked = BESS, checked = EMHASS)
+      const hasBess = !!(this._eid('bess_batt_power'));
+      const slider  = this.shadowRoot.getElementById('bess-slider');
+      const lblBess = this.shadowRoot.getElementById('bess-lbl-bess');
+      const lblEmhass = this.shadowRoot.getElementById('bess-lbl-emhass');
+      if (!hasBess) {
+        tog.checked = true;  // No BESS sensors — default to EMHASS
+        tog.disabled = true;
+        if (slider) slider.classList.add('disabled');
+        if (lblBess) lblBess.classList.add('inactive');
+        if (lblEmhass) lblEmhass.classList.remove('inactive');
+      }
+      tog.addEventListener('change', () => {
+        const isEmhass = tog.checked;
+        if (lblBess)   lblBess.classList.toggle('inactive', isEmhass);
+        if (lblEmhass) lblEmhass.classList.toggle('inactive', !isEmhass);
+        this._pastState = 'loading';
+        const tb = this.shadowRoot.getElementById('tb-past');
+        if (tb) tb.innerHTML = '<tr><td colspan="15" class="msg">⏳ Loading...</td></tr>';
         this._loadPast();
       });
     }
@@ -881,12 +979,24 @@ class EmhassEventsCard extends HTMLElement {
       const { start, end } = this._getRangeP();
       st.textContent = 'Fetching...';
 
+      // Determine BESS/EMHASS mode FIRST — needed to build correct entity ID list
+      const togEl   = this.shadowRoot.getElementById('bess-toggle');
+      const isBess  = togEl ? !togEl.checked : false;
+      const hasBess = !!(this._eid('bess_batt_power'));
+      const useBess = isBess && hasBess;
+
+      // Select sensor entity IDs based on mode
+      const battEid = useBess ? this._eid('bess_batt_power')   : this._eid('p_batt_forecast');
+      const gridEid = useBess ? this._eid('bess_grid_power')   : this._eid('p_grid_forecast');
+      const pvEid   = useBess ? this._eid('bess_pv_power')     : this._eid('p_pv_forecast');
+      const loadEid = useBess ? this._eid('bess_load_power')   : this._eid('p_load_forecast');
+      const socEid  = useBess ? this._eid('bess_soc')          : this._eid('soc_forecast');
+      const buyEid  = this._eid('past_buy_price');
+      const sellEid = this._eid('past_sell_price');
+
+      // Build entity ID list using the correct sensor set for this mode
       const powerIds = [
-        this._eid('p_batt_forecast'), this._eid('p_grid_forecast'),
-        this._eid('p_pv_forecast'),   this._eid('p_load_forecast'),
-        this._eid('soc_forecast'),
-        this._eid('past_buy_price'),  // Actual price sensors for past tab (Amber or equivalent)
-        this._eid('past_sell_price'),
+        battEid, gridEid, pvEid, loadEid, socEid, buyEid, sellEid,
       ].filter(Boolean);
 
       const energyIds = [
@@ -907,13 +1017,40 @@ class EmhassEventsCard extends HTMLElement {
         lookup[eid] = states.map(s => ({ t: (s.lu !== undefined ? s.lu : s.lc) * 1000, s: s.s })).sort((a,b) => a.t - b.t);
       }
 
+      // In BESS mode, aggregate high-frequency Sigenergy data into 5-min buckets
+      // to avoid thousands of rows. Average power values, last-value for SoC/price.
+      // Also normalise BESS power sensors to W using unit_of_measurement.
+      if (useBess) {
+        const avgEids  = [battEid, gridEid, pvEid, loadEid];
+        const lastEids = [socEid, buyEid, sellEid];
+        const allEids  = [...avgEids, ...lastEids];
+        const agg = _emhass_bucket5min(lookup, allEids, avgEids, lastEids);
+        // Scale power sensors to W if not already (e.g. kW sensors × 1000)
+        const bessPwrScale = {
+          [battEid]: _emhass_powerMult(this._hass, battEid),
+          [gridEid]: _emhass_powerMult(this._hass, gridEid),
+          [pvEid]:   _emhass_powerMult(this._hass, pvEid),
+          [loadEid]: _emhass_powerMult(this._hass, loadEid),
+        };
+        for (const eid of avgEids) {
+          if (!agg[eid]) continue;
+          const mult = bessPwrScale[eid] || 1;
+          // powerMult returns 0.001 for W sensors (W→kW), 1 for kW sensors
+          // We want everything in W, so if sensor is in W mult=0.001 → scale=1/0.001=1000? No —
+          // powerMult is designed to convert TO kW for display. Here we want raw W.
+          // Read unit directly and convert to W.
+          const unit = (this._hass?.states[eid]?.attributes?.unit_of_measurement || 'W').trim().toUpperCase();
+          const toW = unit === 'KW' ? 1000 : unit === 'MW' ? 1000000 : 1;
+          if (toW !== 1) {
+            agg[eid] = agg[eid].map(s => ({ t: s.t, s: String((parseFloat(s.s) * toW).toFixed(2)) }));
+          }
+          lookup[eid] = agg[eid];
+        }
+        for (const eid of lastEids) {
+          if (agg[eid]) lookup[eid] = agg[eid];
+        }
+      }
 
-      this._pwrMult = {
-        p_batt: _emhass_powerMult(this._hass, this._eid('p_batt_forecast')),
-        p_grid: _emhass_powerMult(this._hass, this._eid('p_grid_forecast')),
-        p_pv:   _emhass_powerMult(this._hass, this._eid('p_pv_forecast')),
-        p_load: _emhass_powerMult(this._hass, this._eid('p_load_forecast')),
-      };
       this._engMult = {
         energy_load:           _emhass_energyMult(this._hass, this._eid('energy_load')),
         energy_solar:          _emhass_energyMult(this._hass, this._eid('energy_solar')),
@@ -922,14 +1059,6 @@ class EmhassEventsCard extends HTMLElement {
         energy_batt_charge:    _emhass_energyMult(this._hass, this._eid('energy_batt_charge')),
         energy_batt_discharge: _emhass_energyMult(this._hass, this._eid('energy_batt_discharge')),
       };
-
-      const battEid = this._eid('p_batt_forecast');
-      const gridEid = this._eid('p_grid_forecast');
-      const pvEid   = this._eid('p_pv_forecast');
-      const loadEid = this._eid('p_load_forecast');
-      const socEid  = this._eid('soc_forecast');
-      const buyEid  = this._eid('past_buy_price');   // Actual price — Amber or equivalent
-      const sellEid = this._eid('past_sell_price');  // Actual price — Amber or equivalent
 
       if (!lookup[loadEid]?.length && !lookup[pvEid]?.length) {
         const sel = this.shadowRoot.getElementById('range-past');
@@ -944,19 +1073,16 @@ class EmhassEventsCard extends HTMLElement {
 
       const step = 5 * 60 * 1000;
 
-      // Build entries from actual recorded timestamps across all power sensors.
-      // Using fixed 5-min slots fails when history is sparse (only records state
-      // changes) — most slots return null→0 and get skipped. Instead use the
-      // union of all recorded timestamps, snapped to nearest 5-min boundary.
-      // Fall back to fixed 5-min slots only if no timestamps found.
+      // Build entries from the EXACT recorded timestamps of the primary power sensors.
+      // Do NOT snap to 5-min boundaries — snapping can move ts before the actual
+      // recorded state, causing _emhass_getAt binary search to return null.
+      // Use exact timestamps so each lookup finds its own state correctly.
       const recordedTs = new Set();
       for (const eid of [battEid, gridEid, pvEid, loadEid]) {
         if (!lookup[eid]) continue;
         for (const s of lookup[eid]) {
-          // Snap to nearest 5-min boundary
-          const snapped = Math.round(s.t / step) * step;
-          if (snapped >= start.getTime() && snapped <= end.getTime()) {
-            recordedTs.add(snapped);
+          if (s.t >= start.getTime() && s.t <= end.getTime()) {
+            recordedTs.add(s.t);
           }
         }
       }
@@ -986,7 +1112,9 @@ class EmhassEventsCard extends HTMLElement {
         const cost = gridW > 50 ? gridKw*buyP*stepH : gridW < -50 ? -(Math.abs(gridKw)*sellP*stepH) : 0;
         pastDailyCosts[dayStr] = (pastDailyCosts[dayStr]||0) + cost;
         const dk = pastDailyKwh[dayStr] || { load:0, pv:0, grid:0, batt:0 };
-        dk.load += (loadW/1000)*stepH; dk.pv += (pvW/1000)*stepH; dk.grid += gridKw*stepH; dk.batt += (battW/1000)*stepH;
+        // Normalize batt for daily sum: store as +ve=discharging for consistent display negation later
+        const battWn = useBess ? -battW : battW;
+        dk.load += (loadW/1000)*stepH; dk.pv += (pvW/1000)*stepH; dk.grid += gridKw*stepH; dk.batt += (battWn/1000)*stepH;
         pastDailyKwh[dayStr] = dk;
       }
 
@@ -1028,13 +1156,19 @@ class EmhassEventsCard extends HTMLElement {
         // Skip only if ALL power values are zero — don't gate on SoC which may have no history
         if (Math.abs(battW)<10 && Math.abs(gridW)<10 && loadW<10 && pvW<10) continue;
 
-        const cls = _emhass_classifyPast(pvW, loadW, battW, gridW);
+        // For classification, normalize to: +ve=discharging, -ve=charging
+        const battWc = useBess ? -battW : battW;
+        const cls = _emhass_classifyPast(pvW, loadW, battWc, gridW);
         const c   = _EMHASS_COLOURS[cls.color] || { bg:'transparent', txt:'var(--primary-text-color)', cost:'var(--primary-text-color)' };
 
         const gridCol = gridW > 50 ? '#f44336' : gridW < -50 ? '#4caf50' : c.txt;
-        // Display battery negated: raw +ve=discharge → display -ve (red); raw -ve=charge → display +ve (green)
-        const battDisp = -battW;
-        const battCol = battW > 50 ? '#f44336' : battW < -50 ? '#4caf50' : c.txt;
+        // Battery display sign depends on source:
+        // BESS sensors: +ve=charging(green), -ve=discharging(red) → no negation needed
+        // EMHASS sensors: +ve=discharging(red), -ve=charging(green) → negate for display
+        const battDisp = useBess ? battW : -battW;
+        const battCol  = useBess
+          ? (battW > 50 ? '#4caf50' : battW < -50 ? '#f44336' : c.txt)   // BESS: +ve=charge=green
+          : (battW > 50 ? '#f44336' : battW < -50 ? '#4caf50' : c.txt);  // EMHASS: +ve=discharge=red
         const socCol  = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
 
         const stepH = 5/60, gridKw = gridW/1000;
@@ -1050,12 +1184,16 @@ class EmhassEventsCard extends HTMLElement {
         const eBattC = _emhass_getDelta(lookup[this._eid('energy_batt_charge')],    ts, prevTs, this._engMult.energy_batt_charge);
         const eBattD = _emhass_getDelta(lookup[this._eid('energy_batt_discharge')], ts, prevTs, this._engMult.energy_batt_discharge);
         const eGrid  = gridW < -50 ? (eGExp !== null ? -eGExp : null) : gridW > 50 ? eGImp : null;
-        const eBatt  = battW < -50 ? (eBattD !== null ? -eBattD : null) : battW > 50 ? eBattC : null;
+        // Battery kWh sign depends on convention:
+        // MPC: +ve=discharging → discharge shows -kWh; BESS: +ve=charging → charge shows +kWh
+        const eBatt = useBess
+          ? (battW > 50 ? eBattC : battW < -50 ? (eBattD !== null ? -eBattD : null) : null)   // BESS: +ve=charge=positive
+          : (battW < -50 ? eBattC : battW > 50 ? (eBattD !== null ? -eBattD : null) : null);  // MPC: +ve=discharge=negative
         const fmtE   = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(3) : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td><td>' + cls.label + '</td>' +
-          '<td class="bgl"></td>' +
+          '<td class="bgl" style="font-size:11px;color:var(--secondary-text-color);">' + (cls.mode || '') + '</td>' +
           '<td class="bgl">' + _emhass_fmtP(buyP)  + '</td>' +
           '<td class="bgi">' + _emhass_fmtP(sellP) + '</td>' +
           '<td class="bgl">' + (loadW/1000).toFixed(2) + '</td><td class="bgi">' + fmtE(eLoad)  + '</td>' +
@@ -1072,7 +1210,8 @@ class EmhassEventsCard extends HTMLElement {
       tb.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="15" class="msg">⚠️ No readings for this period.</td></tr>';
       requestAnimationFrame(() => this._setWrapHeight());
       const sel2 = this.shadowRoot.getElementById('range-past');
-      st.textContent = rows.length + ' events from ' + entries.length + ' readings — ' + (sel2 ? sel2.options[sel2.selectedIndex].text : '');
+      const modeLabel = useBess ? '🕐 BESS' : '📊 EMHASS';
+      st.textContent = rows.length + ' events from ' + entries.length + ' readings — ' + (sel2 ? sel2.options[sel2.selectedIndex].text : '') + ' · ' + modeLabel;
       this._pastState = 'ready';
 
     } catch (e) {
