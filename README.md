@@ -1,4 +1,4 @@
-# Energy Management Systems — Events Cards
+# Energy Management Systems — Events Card
 
 A collection of custom Home Assistant Lovelace cards for energy management and optimisation systems. All three cards share a consistent two-tab layout (Future Decisions + Past Events), column structure, colour conventions and auto-refresh behaviour.
 
