@@ -10,9 +10,9 @@ A collection of custom Home Assistant Lovelace cards for energy management and o
 
 | Card | Type | For | Version |
 |------|------|-----|---------|
-| [EM Events Card](./em-events-card/) | `custom:em-events-card` | Energy Manager addon | v2.4.8 |
-| [HAEO Events Card](./haeo-events-card/) | `custom:haeo-events-card` | Home Assistant Energy Optimiser | v2.1.5 |
-| [EMHASS Events Card](./emhass-events-card/) | `custom:emhass-events-card` | EMHASS (Energy Management for Home Assistant) | v2.0.9 |
+| [EM Events Card](./EnergyManager/) | `custom:em-events-card` | Energy Manager addon | v2.4.8 |
+| [HAEO Events Card](./HAEO/) | `custom:haeo-events-card` | Home Assistant Energy Optimiser | v2.1.5 |
+| [EMHASS Events Card](./EMHASScard/) | `custom:emhass-events-card` | EMHASS (Energy Management for Home Assistant) | v2.0.9 |
 
 ---
 
@@ -68,9 +68,9 @@ See each card's README for full configuration options and required sensors.
 
 ## Card Documentation
 
-- 📄 [EM Events Card README](./em-events-card/README.md)
-- 📄 [HAEO Events Card README](./haeo-events-card/README.md)
-- 📄 [EMHASS Events Card README](./emhass-events-card/README.md)
+- 📄 [EM Events Card README](./EnergyManager/README.md)
+- 📄 [HAEO Events Card README](./HAEO/README.md)
+- 📄 [EMHASS Events Card README](./EMHASS/README.md)
 
 ---
 
