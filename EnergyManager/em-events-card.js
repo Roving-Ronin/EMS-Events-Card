@@ -1,10 +1,10 @@
-﻿// EM Events Card
+// EM Events Card
 // Combines Future Decisions (timeline) and Past Decisions (history) in one card
 // Requires: sensor.energy_manager_plan + inverter sensors
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.8';
+const _EMEC_VERSION = 'v2.4.9';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -445,6 +445,7 @@ class EmEventsCard extends HTMLElement {
     this._lastPlanTs   = null;
     this._lastRenderTs = 0;
     this._pastState    = 'idle';
+    this._pastLoadTs   = 0;
   }
 
   setConfig(config) {
@@ -452,6 +453,8 @@ class EmEventsCard extends HTMLElement {
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _emec_buildHTML();
       this._wireRange();
+      this._pastState  = 'idle';
+      this._lastPlanTs = null;
       requestAnimationFrame(() => this._setWrapHeight());
       if (!this._ro) {
         this._ro = new ResizeObserver(() => this._setWrapHeight());
@@ -545,10 +548,14 @@ class EmEventsCard extends HTMLElement {
       this._lastPlanTs = planTs;
       this._renderFuture();
     }
-    // Auto-load past on first hass set
+    // Auto-load past on first hass set, or recover if stuck loading
     if (this._pastState === 'idle') {
       this._pastState = 'loading';
+      this._pastLoadTs = Date.now();
       this._loadPast();
+    } else if (this._pastState === 'loading' && this._pastLoadTs && (Date.now() - this._pastLoadTs) > 30000) {
+      // Stuck in loading for >30s — reset and retry
+      this._pastState = 'idle';
     }
   }
 
