@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.9';
+const _EMEC_VERSION = 'v2.4.10';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -666,12 +666,13 @@ class EmEventsCard extends HTMLElement {
     const nowTs    = Date.now();
     const todayStr = new Date().toLocaleDateString('en-CA');
 
-    // Daily cost and kWh totals (provider-aware prices)
+    // Daily cost and kWh totals (provider-aware prices) — only future rows, matching render loop
     const dailyCosts = {};
     const dailyKwh  = {}; // { load, pv, grid (signed), batt (signed) }
     let curDay = '', curTotal = 0, curKwh = { load:0, pv:0, grid:0, batt:0 };
     for (const row of timeline) {
       const ts      = new Date(row.ts).getTime();
+      if (ts < nowTs) continue;  // skip past slots — matches render loop
       const day     = new Date(ts).toLocaleDateString('en-CA');
       const rowStepH = (row.interval_minutes || meta.step_minutes || 30) / 60;
       const { buyP, sellP } = _emec_getPrices(ts, provider, this._hass, row.inputs.buy_price || 0, row.inputs.sell_price || 0);
