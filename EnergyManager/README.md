@@ -2,11 +2,11 @@
 
 A custom Home Assistant card for the **Energy Manager** addon. Displays energy planning decisions in two tabs — **Future Decisions** (forecast timeline) and **Past Decisions** (historical 5-min readings) — in a single scrollable table with fixed headers and a colour-coded legend.
 
-Current version: **v2.4.8**
+Current version: **v2.4.10**
 
-EnergyManager/EM-Card-Future.jpg
+![Energy Manager - Future Decisions](EM-Card-Future.jpg)
 
-EnergyManager/EM-Card-Past-Decisions.jpg
+![Energy Manager - Past Events](EM-Card-Past-Decisions.jpg)
 
 ---
 
