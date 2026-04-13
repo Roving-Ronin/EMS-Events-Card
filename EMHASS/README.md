@@ -1,5 +1,7 @@
 # EMHASS Events Card
 
+## Note: PENDING FIXING SOME BUGS / WORK AROUND LACK OF EMHASS HISTORICAL SENSORS ATM
+
 A custom Home Assistant Lovelace card for [EMHASS](https://emhass.readthedocs.io/) (Energy Management for Home Assistant) that displays MPC optimizer forecasts and historical energy events in a rich, colour-coded table.
 
 Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me](https://sigenergy.annable.me/emhass/), with three-tier sensor fallback so it also works with standard EMHASS installations.
