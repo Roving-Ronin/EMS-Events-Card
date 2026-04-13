@@ -4,7 +4,11 @@ A custom Home Assistant card for the **Energy Manager** addon. Displays energy p
 
 Current version: **v2.4.10**
 
+### Future Decisions
+
 ![Energy Manager - Future Decisions](EM-Card-Future.jpg)
+
+### Past Events
 
 ![Energy Manager - Past Events](EM-Card-Past-Decisions.jpg)
 
