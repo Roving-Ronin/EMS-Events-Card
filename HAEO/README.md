@@ -4,6 +4,8 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 **Current version:** `v2.1.6`
 
+---
+
 ### Future Decisions
 
 ![HAEO - Future Decisions](HAEO-Card-Future-Decisions.jpg)
