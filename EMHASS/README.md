@@ -4,7 +4,15 @@ A custom Home Assistant Lovelace card for [EMHASS](https://emhass.readthedocs.io
 
 Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me](https://sigenergy.annable.me/emhass/), with three-tier sensor fallback so it also works with standard EMHASS installations.
 
-![EMHASS Events Card screenshot](screenshot.png)
+---
+
+### Future Decisions
+
+![EMHASS - Future Decisions](EMHASS-Card-Future.jpg)
+
+### Past Events
+
+![EMHASS - Past Events](EMHASS-Card-Past-Decisions.jpg)
 
 ---
 
