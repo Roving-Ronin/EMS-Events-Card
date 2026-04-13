@@ -2,7 +2,15 @@
 
 A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser (HAEO)** integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's historical energy data in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
 
-**Current version:** `v2.1.5`
+**Current version:** `v2.1.6`
+
+### Future Decisions
+
+![HAEO - Future Decisions](HAEO-Card-Future-Decisions.jpg)
+
+### Past Events
+
+![HAEO - Past Events](HAEO-Card-Past-Events.jpg)
 
 ---
 
