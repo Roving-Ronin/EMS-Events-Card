@@ -1,4 +1,4 @@
-﻿// HAEO Events Card
+// HAEO Events Card
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Requires: sensor.grid_net_cost + associated HAEO sensors
 // Copy to /config/www/haeo-events-card.js
@@ -32,7 +32,7 @@
 //   entity_energy_batt_charge:    sensor.sigen_plant_daily_battery_charge_energy    # Daily reset — gaps at midnight
 //   entity_energy_batt_discharge: sensor.sigen_plant_daily_battery_discharge_energy # Daily reset — gaps at midnight
 
-const _HAEO_VERSION = 'v2.1.5';
+const _HAEO_VERSION = 'v2.1.6';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -404,6 +404,7 @@ class HaeoEventsCard extends HTMLElement {
     this._lastCostTs   = null;
     this._lastRenderTs = 0;
     this._pastState    = 'idle';
+    this._pastLoadTs   = 0;     // timestamp when _pastState entered 'loading'
   }
 
   // Resolve a sensor entity ID: config override → default
@@ -416,6 +417,10 @@ class HaeoEventsCard extends HTMLElement {
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _haeo_buildHTML();
       this._wireEvents();
+      // Shadow DOM was rebuilt (e.g. navigating back to dashboard) — reset past state
+      // so the next set hass triggers a fresh fetch rather than staying stuck.
+      this._pastState  = 'idle';
+      this._lastCostTs = null;
       requestAnimationFrame(() => this._setWrapHeight());
       if (!this._ro) {
         this._ro = new ResizeObserver(() => this._setWrapHeight());
@@ -493,8 +498,14 @@ class HaeoEventsCard extends HTMLElement {
       this._lastCostTs = costTs;
       this._renderFuture();
     }
+    // Stuck-loading recovery: if _pastState has been 'loading' for >30s the
+    // WebSocket call likely failed silently — reset to 'idle' to trigger a retry.
+    if (this._pastState === 'loading' && (Date.now() - this._pastLoadTs) > 30000) {
+      this._pastState = 'idle';
+    }
     if (this._pastState === 'idle') {
-      this._pastState = 'loading';
+      this._pastState  = 'loading';
+      this._pastLoadTs = Date.now();
       this._loadPast();
     }
   }
