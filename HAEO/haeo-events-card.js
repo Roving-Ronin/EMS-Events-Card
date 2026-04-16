@@ -4,57 +4,66 @@
 // Copy to /config/www/haeo-events-card.js
 // Add resource: /local/haeo-events-card.js (type: JavaScript module)
 //
-// Card YAML config options (all optional — Sigenergy Local Modbus defaults used if omitted):
+// Card YAML config options (all optional — defaults used if omitted):
 //   type: custom:haeo-events-card
 //   grid_options:
 //     columns: full
 //
-// ── Power sensors (HAEO optimizer provides these — no config needed for standard installs) ──
+// ── FUTURE tab: HAEO optimizer sensors (forecast attributes) ──
 // Units are auto-detected from unit_of_measurement and normalised to kW internally.
-//   entity_battery:    sensor.battery_active_power       # +ve=discharge, -ve=charge
-//   entity_grid:       sensor.grid_active_power          # +ve=export, -ve=import (forecast convention)
-//   entity_load:       sensor.load_power
-//   entity_solar:      sensor.solar_power
-//   entity_soc:        sensor.battery_state_of_charge
-//   entity_buy_price:  number.grid_import_price
-//   entity_sell_price: number.grid_export_price
-//   entity_grid_net_cost: sensor.grid_net_cost
+//   entity_haeo_battery:       sensor.battery_active_power       # +ve=discharge, -ve=charge
+//   entity_haeo_grid:          sensor.grid_active_power          # +ve=import, -ve=export
+//   entity_haeo_load:          sensor.load_power
+//   entity_haeo_solar:         sensor.solar_power
+//   entity_haeo_soc:           sensor.battery_state_of_charge
+//   entity_haeo_buy_price:     number.grid_import_price
+//   entity_haeo_sell_price:    number.grid_export_price
+//   entity_haeo_grid_net_cost: sensor.grid_net_cost
 //
-// ── Energy sensors (inverter integration — Sigenergy Local Modbus defaults below) ──
-// Units are auto-detected from unit_of_measurement and normalised to kWh internally.
+// ── PAST tab: inverter power sensors (actual measured values) ──
+// Defaults are Sigenergy Local Modbus. Override for other inverter integrations.
+//   entity_past_battery_power: sensor.sigen_plant_battery_power      # -ve=discharge, +ve=charge
+//   entity_past_load_power:    sensor.sigen_plant_total_load_power    # always +ve
+//   entity_past_solar_power:   sensor.sigen_plant_pv_power            # always +ve
+//   entity_past_grid_power:    sensor.sigen_plant_grid_active_power   # +ve=import, -ve=export
+//
+// ── PAST tab: inverter energy sensors (total_increasing, for kWh delta columns) ──
 // IMPORTANT: Use lifetime/total sensors wherever possible. Daily or monthly sensors
 // reset at midnight/month-end causing gaps (shown as —) across multi-day lookbacks.
-// The battery sensors below reset daily — lifetime variants are preferred if available.
-//   entity_energy_load:           sensor.sigen_plant_total_load_consumption    # Lifetime total
-//   entity_energy_solar:          sensor.sigen_plant_total_pv_generation        # Lifetime total
-//   entity_energy_grid_import:    sensor.sigen_plant_total_imported_energy      # Lifetime total
-//   entity_energy_grid_export:    sensor.sigen_plant_total_exported_energy      # Lifetime total
-//   entity_energy_batt_charge:    sensor.sigen_plant_daily_battery_charge_energy    # Daily reset — gaps at midnight
-//   entity_energy_batt_discharge: sensor.sigen_plant_daily_battery_discharge_energy # Daily reset — gaps at midnight
+//   entity_past_load_energy:               sensor.sigen_plant_total_load_consumption        # Lifetime
+//   entity_past_solar_energy:              sensor.sigen_plant_total_pv_generation            # Lifetime
+//   entity_past_grid_import_energy:        sensor.sigen_plant_total_imported_energy          # Lifetime
+//   entity_past_grid_export_energy:        sensor.sigen_plant_total_exported_energy          # Lifetime
+//   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
+//   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.1.6';
+const _HAEO_VERSION = 'v2.3.0';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
 // Energy sensors: provided by inverter integration — Sigenergy Local Modbus defaults
 const _HAEO_DEFAULTS = {
-  // HAEO optimizer sensors (forecast attributes used for Future tab)
-  grid_net_cost:    'sensor.grid_net_cost',
-  battery:          'sensor.battery_active_power',   // +ve=discharge, -ve=charge
-  grid:             'sensor.grid_active_power',       // +ve=export, -ve=import (forecast convention)
-  load:             'sensor.load_power',
-  solar:            'sensor.solar_power',
-  soc:              'sensor.battery_state_of_charge',
-  buy_price:        'number.grid_import_price',
-  sell_price:       'number.grid_export_price',
-  // Sigenergy Local Modbus energy sensors (total_increasing, used for kWh delta columns)
-  // Lifetime sensors preferred — daily/monthly sensors cause gaps at reset boundaries
-  energy_load:           'sensor.sigen_plant_total_load_consumption',        // Lifetime total
-  energy_solar:          'sensor.sigen_plant_total_pv_generation',            // Lifetime total
-  energy_grid_import:    'sensor.sigen_plant_total_imported_energy',          // Lifetime total
-  energy_grid_export:    'sensor.sigen_plant_total_exported_energy',          // Lifetime total
-  energy_batt_charge:    'sensor.sigen_plant_daily_battery_charge_energy',    // Daily reset — gaps at midnight
-  energy_batt_discharge: 'sensor.sigen_plant_daily_battery_discharge_energy', // Daily reset — gaps at midnight
+  // ── FUTURE tab: HAEO optimizer sensors ──
+  haeo_battery:       'sensor.battery_active_power',    // +ve=discharge, -ve=charge
+  haeo_grid:          'sensor.grid_active_power',        // +ve=import,    -ve=export
+  haeo_load:          'sensor.load_power',
+  haeo_solar:         'sensor.solar_power',
+  haeo_soc:           'sensor.battery_state_of_charge',
+  haeo_buy_price:     'number.grid_import_price',
+  haeo_sell_price:    'number.grid_export_price',
+  haeo_grid_net_cost: 'sensor.grid_net_cost',
+  // ── PAST tab: inverter power sensors (Sigenergy Local Modbus defaults) ──
+  past_battery_power: 'sensor.sigen_plant_battery_power',       // -ve=discharge, +ve=charge
+  past_load_power:    'sensor.sigen_plant_total_load_power',    // always +ve
+  past_solar_power:   'sensor.sigen_plant_pv_power',            // always +ve
+  past_grid_power:    'sensor.sigen_plant_grid_active_power',   // +ve=import, -ve=export
+  // ── PAST tab: inverter energy sensors (total_increasing, Sigenergy Local Modbus defaults) ──
+  past_load_energy:              'sensor.sigen_plant_total_load_consumption',        // Lifetime
+  past_solar_energy:             'sensor.sigen_plant_total_pv_generation',            // Lifetime
+  past_grid_import_energy:       'sensor.sigen_plant_total_imported_energy',          // Lifetime
+  past_grid_export_energy:       'sensor.sigen_plant_total_exported_energy',          // Lifetime
+  past_battery_charge_energy:    'sensor.sigen_plant_daily_battery_charge_energy',    // Daily reset
+  past_battery_discharge_energy: 'sensor.sigen_plant_daily_battery_discharge_energy', // Daily reset
 };
 
 // ── Colour scheme ─────────────────────────────────────────────────────────────
@@ -97,8 +106,8 @@ function _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw) {
   const T = 0.05;
   const charging    = battKw < -T;
   const discharging = battKw > T;
-  const exporting   = gridKw > T;
-  const importing   = gridKw < -T;
+  const exporting   = gridKw < -T;  // negative = export
+  const importing   = gridKw > T;   // positive = import
 
   // ── Force export (battery discharging to grid) ──
   if (exporting && discharging && solarKw > T)
@@ -154,8 +163,8 @@ function _haeo_classifyPast(solarKw, loadKw, battKw, gridKw) {
   const T = 0.10;
   const charging    = battKw < -T;
   const discharging = battKw > T;
-  const exporting   = gridKw > T;
-  const importing   = gridKw < -T;
+  const exporting   = gridKw < -T;  // negative = export
+  const importing   = gridKw > T;   // positive = import
 
   // Force export (battery discharging to grid)
   if (exporting && discharging && solarKw > T)
@@ -492,7 +501,7 @@ class HaeoEventsCard extends HTMLElement {
       this._wireEvents();
     }
     // Watch battery sensor for forecast updates — it has the richest data
-    const costState = hass.states[this._eid('battery')];
+    const costState = hass.states[this._eid('haeo_battery')];
     const costTs    = costState?.last_changed;
     if (costTs !== this._lastCostTs) {
       this._lastCostTs = costTs;
@@ -570,33 +579,33 @@ class HaeoEventsCard extends HTMLElement {
     // Primary axis: battery_active_power — has the richest power forecast data.
     // Other sensors (prices, cost) have different step sizes so we use nearest-timestamp
     // lookup for those rather than exact epoch-ms matching.
-    const battState = this._hass?.states[this._eid('battery')];
+    const battState = this._hass?.states[this._eid('haeo_battery')];
     if (!battState) {
-      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ ' + this._eid('battery') + ' not found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ ' + this._eid('haeo_battery') + ' not found</td></tr>';
       return;
     }
     const primaryFc = battState.attributes?.forecast;
     if (!Array.isArray(primaryFc) || !primaryFc.length) {
-      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ No forecast data on ' + this._eid('battery') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ No forecast data on ' + this._eid('haeo_battery') + '</td></tr>';
       return;
     }
 
     // Also need grid_net_cost for cost tracking — use its own forecast array
-    const costFc = this._hass?.states[this._eid('grid_net_cost')]?.attributes?.forecast || [];
+    const costFc = this._hass?.states[this._eid('haeo_grid_net_cost')]?.attributes?.forecast || [];
 
     // Auto-detect unit_of_measurement for each power sensor and normalise to kW
     // Forecast attribute values are always in kW/% / $/kWh regardless of live sensor unit
     // — do NOT apply powerMult here, that is only for history sensor reads.
     // Grid forecast: HAEO uses negative=export, positive=import — negate to match
     // our display convention (positive=export, negative=import).
-    const battMap  = buildMap(this._eid('battery'),        1);
-    const gridMap  = buildMap(this._eid('grid'),          -1); // negate: HAEO negative=export → positive=export
-    const loadMap  = buildMap(this._eid('load'),           1);
-    const solarMap = buildMap(this._eid('solar'),          1);
-    const socMap   = buildMap(this._eid('soc'),            1);
-    const buyMap   = buildMap(this._eid('buy_price'),      1);
-    const sellMap  = buildMap(this._eid('sell_price'),     1);
-    const costMap  = buildMap(this._eid('grid_net_cost'),  1);
+    const battMap  = buildMap(this._eid('haeo_battery'),        1);
+    const gridMap  = buildMap(this._eid('haeo_grid'),           1); // positive=import, negative=export — matches display
+    const loadMap  = buildMap(this._eid('haeo_load'),           1);
+    const solarMap = buildMap(this._eid('haeo_solar'),          1);
+    const socMap   = buildMap(this._eid('haeo_soc'),            1);
+    const buyMap   = buildMap(this._eid('haeo_buy_price'),      1);
+    const sellMap  = buildMap(this._eid('haeo_sell_price'),     1);
+    const costMap  = buildMap(this._eid('haeo_grid_net_cost'),  1);
 
     // Nearest-timestamp lookup: for sensors with coarser step sizes (prices, cost)
     // find the Map entry whose key is closest to the target timestamp.
@@ -627,9 +636,9 @@ class HaeoEventsCard extends HTMLElement {
     const todayStr = new Date().toLocaleDateString('en-CA');
 
     // ── Status bar ──
-    const nowSoc  = parseFloat(this._hass?.states[this._eid('soc')]?.state)       || null;
-    const nowBuy  = parseFloat(this._hass?.states[this._eid('buy_price')]?.state)  || null;
-    const nowSell = parseFloat(this._hass?.states[this._eid('sell_price')]?.state) || null;
+    const nowSoc  = parseFloat(this._hass?.states[this._eid('haeo_soc')]?.state)       || null;
+    const nowBuy  = parseFloat(this._hass?.states[this._eid('haeo_buy_price')]?.state)  || null;
+    const nowSell = parseFloat(this._hass?.states[this._eid('haeo_sell_price')]?.state) || null;
 
     // Morning SoC / Peak SoC — same logic as EM card
     let closestDiff = Infinity, chargingNow = false;
@@ -672,9 +681,9 @@ class HaeoEventsCard extends HTMLElement {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
       const gridKw = gridMap.get(ts) || 0;
-      if (!gridImportTime && gridKw < -0.05)
+      if (!gridImportTime && gridKw > 0.05)
         gridImportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
-      if (!gridExportTime && gridKw > 0.05)
+      if (!gridExportTime && gridKw < -0.05)
         gridExportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
     }
 
@@ -710,7 +719,7 @@ class HaeoEventsCard extends HTMLElement {
       const dk = dailyKwh[day] || { load:0, pv:0, grid:0, batt:0 };
       dk.load += loadKw  * stepH;
       dk.pv   += solarKw * stepH;
-      dk.grid += gridKw  * stepH;  // +ve=export, -ve=import
+      dk.grid += gridKw  * stepH;  // +ve=import, -ve=export
       dk.batt += battKw  * stepH;  // +ve=discharge, -ve=charge
       dailyKwh[day] = dk;
     }
@@ -755,7 +764,7 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgl"></td>' +
           '<td class="bgi" style="text-align:right;">' + fmtKd(dk.pv) + '</td>' +
           '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKdCol(-dk.grid) + '</td>' +
+          '<td class="bgi" style="text-align:right;">' + fmtKdCol(dk.grid) + '</td>' +
           '<td class="bgl"></td>' +
           '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-dk.batt) + '</td>' +
           '<td class="bgl"></td>' +
@@ -780,11 +789,11 @@ class HaeoEventsCard extends HTMLElement {
       const cls = _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw);
       const c   = _HAEO_COLOURS[cls.color] || { bg: 'transparent', txt: 'var(--primary-text-color)', cost: 'var(--primary-text-color)' };
 
-      // Grid: negative=export (green=earning), positive=import (red=costing)
-      const gridCol  = gridKw < 0 ? '#f44336' : gridKw > 0 ? '#4caf50' : c.txt;
-      // Battery: discharge(positive internally)=red, charge from solar=green, charge from grid=amber
+      // Grid: positive=import (red=costing), negative=export (green=earning)
+      const gridCol  = gridKw > 0 ? '#f44336' : gridKw < 0 ? '#4caf50' : c.txt;
+      // Battery: positive=discharge=red, negative=charge; charge from grid=amber, from solar=green
       const battCol  = battKw > 0.05 ? '#f44336'
-                     : battKw < -0.05 && gridKw < -0.05 ? '#ff9800'
+                     : battKw < -0.05 && gridKw > 0.05 ? '#ff9800'
                      : battKw < -0.05 ? '#4caf50'
                      : c.txt;
       const socCol   = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
@@ -810,8 +819,8 @@ class HaeoEventsCard extends HTMLElement {
         '<td class="bgi">' + fmtKwh(loadKw)     + '</td>' +
         '<td class="bgl">' + solarKw.toFixed(2) + '</td>' +
         '<td class="bgi">' + fmtKwh(solarKw)    + '</td>' +
-        '<td class="bgl"><span style="color:' + gridCol + ';">' + (-gridKw).toFixed(2) + '</span></td>' +
-        '<td class="bgi">' + fmtKwhC(-gridKw, gridCol)  + '</td>' +
+        '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
+        '<td class="bgi">' + fmtKwhC(gridKw, gridCol)  + '</td>' +
         '<td class="bgl"><span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span></td>' +
         '<td class="bgi"><span style="color:' + battCol + ';">' + fmtKwh(-battKw) + '</span></td>' +
         '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
@@ -851,24 +860,24 @@ class HaeoEventsCard extends HTMLElement {
       const { start, end } = this._getRangeP();
       st.textContent = 'Fetching...';
 
-      // Power sensors for event classification
+      // Past power sensors — actual inverter measurements (Sigenergy defaults)
       const powerSensors = [
-        this._eid('battery'),
-        this._eid('grid'),
-        this._eid('load'),
-        this._eid('solar'),
-        this._eid('soc'),
-        this._eid('buy_price'),
-        this._eid('sell_price'),
+        this._eid('past_battery_power'),
+        this._eid('past_load_power'),
+        this._eid('past_solar_power'),
+        this._eid('past_grid_power'),
+        this._eid('haeo_soc'),
+        this._eid('haeo_buy_price'),
+        this._eid('haeo_sell_price'),
       ];
       // Energy sensors for kWh delta columns
       const energySensors = [
-        this._eid('energy_load'),
-        this._eid('energy_solar'),
-        this._eid('energy_grid_import'),
-        this._eid('energy_grid_export'),
-        this._eid('energy_batt_charge'),
-        this._eid('energy_batt_discharge'),
+        this._eid('past_load_energy'),
+        this._eid('past_solar_energy'),
+        this._eid('past_grid_import_energy'),
+        this._eid('past_grid_export_energy'),
+        this._eid('past_battery_charge_energy'),
+        this._eid('past_battery_discharge_energy'),
       ];
 
       const result = await this._hass.callWS({
@@ -893,33 +902,35 @@ class HaeoEventsCard extends HTMLElement {
       // unit the sensor was reporting, which matches the live state unit.
       // Power sensors: W→÷1000, kW→×1, MW→×1000 (normalise to kW)
       // Energy sensors: Wh→÷1000, kWh→×1, MWh→×1000, GWh→×1000000 (normalise to kWh)
+      // Unit multipliers — read from live sensor state unit_of_measurement
       this._pwrMult = {
-        battery: _haeo_powerMult(this._hass, this._eid('battery')),
-        grid:    _haeo_powerMult(this._hass, this._eid('grid')),
-        load:    _haeo_powerMult(this._hass, this._eid('load')),
-        solar:   _haeo_powerMult(this._hass, this._eid('solar')),
+        battery: _haeo_powerMult(this._hass, this._eid('past_battery_power')),
+        grid:    _haeo_powerMult(this._hass, this._eid('past_grid_power')),
+        load:    _haeo_powerMult(this._hass, this._eid('past_load_power')),
+        solar:   _haeo_powerMult(this._hass, this._eid('past_solar_power')),
       };
       this._engMult = {
-        energy_load:           _haeo_energyMult(this._hass, this._eid('energy_load')),
-        energy_solar:          _haeo_energyMult(this._hass, this._eid('energy_solar')),
-        energy_grid_import:    _haeo_energyMult(this._hass, this._eid('energy_grid_import')),
-        energy_grid_export:    _haeo_energyMult(this._hass, this._eid('energy_grid_export')),
-        energy_batt_charge:    _haeo_energyMult(this._hass, this._eid('energy_batt_charge')),
-        energy_batt_discharge: _haeo_energyMult(this._hass, this._eid('energy_batt_discharge')),
+        past_load_energy:              _haeo_energyMult(this._hass, this._eid('past_load_energy')),
+        past_solar_energy:             _haeo_energyMult(this._hass, this._eid('past_solar_energy')),
+        past_grid_import_energy:       _haeo_energyMult(this._hass, this._eid('past_grid_import_energy')),
+        past_grid_export_energy:       _haeo_energyMult(this._hass, this._eid('past_grid_export_energy')),
+        past_battery_charge_energy:    _haeo_energyMult(this._hass, this._eid('past_battery_charge_energy')),
+        past_battery_discharge_energy: _haeo_energyMult(this._hass, this._eid('past_battery_discharge_energy')),
       };
-      // Sanity check: if a power sensor value from history looks implausibly large
-      // after applying the multiplier (e.g. > 500 kW for a home system), the unit
-      // detection may be wrong — log a warning but don't crash.
-      const _checkPwr = (key) => {
+      // Sanity check: log warning if any power value looks implausibly large after unit conversion
+      const _checkPwr = (key, mKey) => {
         const arr = lookup[this._eid(key)];
         if (!arr || !arr.length) return;
-        const sample = Math.abs(parseFloat(arr[0].s) || 0) * this._pwrMult[key];
-        if (sample > 500) console.warn('HAEO card: ' + key + ' value ' + sample.toFixed(1) + ' kW seems implausible — check unit_of_measurement');
+        const sample = Math.abs(parseFloat(arr[0].s) || 0) * this._pwrMult[mKey];
+        if (sample > 500) console.warn('HAEO card: ' + key + ' = ' + sample.toFixed(1) + ' kW — check unit_of_measurement');
       };
-      ['battery','grid','load','solar'].forEach(k => _checkPwr(k));
+      _checkPwr('past_battery_power', 'battery');
+      _checkPwr('past_grid_power',    'grid');
+      _checkPwr('past_load_power',    'load');
+      _checkPwr('past_solar_power',   'solar');
 
       // Auto-switch to Last 24h if today has no load data
-      if (!lookup[this._eid('load')]?.length) {
+      if (!lookup[this._eid('past_load_power')]?.length) {
         const sel = this.shadowRoot.getElementById('range-past');
         if (sel && sel.value === 'today') {
           st.textContent = 'No data yet — switching to Last 24h...';
@@ -946,17 +957,19 @@ class HaeoEventsCard extends HTMLElement {
       for (const ts of entries) {
         const dt     = new Date(ts);
         const dayStr = dt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const battKw = (parseFloat(_haeo_getAt(lookup[this._eid('battery')], ts)) || 0) * this._pwrMult.battery;
-        // Grid: negate — device records positive=import, our convention is positive=export
-        const gridKw = -((parseFloat(_haeo_getAt(lookup[this._eid('grid')],  ts)) || 0) * this._pwrMult.grid);
-        const loadKw = (parseFloat(_haeo_getAt(lookup[this._eid('load')],    ts)) || 0) * this._pwrMult.load;
-        const solarKw= (parseFloat(_haeo_getAt(lookup[this._eid('solar')],   ts)) || 0) * this._pwrMult.solar;
-        const buyP   = parseFloat(_haeo_getAt(lookup[this._eid('buy_price')],ts)) || 0;
-        const sellP  = parseFloat(_haeo_getAt(lookup[this._eid('sell_price')],ts))|| 0;
+        // Sigenergy battery: -ve=discharge, +ve=charge → negate to internal convention (+ve=discharge)
+        const battKwR= (parseFloat(_haeo_getAt(lookup[this._eid('past_battery_power')], ts)) || 0) * this._pwrMult.battery;
+        const battKw = -battKwR;
+        // Sigenergy grid: +ve=import, -ve=export (matches display convention — no negation)
+        const gridKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_grid_power')],   ts)) || 0) * this._pwrMult.grid;
+        const loadKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_load_power')],   ts)) || 0) * this._pwrMult.load;
+        const solarKw= (parseFloat(_haeo_getAt(lookup[this._eid('past_solar_power')],  ts)) || 0) * this._pwrMult.solar;
+        const buyP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
+        const sellP  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
         const stepH  = 5 / 60;
-        // Cost: import = positive cost, export = negative cost (earning)
-        const importing = gridKw < -0.1;
-        const exporting = gridKw > 0.1;
+        // Cost: import (gridKw > 0) = positive cost, export (gridKw < 0) = negative (earning)
+        const importing = gridKw > 0.1;
+        const exporting = gridKw < -0.1;
         const cost = importing ? Math.abs(gridKw) * buyP * stepH : exporting ? -(gridKw * sellP * stepH) : 0;
         pastDailyCosts[dayStr] = (pastDailyCosts[dayStr] || 0) + cost;
         const dk = pastDailyKwh[dayStr] || { load:0, pv:0, grid:0, batt:0 };
@@ -1004,7 +1017,7 @@ class HaeoEventsCard extends HTMLElement {
             '<td class="bgl"></td>' +
             '<td class="bgi" style="text-align:right;">' + fmtKd(pk.pv) + '</td>' +
             '<td class="bgl"></td>' +
-            '<td class="bgi" style="text-align:right;">' + fmtKdCol(-pk.grid) + '</td>' +
+            '<td class="bgi" style="text-align:right;">' + fmtKdCol(pk.grid) + '</td>' +
             '<td class="bgl"></td>' +
             '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-pk.batt) + '</td>' +
             '<td class="bgl"></td>' +
@@ -1012,28 +1025,28 @@ class HaeoEventsCard extends HTMLElement {
             '</tr>');
         }
 
-        // Power values — normalised to kW using auto-detected unit multipliers
-        // Grid history: device records positive=import — negate to match display convention (positive=export)
-        // This matches the forecast negation applied in _renderFuture's buildMap call.
-        const battKw  = (parseFloat(_haeo_getAt(lookup[this._eid('battery')],  ts)) || 0) * this._pwrMult.battery;
-        const gridKwR = (parseFloat(_haeo_getAt(lookup[this._eid('grid')],     ts)) || 0) * this._pwrMult.grid;
-        const gridKw  = -gridKwR; // negate: device positive=import → convention positive=export
-        const loadKw  = (parseFloat(_haeo_getAt(lookup[this._eid('load')],     ts)) || 0) * this._pwrMult.load;
-        const solarKw = (parseFloat(_haeo_getAt(lookup[this._eid('solar')],    ts)) || 0) * this._pwrMult.solar;
-        const soc     = parseFloat(_haeo_getAt(lookup[this._eid('soc')],        ts)) || 0;
-        const buyP    = parseFloat(_haeo_getAt(lookup[this._eid('buy_price')],  ts)) || 0;
-        const sellP   = parseFloat(_haeo_getAt(lookup[this._eid('sell_price')], ts)) || 0;
+        // Power values from Sigenergy inverter sensors (actual measured values)
+        // Sigenergy battery: -ve=discharge, +ve=charge → negate to internal convention (+ve=discharge)
+        const battKwR = (parseFloat(_haeo_getAt(lookup[this._eid('past_battery_power')], ts)) || 0) * this._pwrMult.battery;
+        const battKw  = -battKwR;
+        // Sigenergy grid: +ve=import, -ve=export (matches display convention — no negation)
+        const gridKw  = (parseFloat(_haeo_getAt(lookup[this._eid('past_grid_power')],   ts)) || 0) * this._pwrMult.grid;
+        const loadKw  = (parseFloat(_haeo_getAt(lookup[this._eid('past_load_power')],   ts)) || 0) * this._pwrMult.load;
+        const solarKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_solar_power')],  ts)) || 0) * this._pwrMult.solar;
+        const soc     = parseFloat(_haeo_getAt(lookup[this._eid('haeo_soc')],           ts)) || 0;
+        const buyP    = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
+        const sellP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
 
         if (soc === 0 && Math.abs(battKw) < 0.01 && Math.abs(gridKw) < 0.01 && loadKw < 0.01 && solarKw < 0.01) continue;
 
         const cls = _haeo_classifyPast(solarKw, loadKw, battKw, gridKw);
         const c   = _HAEO_COLOURS[cls.color] || { bg: '#ffffcc', txt: '#888888', cost: '#888888' };
 
-        // Grid: negative=export (green=earning), positive=import (red=costing)
-        const gridCol = gridKw < 0 ? '#f44336' : gridKw > 0 ? '#4caf50' : c.txt;
-        // Battery: discharge(positive internally)=red, charge from solar=green, charge from grid=amber
+        // Grid: positive=import (red=costing), negative=export (green=earning)
+        const gridCol = gridKw > 0 ? '#f44336' : gridKw < 0 ? '#4caf50' : c.txt;
+        // Battery: positive=discharge=red, negative=charge; from grid=amber, from solar=green
         const battCol = battKw > 0.05 ? '#f44336'
-                      : battKw < -0.05 && gridKw < -0.05 ? '#ff9800'
+                      : battKw < -0.05 && gridKw > 0.05 ? '#ff9800'
                       : battKw < -0.05 ? '#4caf50'
                       : c.txt;
         const socCol  = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
@@ -1048,14 +1061,14 @@ class HaeoEventsCard extends HTMLElement {
 
         // Energy kWh deltas from total_increasing sensors — multiplied to normalise to kWh
         const prevTs  = ts - step;
-        const eLoad   = _haeo_getDelta(lookup[this._eid('energy_load')],           ts, prevTs, this._engMult.energy_load);
-        const eSolar  = _haeo_getDelta(lookup[this._eid('energy_solar')],           ts, prevTs, this._engMult.energy_solar);
-        const eGImp   = _haeo_getDelta(lookup[this._eid('energy_grid_import')],     ts, prevTs, this._engMult.energy_grid_import);
-        const eGExp   = _haeo_getDelta(lookup[this._eid('energy_grid_export')],     ts, prevTs, this._engMult.energy_grid_export);
-        const eBattC  = _haeo_getDelta(lookup[this._eid('energy_batt_charge')],     ts, prevTs, this._engMult.energy_batt_charge);
-        const eBattD  = _haeo_getDelta(lookup[this._eid('energy_batt_discharge')],  ts, prevTs, this._engMult.energy_batt_discharge);
-        // Grid kWh: only show when kW is above threshold — suppresses energy sensor
-        // noise on rows where grid is truly idle (device jitter can produce tiny deltas)
+        const eLoad   = _haeo_getDelta(lookup[this._eid('past_load_energy')],              ts, prevTs, this._engMult.past_load_energy);
+        const eSolar  = _haeo_getDelta(lookup[this._eid('past_solar_energy')],             ts, prevTs, this._engMult.past_solar_energy);
+        const eGImp   = _haeo_getDelta(lookup[this._eid('past_grid_import_energy')],       ts, prevTs, this._engMult.past_grid_import_energy);
+        const eGExp   = _haeo_getDelta(lookup[this._eid('past_grid_export_energy')],       ts, prevTs, this._engMult.past_grid_export_energy);
+        const eBattC  = _haeo_getDelta(lookup[this._eid('past_battery_charge_energy')],    ts, prevTs, this._engMult.past_battery_charge_energy);
+        const eBattD  = _haeo_getDelta(lookup[this._eid('past_battery_discharge_energy')], ts, prevTs, this._engMult.past_battery_discharge_energy);
+        // Grid kWh: only show when kW is above threshold — suppresses energy sensor noise
+        // Export: show as negative (earning); Import: show as positive (costing)
         const eGrid   = exporting ? (eGExp !== null ? -eGExp : null)
                       : importing ? eGImp
                       : null;
@@ -1076,7 +1089,7 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgi">' + fmtE(eLoad)  + '</td>' +
           '<td class="bgl">' + solarKw.toFixed(2) + '</td>' +
           '<td class="bgi">' + fmtE(eSolar) + '</td>' +
-          '<td class="bgl"><span style="color:' + gridCol + ';">' + (-gridKw).toFixed(2) + '</span></td>' +
+          '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
           '<td class="bgi"><span style="color:' + gridCol + ';">' + fmtE(eGrid)  + '</span></td>' +
           '<td class="bgl"><span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span></td>' +
           '<td class="bgi"><span style="color:' + battCol + ';">' + fmtE(eBatt) + '</span></td>' +
