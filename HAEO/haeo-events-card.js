@@ -37,7 +37,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.3.0';
+const _HAEO_VERSION = 'v2.3.6';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -805,9 +805,8 @@ class HaeoEventsCard extends HTMLElement {
       const fmtKwh   = (v) => Math.abs(v * stepH) > 0.001 ? (v * stepH).toFixed(3) : '—';
       const fmtKwhC  = (v, col) => {
         const kwh = v * stepH;
-        return Math.abs(kwh) > 0.001
-          ? '<span style="color:' + col + ';">' + kwh.toFixed(3) + '</span>'
-          : '—';
+        if (Math.abs(kwh) <= 0.001) return '—';
+        return '<span style="color:' + col + ';">' + kwh.toFixed(3) + '</span>';
       };
 
       rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
@@ -817,12 +816,12 @@ class HaeoEventsCard extends HTMLElement {
         '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
         '<td class="bgl">' + loadKw.toFixed(2)  + '</td>' +
         '<td class="bgi">' + fmtKwh(loadKw)     + '</td>' +
-        '<td class="bgl">' + solarKw.toFixed(2) + '</td>' +
-        '<td class="bgi">' + fmtKwh(solarKw)    + '</td>' +
-        '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
-        '<td class="bgi">' + fmtKwhC(gridKw, gridCol)  + '</td>' +
-        '<td class="bgl"><span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span></td>' +
-        '<td class="bgi"><span style="color:' + battCol + ';">' + fmtKwh(-battKw) + '</span></td>' +
+        '<td class="bgl">' + (solarKw >= 0.05 ? solarKw.toFixed(2) : '—') + '</td>' +
+        '<td class="bgi">' + (solarKw >= 0.05 ? fmtKwh(solarKw) : '—') + '</td>' +
+        '<td class="bgl">' + (Math.abs(gridKw) >= 0.1 ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span>' : '—') + '</td>' +
+        '<td class="bgi">' + (Math.abs(gridKw) >= 0.1 ? fmtKwhC(gridKw, gridCol) : '—') + '</td>' +
+        '<td class="bgl">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span>' : '—') + '</td>' +
+        '<td class="bgi">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + fmtKwh(-battKw) + '</span>' : '—') + '</td>' +
         '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
         '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
         '</tr>');
@@ -1051,10 +1050,10 @@ class HaeoEventsCard extends HTMLElement {
                       : c.txt;
         const socCol  = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
 
-        // Cost for this slot
+        // Cost for this slot — Sigenergy: positive=import, negative=export
         const stepH    = 5 / 60;
-        const importing = gridKw < -0.1;
-        const exporting = gridKw > 0.1;
+        const importing = gridKw > 0.1;
+        const exporting = gridKw < -0.1;
         const slotCost  = importing ? Math.abs(gridKw) * buyP * stepH : exporting ? -(gridKw * sellP * stepH) : 0;
         const costFmt   = _haeo_fmtCost(slotCost);
         const costCol   = costFmt.col || (slotCost > 0.0001 ? c.cost : c.txt);
@@ -1069,13 +1068,19 @@ class HaeoEventsCard extends HTMLElement {
         const eBattD  = _haeo_getDelta(lookup[this._eid('past_battery_discharge_energy')], ts, prevTs, this._engMult.past_battery_discharge_energy);
         // Grid kWh: only show when kW is above threshold — suppresses energy sensor noise
         // Export: show as negative (earning); Import: show as positive (costing)
-        const eGrid   = exporting ? (eGExp !== null ? -eGExp : null)
-                      : importing ? eGImp
+        // Fall back to kW×stepH estimate if energy sensor returns null
+        const stepHG  = 5 / 60;
+        const eGrid   = exporting ? (eGExp !== null ? -eGExp : -(Math.abs(gridKw) * stepHG))
+                      : importing ? (eGImp !== null ?  eGImp :   Math.abs(gridKw) * stepHG)
                       : null;
         // Batt kWh: sign matches display convention (discharge=-kW/-kWh, charge=+kW/+kWh)
-        const eBatt   = battKw > 0.1  ? (eBattD !== null ? -eBattD : null)   // discharge → negative
-                      : battKw < -0.1 ? eBattC                                // charge → positive
-                      : null;
+        // Fall back to kW×stepH estimate if energy sensor returns null (e.g. daily-reset gap)
+        const stepHB  = 5 / 60;
+        const eBatt   = battKw > 0.1
+          ? (eBattD !== null ? -eBattD : -(battKw * stepHB))        // discharge → negative
+          : battKw < -0.1
+          ? (eBattC !== null ? eBattC  :  (-battKw * stepHB))       // charge → positive (battKw is -ve)
+          : null;
 
         // Threshold 0.005 kWh (5 Wh) to suppress sensor noise and tiny update artefacts
         const fmtE = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(3) : '—';
@@ -1087,12 +1092,12 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
           '<td class="bgl">' + loadKw.toFixed(2)  + '</td>' +
           '<td class="bgi">' + fmtE(eLoad)  + '</td>' +
-          '<td class="bgl">' + solarKw.toFixed(2) + '</td>' +
-          '<td class="bgi">' + fmtE(eSolar) + '</td>' +
-          '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
-          '<td class="bgi"><span style="color:' + gridCol + ';">' + fmtE(eGrid)  + '</span></td>' +
-          '<td class="bgl"><span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span></td>' +
-          '<td class="bgi"><span style="color:' + battCol + ';">' + fmtE(eBatt) + '</span></td>' +
+          '<td class="bgl">' + (solarKw >= 0.05 ? solarKw.toFixed(2) : '—') + '</td>' +
+          '<td class="bgi">' + (solarKw >= 0.05 ? fmtE(eSolar) : '—') + '</td>' +
+          '<td class="bgl">' + (Math.abs(gridKw) >= 0.1 ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span>' : '—') + '</td>' +
+          '<td class="bgi">' + (Math.abs(gridKw) >= 0.1 && eGrid !== null && Math.abs(eGrid) > 0.005 ? '<span style="color:' + gridCol + ';">' + eGrid.toFixed(3) + '</span>' : '—') + '</td>' +
+          '<td class="bgl">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span>' : '—') + '</td>' +
+          '<td class="bgi">' + (Math.abs(battKw) >= 0.1 && eBatt !== null && Math.abs(eBatt) > 0.005 ? '<span style="color:' + battCol + ';">' + eBatt.toFixed(3) + '</span>' : '—') + '</td>' +
           '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
           '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
           '</tr>');
