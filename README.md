@@ -10,8 +10,8 @@ A collection of custom Home Assistant Lovelace cards for energy management and o
 
 | Card | Type | For | Version |
 |------|------|-----|---------|
-| [EM Events Card](./EnergyManager/) | `custom:em-events-card` | [Energy Manager](https://energymanager.com.au/usersc/join.php?ref=FE8J34EN)  | v2.4.10 |
-| [HAEO Events Card](./HAEO/) | `custom:haeo-events-card` | HAEO [Home Assistant Energy Optimiser](https://haeo.io/) | v2.1.5 |
+| [EM Events Card](./EnergyManager/) | `custom:em-events-card` | [Energy Manager](https://energymanager.com.au/usersc/join.php?ref=FE8J34EN)  | v2.4.11 |
+| [HAEO Events Card](./HAEO/) | `custom:haeo-events-card` | HAEO [Home Assistant Energy Optimiser](https://haeo.io/) | v2.3.6 |
 | [EMHASS Events Card](./EMHASS/) | `custom:emhass-events-card` | EMHASS [Energy Management for Home Assistant](https://emhass.readthedocs.io/en/latest/) | v2.1.5 |
 
 ---
