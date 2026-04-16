@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.10';
+const _EMEC_VERSION = 'v2.4.11';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -864,6 +864,11 @@ class EmEventsCard extends HTMLElement {
       const fGridKwh  = gridKw  * rowStepH;  // signed: negative=export, positive=import
       const fBattKwh  = battKw  * rowStepH;  // signed: negative=discharge, positive=charge
 
+      const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(2) + '</span>';
+      const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(2) + '</span>';
+      const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(2) + '</span>';
+      const fmtGKwh = (v) => Math.abs(v) < 0.001 ? '—' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+      const fmtBKwh = (v) => Math.abs(v) < 0.001 ? '—' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
       const sellDisp = _emec_fmtP(sellP) + (capHit ? ' ⚠' : '');
 
       rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
@@ -871,14 +876,14 @@ class EmEventsCard extends HTMLElement {
         '<td><span title="' + cls.note + '">' + cls.label + '</span></td>' +
         '<td class="bgl">' + _emec_fmtP(buyP)  + '</td>' +
         '<td class="bgi" style="opacity:1;font-size:12px;">' + sellDisp + '</td>' +
-        '<td class="bgl">' + loadKw.toFixed(2) + '</td>' +
+        '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
         '<td class="bgi">' + (Math.abs(fLoadKwh) > 0.001 ? fLoadKwh.toFixed(3) : '—') + '</td>' +
-        '<td class="bgl">' + pvKw.toFixed(2) + '</td>' +
+        '<td class="bgl">' + fmtKw(pvKw) + '</td>' +
         '<td class="bgi">' + (Math.abs(fPvKwh) > 0.001 ? fPvKwh.toFixed(3) : '—') + '</td>' +
-        '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
-        '<td class="bgi"><span style="color:' + gridCol + ';">' + (Math.abs(fGridKwh) > 0.001 ? fGridKwh.toFixed(3) : '—') + '</span></td>' +
-        '<td class="bgl"><span style="color:' + battCol + ';">' + battKw.toFixed(2) + '</span></td>' +
-        '<td class="bgi"><span style="color:' + battCol + ';">' + (Math.abs(fBattKwh) > 0.001 ? fBattKwh.toFixed(3) : '—') + '</span></td>' +
+        '<td class="bgl">' + fmtGKw(gridKw) + '</td>' +
+        '<td class="bgi">' + fmtGKwh(fGridKwh) + '</td>' +
+        '<td class="bgl">' + fmtBKw(battKw) + '</td>' +
+        '<td class="bgi">' + fmtBKwh(fBattKwh) + '</td>' +
         '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
         '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
         '</tr>');
@@ -1103,19 +1108,25 @@ class EmEventsCard extends HTMLElement {
         const eBattRaw = battCKw  > 0.2 ? eBattC : (eBattD !== null ? -eBattD : null);
         const eBatt  = (eBattRaw  !== null && Math.abs(battKw)  < 0.05) ? 0 : eBattRaw;
 
+        const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(2) + '</span>';
+        const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(2) + '</span>';
+        const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(2) + '</span>';
+        const fmtGKwh = (v) => (v === null || Math.abs(v) < 0.001) ? '—' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+        const fmtBKwh = (v) => (v === null || Math.abs(v) < 0.001) ? '—' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
+
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
           '<td>' + cls.label + '</td>' +
           '<td class="bgl">' + _emec_fmtP(buyP)    + '</td>' +
           '<td class="bgi" style="opacity:1;font-size:12px;">' + _emec_fmtP(sellP) + (capHit ? ' ⚠' : '') + '</td>' +
-          '<td class="bgl">' + loadKw.toFixed(2) + '</td>' +
+          '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
           '<td class="bgi">' + (eLoad  !== null && Math.abs(eLoad)  > 0.001 ? eLoad.toFixed(3)  : '—') + '</td>' +
-          '<td class="bgl">' + solarKw.toFixed(2) + '</td>' +
+          '<td class="bgl">' + fmtKw(solarKw) + '</td>' +
           '<td class="bgi">' + (eSolar !== null && Math.abs(eSolar) > 0.001 ? eSolar.toFixed(3) : '—') + '</td>' +
-          '<td class="bgl"><span style="color:' + gridCol + ';">' + gridKw.toFixed(2) + '</span></td>' +
-          '<td class="bgi"><span style="color:' + gridCol + ';">' + (eGrid  !== null && Math.abs(eGrid)  > 0.001 ? eGrid.toFixed(3)  : '—') + '</span></td>' +
-          '<td class="bgl"><span style="color:' + battCol + ';">' + battKw.toFixed(2) + '</span></td>' +
-          '<td class="bgi"><span style="color:' + battCol + ';">' + (eBatt  !== null && Math.abs(eBatt)  > 0.001 ? eBatt.toFixed(3)  : '—') + '</span></td>' +
+          '<td class="bgl">' + fmtGKw(gridKw) + '</td>' +
+          '<td class="bgi">' + fmtGKwh(eGrid) + '</td>' +
+          '<td class="bgl">' + fmtBKw(battKw) + '</td>' +
+          '<td class="bgi">' + fmtBKwh(eBatt) + '</td>' +
           '<td class="bgl"><span style="color:' + socCol  + ';">' + soc.toFixed(1)   + '</span></td>' +
           '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costDisp + '</span></td>' +
           '</tr>');
