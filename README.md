@@ -1,6 +1,10 @@
 # Energy Management Systems — Events Card
 
+Credits: Based off the initial layout of an EMHASS card by Matt xxx ( Discord ID: matt099351 )
+___
+
 A collection of custom Home Assistant Lovelace cards for energy management and optimisation systems. All three cards share a consistent two-tab layout (Future Decisions + Past Events), column structure, colour conventions and auto-refresh behaviour.
+
 
 > **Install once via HACS — all three cards are registered as dashboard resources automatically.**
 
