@@ -94,4 +94,4 @@ Each card is versioned independently using `v[major].[minor].[patch]`. The versi
 
 ## License
 
-MIT — see [LICENSE](./LICENSE)
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International — see [LICENSE](./LICENSE)
