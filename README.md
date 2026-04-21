@@ -4,6 +4,14 @@ A collection of custom Home Assistant Lovelace cards for energy management and o
 
 > **Install once via HACS — all three cards are registered as dashboard resources automatically.**
 
+### Future Decisions
+
+![Energy Manager - Future Decisions](/EnergyManager/EM-Card-Future.jpg)
+
+### Past Events
+
+![Energy Manager - Past Events](/EnergyManager/EM-Card-Past-Decisions.jpg)
+
 ---
 
 ## Cards
