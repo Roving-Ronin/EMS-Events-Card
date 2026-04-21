@@ -1,4 +1,4 @@
-// EMHASS Events Card v2.1.5
+// EMHASS Events Card v2.1.6
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Modelled on haeo-events-card structure and style
 // Copy to /config/www/emhass-events-card.js
@@ -40,7 +40,7 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.1.5';
+const _EMHASS_VERSION = 'v2.1.6';
 
 // ── Tier 2: Sigenergy / annable.me MPC sensor names ─────────────────────────
 const _EMHASS_MPC = {
@@ -574,27 +574,6 @@ class EmhassEventsCard extends HTMLElement {
   }
 
   // Diagnostic: return a string describing what was found for each sensor (for status bar debug)
-  _fcDiag() {
-    const keys = ['p_batt_forecast','p_grid_forecast','p_pv_forecast','p_load_forecast','soc_forecast','buy_price','sell_price'];
-    return keys.map(k => {
-      const eid = this._eid(k);
-      if (!eid) return k + ':no-eid';
-      const state = this._hass?.states[eid];
-      if (!state) return k + ':no-state';
-      // Find which attr has data
-      for (const { attr, key } of (_EMHASS_FC_KEYS[k] || [])) {
-        const fc = state.attributes?.[attr];
-        if (Array.isArray(fc) && fc.length) {
-          const firstRow = fc[0];
-          const hasKey = firstRow[key] !== undefined;
-          const autoKey = Object.keys(firstRow).find(kk => kk !== 'date' && kk !== 'datetime');
-          return k + ':' + attr + '/' + (hasKey ? key : 'AUTO:' + autoKey) + '(' + fc.length + ')';
-        }
-      }
-      return k + ':no-attr';
-    }).join(' | ');
-  }
-
   // Get primary forecast array (battery) — needed to drive the row loop
   // Auto-detects any array attribute with 'date' fields if known attrs fail
   _getPrimaryFc() {
@@ -848,8 +827,7 @@ class EmhassEventsCard extends HTMLElement {
       (netCostRaw  != null ? '<span>📊 Net: <strong style="color:' + netColor + ';">' + (netCostRaw >= 0 ? '+' : '') + '$' + netCostRaw.toFixed(2) + '</strong></span>' : '') +
       (gridImportTime ? '<span class="pill" style="background:#e65100;">⚠️ Grid import from ' + gridImportTime + '</span>' : '') +
       (gridExportTime ? '<span style="color:#4caf50;">📤 Grid export from ' + gridExportTime + '</span>' : '') +
-      '<span style="margin-left:auto;"></span>' +
-      '<details style="width:100%;margin-top:4px;font-size:10px;color:var(--secondary-text-color);"><summary style="cursor:pointer;">🔍 Sensor debug</summary><pre style="white-space:pre-wrap;font-size:9px;">' + this._fcDiag() + '</pre></details>';
+      '<span style="margin-left:auto;"></span>';
 
     // Pre-pass: daily cost + kWh totals
     const dailyCosts = {}, dailyKwh = {};
@@ -928,6 +906,8 @@ class EmhassEventsCard extends HTMLElement {
       const costFmt = _emhass_fmtCost(cost);
       const costCol = costFmt.col || (cost > 0.0001 ? c.cost : c.txt);
 
+      const fmtKw   = (w) => Math.abs(w) >= 10 ? (w/1000).toFixed(2) : '—';
+      const fmtKwC  = (w, col) => Math.abs(w) >= 10 ? '<span style="color:' + col + ';">' + (w/1000).toFixed(2) + '</span>' : '—';
       const fmtKwh  = (w) => Math.abs(w/1000*stepH) > 0.001 ? (w/1000*stepH).toFixed(3) : '—';
       const fmtKwhC = (w, col) => { const k = w/1000*stepH; return Math.abs(k) > 0.001 ? '<span style="color:' + col + ';">' + k.toFixed(3) + '</span>' : '—'; };
 
@@ -937,14 +917,14 @@ class EmhassEventsCard extends HTMLElement {
         '<td class="bgl">' + (cls.mode || '') + '</td>' +
         '<td class="bgl">' + _emhass_fmtP(buyP)  + '</td>' +
         '<td class="bgi">' + _emhass_fmtP(sellP) + '</td>' +
-        '<td class="bgl">' + (loadW/1000).toFixed(2) + '</td>' +
+        '<td class="bgl">' + fmtKw(loadW) + '</td>' +
         '<td class="bgi">' + fmtKwh(loadW) + '</td>' +
-        '<td class="bgl">' + (pvW/1000).toFixed(2) + '</td>' +
+        '<td class="bgl">' + fmtKw(pvW) + '</td>' +
         '<td class="bgi">' + fmtKwh(pvW) + '</td>' +
-        '<td class="bgl"><span style="color:' + gridCol + ';">' + (gridW/1000).toFixed(2) + '</span></td>' +
+        '<td class="bgl">' + fmtKwC(gridW, gridCol) + '</td>' +
         '<td class="bgi">' + fmtKwhC(gridW, gridCol) + '</td>' +
-        '<td class="bgl"><span style="color:' + battCol + ';">' + (battDisp/1000).toFixed(2) + '</span></td>' +
-        '<td class="bgi"><span style="color:' + battCol + ';">' + fmtKwh(battDisp) + '</span></td>' +
+        '<td class="bgl">' + fmtKwC(battDisp, battCol) + '</td>' +
+        '<td class="bgi">' + fmtKwh(battDisp) + '</td>' +
         '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
         '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
         '</tr>');
@@ -1190,19 +1170,21 @@ class EmhassEventsCard extends HTMLElement {
           ? (battW > 50 ? eBattC : battW < -50 ? (eBattD !== null ? -eBattD : null) : null)   // BESS: +ve=charge=positive
           : (battW < -50 ? eBattC : battW > 50 ? (eBattD !== null ? -eBattD : null) : null);  // MPC: +ve=discharge=negative
         const fmtE   = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(3) : '—';
+        const fmtKwP  = (w) => Math.abs(w) >= 10 ? (w/1000).toFixed(2) : '—';
+        const fmtKwPC = (w, col) => Math.abs(w) >= 10 ? '<span style="color:' + col + ';">' + (w/1000).toFixed(2) + '</span>' : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td><td>' + cls.label + '</td>' +
           '<td class="bgl" style="font-size:11px;color:var(--secondary-text-color);">' + (cls.mode || '') + '</td>' +
           '<td class="bgl">' + _emhass_fmtP(buyP)  + '</td>' +
           '<td class="bgi">' + _emhass_fmtP(sellP) + '</td>' +
-          '<td class="bgl">' + (loadW/1000).toFixed(2) + '</td><td class="bgi">' + fmtE(eLoad)  + '</td>' +
-          '<td class="bgl">' + (pvW/1000).toFixed(2)   + '</td><td class="bgi">' + fmtE(eSolar) + '</td>' +
-          '<td class="bgl"><span style="color:' + gridCol + ';">' + (gridW/1000).toFixed(2) + '</span></td>' +
+          '<td class="bgl">' + fmtKwP(loadW) + '</td><td class="bgi">' + fmtE(eLoad)  + '</td>' +
+          '<td class="bgl">' + fmtKwP(pvW)   + '</td><td class="bgi">' + fmtE(eSolar) + '</td>' +
+          '<td class="bgl">' + fmtKwPC(gridW, gridCol) + '</td>' +
           '<td class="bgi"><span style="color:' + gridCol + ';">' + fmtE(eGrid)  + '</span></td>' +
-          '<td class="bgl"><span style="color:' + battCol + ';">' + (battDisp/1000).toFixed(2) + '</span></td>' +
+          '<td class="bgl">' + fmtKwPC(battDisp, battCol) + '</td>' +
           '<td class="bgi"><span style="color:' + battCol + ';">' + fmtE(eBatt !== null ? -eBatt : null) + '</span></td>' +
-          '<td class="bgl"><span style="color:' + socCol  + ';">' + soc.toFixed(1) + '</span></td>' +
+          '<td class="bgl"><span style="color:' + socCol  + ';">' + (soc > 0 ? soc.toFixed(1) : '—') + '</span></td>' +
           '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
           '</tr>');
       }
