@@ -1,4 +1,4 @@
-// EMHASS Events Card v2.1.6
+// EMHASS Events Card v2.1.7
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Modelled on haeo-events-card structure and style
 // Copy to /config/www/emhass-events-card.js
@@ -40,7 +40,7 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.1.6';
+const _EMHASS_VERSION = 'v2.1.7';
 
 // ── Tier 2: Sigenergy / annable.me MPC sensor names ─────────────────────────
 const _EMHASS_MPC = {
@@ -296,8 +296,10 @@ function _emhass_fmtP(v) {
 }
 
 // Clamp values below noise floor to zero for display (20W threshold)
-const _EMHASS_NOISE_W = 10;
+const _EMHASS_NOISE_W      = 10;   // MPC sensor noise floor (W)
+const _EMHASS_NOISE_BESS_PG = 99;  // BESS PV/Grid noise floor (W) — Sigenergy background noise
 function _emhass_clamp(w) { return Math.abs(w) < _EMHASS_NOISE_W ? 0 : w; }
+function _emhass_clampBessPG(w) { return Math.abs(w) < _EMHASS_NOISE_BESS_PG ? 0 : w; }
 
 // cost > 0 = money spent, cost < 0 = money earned
 function _emhass_fmtCost(cost) {
@@ -1083,9 +1085,11 @@ class EmhassEventsCard extends HTMLElement {
         const dayStr = new Date(ts).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
         // Keep values in W — pwrMult (W→kW) removed; all thresholds/display are in W
         const battW = _emhass_clamp(parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0);
-        const gridW = _emhass_clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
+        const gridW = useBess ? _emhass_clampBessPG(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0)
+                              : _emhass_clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
         const loadW = _emhass_clamp(parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0);
-        const pvW   = _emhass_clamp(parseFloat(_emhass_getAt(lookup[pvEid],   ts)) || 0);
+        const pvW   = useBess ? _emhass_clampBessPG(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0)
+                              : _emhass_clamp(parseFloat(_emhass_getAt(lookup[pvEid],   ts)) || 0);
         const buyP  = parseFloat(_emhass_getAt(lookup[buyEid],  ts)) || 0;
         const sellP = parseFloat(_emhass_getAt(lookup[sellEid], ts)) || 0;
         const stepH = 5/60, gridKw = gridW/1000;
