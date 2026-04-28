@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.15';
+const _EMEC_VERSION = 'v2.4.17';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -519,7 +519,9 @@ class EmEventsCard extends HTMLElement {
       if (top < 10) return;
       const leg = this.shadowRoot.querySelector('.leg');
       const legH = leg ? leg.getBoundingClientRect().height + 12 : 0;
-      w.style.height = Math.max(120, window.innerHeight - top - legH - 12) + 'px';
+      const viewportH = Math.max(120, window.innerHeight - top - legH - 12);
+      const contentH  = w.scrollHeight;
+      w.style.height = Math.min(viewportH, contentH) + 'px';
     });
     // Sync header table widths — subtract scrollbar width so columns align
     const wrap = this.shadowRoot.querySelector('.pane.active .wrap');
@@ -708,24 +710,25 @@ class EmEventsCard extends HTMLElement {
       }
     }
     let dawnSoc = null, dawnTime = '', dawnLabel = '';
+    const fmtSbarTime = (ts) => new Date(ts).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
     if (chargingNow) {
       let peakSoc = 0, peakTime = '';
       for (const row of timeline) {
         const ts = new Date(row.ts).getTime();
         if (ts >= nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.01 && (row.expected.soc_pct_end||0) > peakSoc) {
           peakSoc = row.expected.soc_pct_end;
-          peakTime = new Date(ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:true }).replace(' 0',' ');
+          peakTime = fmtSbarTime(ts);
         }
       }
-      if (peakSoc > 0) { dawnSoc = peakSoc; dawnTime = peakTime; dawnLabel = '🔋 Peak SoC'; }
+      if (peakSoc > 0) { dawnSoc = peakSoc; dawnTime = peakTime; dawnLabel = '🔋 Peak SoC:'; }
     } else {
       for (const row of timeline) {
         if (dawnSoc !== null) break;
         const ts = new Date(row.ts).getTime();
         if (ts > nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.1 && (row.expected.battery_discharge_kw||0) < 0.001) {
           dawnSoc   = row.inputs.soc_pct_start || 0;
-          dawnTime  = new Date(ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:true }).replace(' 0',' ');
-          dawnLabel = '🌅 Morning SoC';
+          dawnTime  = fmtSbarTime(ts);
+          dawnLabel = '🌅 Morning SoC:';
         }
       }
     }
@@ -736,17 +739,16 @@ class EmEventsCard extends HTMLElement {
     for (const row of timeline) {
       const ts = new Date(row.ts).getTime();
       if (ts < nowTs) continue;
-      const fmtT = (t) => new Date(t).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).replace(' 0',' ').toLowerCase();
       if (!gridImportTime && (row.expected.grid_import_kw||0) > 0.1)
-        gridImportTime = fmtT(ts);
+        gridImportTime = fmtSbarTime(ts);
       if (!gridExportTime && (row.expected.grid_export_kw||0) > 0.1)
-        gridExportTime = fmtT(ts);
+        gridExportTime = fmtSbarTime(ts);
       if (!forceExportTime && row.mode === 'FORCED_EXPORT') {
-        forceExportTime = fmtT(ts);
+        forceExportTime = fmtSbarTime(ts);
         forceExportSellP = row.inputs.sell_price || 0;
       }
       if (!forceImportTime && row.mode === 'FORCED_CHARGE') {
-        forceImportTime = fmtT(ts);
+        forceImportTime = fmtSbarTime(ts);
         forceImportBuyP = row.inputs.buy_price || 0;
       }
     }
@@ -797,8 +799,8 @@ class EmEventsCard extends HTMLElement {
     sbar.innerHTML =
       '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + modeLabel.replace(/_/g,' ') + '</span></span>' +
       (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;">' + focusCap + '</span></span>' : '') +
-      (nowSoc != null ? '<span>🔋 SoC now: <strong>' + nowSoc.toFixed(1) + '%</strong></span>' : '') +
-      (dawnSoc != null ? '<span>' + dawnLabel + ' (' + dawnTime + '): <strong style="color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%</strong></span>' : '') +
+      (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '%</span></span>' : '') +
+      (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '% (' + dawnTime + ')</span></span>' : '') +
       '<span>💰 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
       '<span>💰 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
       (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;">' + exportLimitDisp + '</span></span>' : '') +
