@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.11';
+const _EMEC_VERSION = 'v2.4.15';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -730,16 +730,31 @@ class EmEventsCard extends HTMLElement {
       }
     }
 
-    // Warnings
-    let gridImportTime = '', forceExportTime = '';
+    // Warnings — grid import/export start times, force export/import
+    let gridImportTime = '', gridExportTime = '', forceExportTime = '', forceImportTime = '';
+    let forceExportSellP = 0, forceImportBuyP = 0;
     for (const row of timeline) {
       const ts = new Date(row.ts).getTime();
       if (ts < nowTs) continue;
-      if (!gridImportTime  && (row.expected.grid_import_kw||0) > 0.1)
-        gridImportTime  = new Date(ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false });
-      if (!forceExportTime && row.mode === 'FORCED_EXPORT')
-        forceExportTime = new Date(ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false });
+      const fmtT = (t) => new Date(t).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).replace(' 0',' ').toLowerCase();
+      if (!gridImportTime && (row.expected.grid_import_kw||0) > 0.1)
+        gridImportTime = fmtT(ts);
+      if (!gridExportTime && (row.expected.grid_export_kw||0) > 0.1)
+        gridExportTime = fmtT(ts);
+      if (!forceExportTime && row.mode === 'FORCED_EXPORT') {
+        forceExportTime = fmtT(ts);
+        forceExportSellP = row.inputs.sell_price || 0;
+      }
+      if (!forceImportTime && row.mode === 'FORCED_CHARGE') {
+        forceImportTime = fmtT(ts);
+        forceImportBuyP = row.inputs.buy_price || 0;
+      }
     }
+
+    // Current provider-calculated buy/sell prices
+    const rawBuyNow  = parseFloat(this._hass.states['sensor.nodered_buyprice']?.state  || 0);
+    const rawSellNow = parseFloat(this._hass.states['sensor.nodered_sellprice']?.state || 0);
+    const { buyP: nowBuyP, sellP: nowSellP } = _emec_getPrices(nowTs, provider, this._hass, rawBuyNow, rawSellNow);
 
     // Status bar — bs.mode for Amber/LocalVolts, summary.now_mode for FlowPower etc
     const modeLabel  = bs?.mode || summary?.now_mode || 'UNKNOWN';
@@ -750,14 +765,50 @@ class EmEventsCard extends HTMLElement {
     const nowSoc     = summary?.now_soc_pct;
     const dawnColor  = dawnSoc <= 20 ? '#f44336' : dawnSoc <= 35 ? '#ff9800' : '#4caf50';
 
+    // Next decision — first future row
+    let nextExporting = false, nextImporting = false, nextCharging = false;
+    for (const row of timeline) {
+      if (new Date(row.ts).getTime() < nowTs) continue;
+      nextExporting = (row.expected.grid_export_kw   || 0) > 0.1;
+      nextImporting = (row.expected.grid_import_kw   || 0) > 0.1;
+      nextCharging  = (row.expected.battery_charge_kw|| 0) > 0.1;
+      break;
+    }
+
+    // Export / Charge limit pills — only shown when relevant to next decision
+    const exportLimitW  = parseFloat(this._hass.states['sensor.inverter_current_export_power_limit']?.state || 0);
+    const chargeLimitW  = parseFloat(this._hass.states['sensor.inverter_current_max_charge_power']?.state  || 0);
+    const importLimitKw = parseFloat(this._hass.states['input_number.inverter_import_limit']?.state        || 0);
+    const chargeLimitKw = Math.min(chargeLimitW / 1000, importLimitKw > 0 ? importLimitKw : Infinity);
+    const fmtKwLimit = (kw) => (kw === Math.floor(kw) ? kw.toFixed(0) : kw.toFixed(1)) + ' kW';
+    const showExportLimit = (nextExporting) && exportLimitW > 0;
+    const showChargeLimit = (nextImporting || nextCharging) && chargeLimitKw > 0 && isFinite(chargeLimitKw);
+    const exportLimitDisp = showExportLimit ? fmtKwLimit(exportLimitW / 1000) : null;
+    const chargeLimitDisp = showChargeLimit ? fmtKwLimit(chargeLimitKw)       : null;
+
+    // Force export pill colour: green if profitable (sell > 0), orange if dump (sell <= 0)
+    const feCol = forceExportSellP > 0 ? '#28a745' : '#ff9800';
+    // Force import pill colour: green if buy price negative (getting paid), red if positive (costs money)
+    const fiCol = forceImportBuyP  < 0 ? '#28a745' : '#f44336';
+
+    // Capitalise focus text
+    const focusCap = (bs?.focus || '').replace(/\b\w/g, c => c.toUpperCase());
+
     sbar.innerHTML =
       '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + modeLabel.replace(/_/g,' ') + '</span></span>' +
-      (bs?.focus ? '<span>🎯 ' + bs.focus + '</span>' : '') +
+      (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;">' + focusCap + '</span></span>' : '') +
       (nowSoc != null ? '<span>🔋 SoC now: <strong>' + nowSoc.toFixed(1) + '%</strong></span>' : '') +
       (dawnSoc != null ? '<span>' + dawnLabel + ' (' + dawnTime + '): <strong style="color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%</strong></span>' : '') +
-      (gridImportTime  ? '<span class="pill" style="background:#e65100;color:#ffffff;font-weight:bold;">⚠️ Grid import from ' + gridImportTime + '</span>' : '') +
-      (forceExportTime ? '<span style="color:#FF6B2C;">📤 Force export from ' + forceExportTime + '</span>' : '') +
-      '<span style="margin-left:auto;"></span>';
+      '<span>💰 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
+      '<span>💰 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
+      (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;">' + exportLimitDisp + '</span></span>' : '') +
+      (chargeLimitDisp ? '<span>⚡ Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '') +
+      '<span style="margin-left:auto;display:flex;gap:8px;align-items:center;">' +
+      (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">📤 Forced Export from ' + forceExportTime + '</span>' : '') +
+      (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚡ Forced Import from ' + forceImportTime + '</span>' : '') +
+      (gridExportTime  ? '<span class="pill" style="background:#28a745;">⚡ Grid Export from ' + gridExportTime + '</span>' : '') +
+      (gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import from ' + gridImportTime + '</span>' : '') +
+      '</span>';
 
     // Table rows
     const rows = [];
