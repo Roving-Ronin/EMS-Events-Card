@@ -37,7 +37,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.3.6';
+const _HAEO_VERSION = 'v2.3.8';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -590,9 +590,6 @@ class HaeoEventsCard extends HTMLElement {
       return;
     }
 
-    // Also need grid_net_cost for cost tracking — use its own forecast array
-    const costFc = this._hass?.states[this._eid('haeo_grid_net_cost')]?.attributes?.forecast || [];
-
     // Auto-detect unit_of_measurement for each power sensor and normalise to kW
     // Forecast attribute values are always in kW/% / $/kWh regardless of live sensor unit
     // — do NOT apply powerMult here, that is only for history sensor reads.
@@ -605,7 +602,22 @@ class HaeoEventsCard extends HTMLElement {
     const socMap   = buildMap(this._eid('haeo_soc'),            1);
     const buyMap   = buildMap(this._eid('haeo_buy_price'),      1);
     const sellMap  = buildMap(this._eid('haeo_sell_price'),     1);
-    const costMap  = buildMap(this._eid('haeo_grid_net_cost'),  1);
+    // grid_net_cost is a cumulative running total — build a delta map for per-slot cost
+    // delta = value[i] - value[i-1]; negative delta = profit (export), positive = cost (import)
+    const costMap = (() => {
+      const fc = this._hass?.states[this._eid('haeo_grid_net_cost')]?.attributes?.forecast;
+      const m = new Map();
+      if (!Array.isArray(fc)) return m;
+      for (let i = 0; i < fc.length; i++) {
+        const ts = new Date(fc[i].time).getTime();
+        if (isNaN(ts)) continue;
+        if (i === 0) { m.set(ts, 0); continue; }
+        const prev = new Date(fc[i-1].time).getTime();
+        const delta = (fc[i].value ?? 0) - (fc[i-1].value ?? 0);
+        m.set(ts, isNaN(delta) ? 0 : delta);
+      }
+      return m;
+    })();
 
     // Nearest-timestamp lookup: for sensors with coarser step sizes (prices, cost)
     // find the Map entry whose key is closest to the target timestamp.
@@ -682,9 +694,9 @@ class HaeoEventsCard extends HTMLElement {
       if (isNaN(ts) || ts < nowTs) continue;
       const gridKw = gridMap.get(ts) || 0;
       if (!gridImportTime && gridKw > 0.05)
-        gridImportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
+        gridImportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
       if (!gridExportTime && gridKw < -0.05)
-        gridExportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
+        gridExportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
     }
 
     const socColor  = nowSoc  != null ? (nowSoc  <= 20 ? '#f44336' : nowSoc  >= 75 ? '#4caf50' : 'var(--primary-text-color)') : '';
@@ -695,8 +707,8 @@ class HaeoEventsCard extends HTMLElement {
       (dawnSoc  != null ? '<span>' + dawnLabel + ' (' + dawnTime + '): <strong style="color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%</strong></span>' : '') +
       (nowBuy   != null ? '<span>💸 Buy: <strong>$' + nowBuy.toFixed(4)  + '/kWh</strong></span>' : '') +
       (nowSell  != null ? '<span>💰 Sell: <strong>$' + nowSell.toFixed(4) + '/kWh</strong></span>' : '') +
-      (gridImportTime ? '<span class="pill" style="background:#e65100;">⚠️ Grid import from ' + gridImportTime + '</span>' : '') +
-      (gridExportTime ? '<span style="color:#4caf50;">📤 Grid export from ' + gridExportTime + '</span>' : '') +
+      (gridImportTime ? '<span class="pill" style="background:#e65100;">⚡ Grid import from ' + gridImportTime + '</span>' : '') +
+      (gridExportTime ? '<span class="pill" style="background:#2e7d32;">📤 Grid export from ' + gridExportTime + '</span>' : '') +
       '<span style="margin-left:auto;"></span>';
 
     // ── Pre-pass: daily cost and kWh totals ──
