@@ -2,7 +2,7 @@
 
 A custom Home Assistant card for the **Energy Manager** addon. Displays energy planning decisions in two tabs — **Future Decisions** (forecast timeline) and **Past Decisions** (historical 5-min readings) — in a single scrollable table with fixed headers and a colour-coded legend.
 
-Current version: **v2.4.11**
+Current version: **v2.4.15**
 
 ---
 
@@ -24,7 +24,14 @@ Current version: **v2.4.11**
 - Provider-aware pricing for Amber Electric, LocalVolts, Flow Power and GloBird (including GloBird's super export cap)
 - Per-day summary rows showing Load / PV / Grid / Battery kWh totals and Cost/Profit
 - Signed and colour-coded Grid kWh (green = export, red = import) and Battery kWh (green = charge, red = discharge)
-- Status bar showing current mode, SoC, morning/peak SoC, grid import warning and force export warning
+- Zero kW/kWh values shown as `—` to reduce visual clutter
+- **Status bar** showing:
+  - Current mode pill
+  - Focus pill (e.g. Optimising Self-Use, Export Protection, Grid Charging Expected)
+  - SoC now and Morning/Peak SoC
+  - Provider-calculated Buy and Sell price pills (correct for all four providers)
+  - Contextual Export Limit or Charge Limit pill based on next timeline decision
+  - Right-aligned alert pills: Forced Export, Forced Import, Grid Export, Grid Import with colour coding and 12hr times
 - Sticky column headers — tabs, status bar and column headers remain fixed while data rows scroll
 - Auto-refresh aligned to HA's update boundaries (:01, :06, :11 … past the hour), only when the browser tab is visible
 - Two-column legend with colour swatches
@@ -62,8 +69,11 @@ grid_options:
 | `sensor.inverter_battery_charging_power` | Battery charge power (W) |
 | `sensor.inverter_battery_discharging_power` | Battery discharge power (W) |
 | `sensor.inverter_battery_level` | Battery SoC (%) |
-| `sensor.nodered_buyprice` | Current buy price ($/kWh) — Amber/LocalVolts |
-| `sensor.nodered_sellprice` | Current sell price ($/kWh) — Amber/LocalVolts |
+| `sensor.nodered_buyprice` | Current buy price ($/kWh) — Amber/LocalVolts fallback |
+| `sensor.nodered_sellprice` | Current sell price ($/kWh) — Amber/LocalVolts fallback |
+| `sensor.inverter_current_export_power_limit` | Current export power limit (W) — for Export Limit pill |
+| `sensor.inverter_current_max_charge_power` | Current max charge power (W) — for Charge Limit pill |
+| `input_number.inverter_import_limit` | Inverter import limit (kW) — for Charge Limit pill |
 
 ### Energy kWh sensors (Past Decisions tab)
 
@@ -125,6 +135,32 @@ load_energy_sensor: sensor.daily_consumed_energy   # override load kWh sensor
 
 ---
 
+## Status Bar
+
+The status bar displays the following items left to right:
+
+| Item | Description |
+|------|-------------|
+| 🏠 Mode | Current operating mode pill — green (Self Consumption), blue (Forced Charge), orange (Forced Export) |
+| 🎯 Focus | Optimiser focus pill — e.g. Optimising Self-Use, Export Protection, Grid Charging Expected |
+| 🔋 SoC now | Current battery state of charge |
+| 🌅 Morning SoC / 🔋 Peak SoC | Forecast SoC at next solar start (morning) or peak charge point |
+| 💰 Buy | Provider-calculated current buy price pill |
+| 💰 Sell | Provider-calculated current sell price pill |
+| 📤 Export Limit | Current export power limit pill — only shown when next decision involves grid export |
+| ⚡ Charge Limit | Lesser of max charge power and import limit — only shown when next decision involves grid import or battery charging |
+
+Right-aligned alert pills (shown only when applicable, Forced before Grid):
+
+| Pill | Colour | Meaning |
+|------|--------|---------|
+| 📤 Forced Export from x:xx | Green (sell > 0) / Orange (sell ≤ 0) | Next forced export event |
+| ⚡ Forced Import from x:xx | Green (buy < 0) / Red (buy > 0) | Next forced import event |
+| ⚡ Grid Export from x:xx | Green | Next expected grid export |
+| ⚠️ Grid Import from x:xx | Orange | Next expected grid import |
+
+---
+
 ## Column Layout
 
 | Column | Description |
@@ -140,7 +176,7 @@ load_energy_sensor: sensor.daily_consumed_energy   # override load kWh sensor
 | SoC % | Battery state of charge — red ≤ 20%, green ≥ 75% |
 | Cost/Profit | Slot cost/profit — green = profit, red = cost |
 
-Day header rows show totals for Load, PV, Grid and Battery kWh, plus the day's total Cost/Profit.
+Day header rows show totals for Load, PV, Grid and Battery kWh, plus the day's total Cost/Profit. Grid and Battery totals are colour-coded by net direction.
 
 ---
 
@@ -186,12 +222,4 @@ The card automatically refreshes at 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51 and
 
 `v[major].[minor].[patch]` — patch = minor fix, minor = medium update, major = rewrite. Version is displayed in the legend footer.
 
----
-
-## Backup Files
-
-Keep these files alongside `em-events-card.js` — do not delete:
-
-- `em-timeline-card.js` — v1.2.0
-- `em-history-card.js` — v1.2.0
-- `em_battery_timeline.yaml` — v1.0.1
+See [CHANGELOG.md](./CHANGELOG.md) for full version history.
