@@ -2,7 +2,7 @@
 
 A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser (HAEO)** integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's actual historical sensor readings in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
 
-**Current version:** `v2.3.6`
+**Current version:** `v2.3.8`
 
 ---
 
@@ -13,13 +13,13 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
   - Buy and Sell price per slot
   - Load, PV, Grid and Battery kW and kWh columns
   - SoC % with colour warnings at low levels
-  - Cost/Profit per slot and daily totals
-  - Status bar: SoC now, Morning/Peak SoC, current buy/sell prices, grid import/export warnings
+  - Cost/Profit per slot and daily totals — calculated from per-slot deltas of `sensor.grid_net_cost`
+  - Status bar: SoC now, Morning/Peak SoC, current buy/sell prices, colour-coded grid import/export pill badges with 12h times
   - Smart auto-refresh timed to HA's 5-minute update boundary
 
 - **Past Events tab** — reads actual inverter sensor history from the HA recorder, aligned to 5-minute slots. Uses real inverter power measurements (not HAEO planned values) for accurate event classification. Includes:
   - Event classification from actual inverter power readings
-  - kWh delta columns from `total_increasing` energy sensors
+  - kWh delta columns from `total_increasing` energy sensors, with fallback estimation when sensor data is unavailable
   - Daily kWh totals (Load, PV, Grid, Battery) and daily Cost/Profit
   - Range selector: Today / Yesterday / Last 24h / 48h / 72h / 96h / 7 days
   - Auto-switches to Last 24h if Today has no data yet
@@ -27,6 +27,7 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 - **Colour coding** — row backgrounds reflect the event type; kW/kWh values are individually coloured:
   - Grid: export = green (earning), import = red (costing)
   - Battery: charging from solar = green, charging from grid = amber, discharging = red
+  - Values below display threshold (±100W grid/battery, 50W PV) show as `—` in default text colour
 
 - **Two sensor groups** — Future tab uses HAEO optimizer sensors (forecast attributes); Past tab uses inverter power sensors (actual measurements). Both groups are fully configurable via card YAML.
 
@@ -97,7 +98,7 @@ These are provided by the HAEO integration and are the same for all installs. Th
 | `entity_haeo_soc` | `sensor.battery_state_of_charge` | % |
 | `entity_haeo_buy_price` | `number.grid_import_price` | $/kWh |
 | `entity_haeo_sell_price` | `number.grid_export_price` | $/kWh |
-| `entity_haeo_grid_net_cost` | `sensor.grid_net_cost` | $ per period |
+| `entity_haeo_grid_net_cost` | `sensor.grid_net_cost` | Cumulative $ total — card computes per-slot deltas |
 
 ### Past Tab — Inverter Power Sensors
 
@@ -170,11 +171,11 @@ entity_past_battery_discharge_energy: sensor.my_inverter_total_battery_discharge
 | Buy $/kWh | Grid import price for this slot |
 | Sell $/kWh | Grid export price for this slot |
 | Load kW / kWh | Home consumption — always positive |
-| PV kW / kWh | Solar generation — always positive |
-| Grid kW / kWh | Positive = import (red), Negative = export (green) |
-| Battery kW / kWh | Negative = discharging (red), Positive = charging (green/amber) |
+| PV kW / kWh | Solar generation — `—` below 50W |
+| Grid kW / kWh | Positive = import (red), Negative = export (green) — `—` below 100W |
+| Battery kW / kWh | Negative = discharging (red), Positive = charging (green/amber) — `—` below 100W |
 | SoC % | Battery state of charge |
-| Cost/Profit | Net grid cost (`-$` = expense, `$` = earning) |
+| Cost/Profit | Net grid cost (`-$` = expense, `$` = earning) — `—` when no grid activity |
 
 Day header rows show daily kWh totals for each column and the net cost/profit for the day.
 
@@ -224,8 +225,9 @@ Events are classified from actual inverter sensor readings (not HAEO planned val
 ## Notes
 
 - **Auto-refresh** — the card refreshes at 1 minute past each 5-minute HA update boundary (`:01`, `:06`, `:11`... past the hour) and catches up automatically if the browser tab was hidden
-- **Cost/Profit (Future tab)** — sourced from `sensor.grid_net_cost`; only shown for slots where grid flow exceeds 0.05 kW to prevent stale interpolated values appearing on battery-only rows
+- **Cost/Profit (Future tab)** — `sensor.grid_net_cost` is a cumulative running total; the card computes per-slot deltas (`value[i] - value[i-1]`) for accurate per-row and daily totals. Only shown when grid flow exceeds 0.05 kW
 - **Cost/Profit (Past tab)** — calculated from grid kW × buy/sell price × slot duration; only shown when grid flow exceeds 0.10 kW
+- **Display thresholds** — Grid and Battery kW/kWh values below ±100W show as `—`; PV below 50W shows as `—`. This suppresses inverter sensor noise without affecting event classification thresholds
 - **Unit detection** — `unit_of_measurement` is read from each sensor's live state and values are normalised automatically. Supported units: W / kW / MW (power) and Wh / kWh / MWh / GWh (energy). A browser console warning is logged if a power value exceeds 500 kW after conversion, which may indicate a misconfigured sensor
 - **Past Events accuracy** — the Past tab reads inverter sensor history recorded by HA. Classification accuracy depends on how frequently your inverter sensors update and whether HA's recorder captures each 5-minute slot. Values shown are real measurements, not HAEO's planned decisions
 - **Dashboard type** — designed for the HA **Sections** dashboard with `grid_options: columns: full`
