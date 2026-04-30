@@ -1,10 +1,10 @@
 // EM Events Card
-// Combines Future Decisions (timeline) and Past Decisions (history) in one card
+// Combines Future Decisions (timeline) and Past Events (history) in one card
 // Requires: sensor.energy_manager_plan + inverter sensors
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.17';
+const _EMEC_VERSION = 'v2.4.21';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -317,7 +317,7 @@ function _emec_buildHTML() {
     // ── Tabs ──
     '<div class="tabs">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
-    '<div class="tab" id="tab-past">📋 Past Decisions</div>' +
+    '<div class="tab" id="tab-past">📋 Past Events</div>' +
     '<span id="range-past-wrap" style="display:none;margin-left:auto;align-self:center;padding-right:4px;">' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option>' +
@@ -381,7 +381,7 @@ function _emec_buildHTML() {
     // ── Past pane ──
     '<div class="pane" id="pane-past">' +
     '<div class="sbar">' +
-    '<strong style="color:var(--primary-text-color);">Past Decisions</strong>' +
+    '<strong style="color:var(--primary-text-color);">Past Events</strong>' +
     '<span class="stxt" id="st-past">Loading...</span>' +
     '</div>' +
     // Header table — never scrolls
@@ -715,8 +715,8 @@ class EmEventsCard extends HTMLElement {
       let peakSoc = 0, peakTime = '';
       for (const row of timeline) {
         const ts = new Date(row.ts).getTime();
-        if (ts >= nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.01 && (row.expected.soc_pct_end||0) > peakSoc) {
-          peakSoc = row.expected.soc_pct_end;
+        if (ts >= nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.1 && (row.expected.soc_pct_end||0) > peakSoc) {
+          peakSoc  = row.expected.soc_pct_end;
           peakTime = fmtSbarTime(ts);
         }
       }
@@ -765,7 +765,7 @@ class EmEventsCard extends HTMLElement {
     const modeColor  = modeColors[modeLabel] || '#9c27b0';
     const modeIcon   = modeIcons[modeLabel]  || '🔧';
     const nowSoc     = summary?.now_soc_pct;
-    const dawnColor  = dawnSoc <= 20 ? '#f44336' : dawnSoc <= 35 ? '#ff9800' : '#4caf50';
+    const dawnColor  = dawnSoc <= 20 ? '#f44336' : dawnSoc <= 35 ? '#ff9800' : '#39ff14';
 
     // Next decision — first future row
     let nextExporting = false, nextImporting = false, nextCharging = false;
@@ -783,7 +783,7 @@ class EmEventsCard extends HTMLElement {
     const importLimitKw = parseFloat(this._hass.states['input_number.inverter_import_limit']?.state        || 0);
     const chargeLimitKw = Math.min(chargeLimitW / 1000, importLimitKw > 0 ? importLimitKw : Infinity);
     const fmtKwLimit = (kw) => (kw === Math.floor(kw) ? kw.toFixed(0) : kw.toFixed(1)) + ' kW';
-    const showExportLimit = (nextExporting) && exportLimitW > 0;
+    const showExportLimit = exportLimitW > 0;  // always show when sensor has a value
     const showChargeLimit = (nextImporting || nextCharging) && chargeLimitKw > 0 && isFinite(chargeLimitKw);
     const exportLimitDisp = showExportLimit ? fmtKwLimit(exportLimitW / 1000) : null;
     const chargeLimitDisp = showChargeLimit ? fmtKwLimit(chargeLimitKw)       : null;
@@ -801,10 +801,10 @@ class EmEventsCard extends HTMLElement {
       (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;">' + focusCap + '</span></span>' : '') +
       (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '%</span></span>' : '') +
       (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '% (' + dawnTime + ')</span></span>' : '') +
-      '<span>💰 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
-      '<span>💰 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
+      '<span>💲 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
+      '<span>💲 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
       (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;">' + exportLimitDisp + '</span></span>' : '') +
-      (chargeLimitDisp ? '<span>⚡ Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '') +
+      (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '') +
       '<span style="margin-left:auto;display:flex;gap:8px;align-items:center;">' +
       (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">📤 Forced Export from ' + forceExportTime + '</span>' : '') +
       (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚡ Forced Import from ' + forceImportTime + '</span>' : '') +
@@ -1212,6 +1212,6 @@ if (!window.customCards.find(c => c.type === 'em-events-card')) {
   window.customCards.push({
     type: 'em-events-card',
     name: 'EM Events Card',
-    description: 'Energy Manager future and past decisions in one card',
+    description: 'Energy Manager future decisions and past events in one card',
   });
 }
