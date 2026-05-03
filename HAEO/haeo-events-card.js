@@ -37,7 +37,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.3.8';
+const _HAEO_VERSION = 'v2.3.9';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -560,6 +560,16 @@ class HaeoEventsCard extends HTMLElement {
     const sbar  = this.shadowRoot.getElementById('sbar-future');
     const tbody = this.shadowRoot.getElementById('tb-future');
     if (!sbar || !tbody) return;
+    try {
+      this._renderFutureInner(sbar, tbody);
+    } catch (e) {
+      console.error('HAEO card _renderFuture error:', e);
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ Render error: ' + e.message + '</td></tr>';
+      sbar.innerHTML = '<span style="color:#f44336;">⚠️ ' + e.message + '</span>';
+    }
+  }
+
+  _renderFutureInner(sbar, tbody) {
 
     // Build UTC-epoch-ms → value Map from a sensor's {time, value} forecast attribute.
     // Keying by epoch ms is timezone-safe regardless of UTC offset in time strings.
@@ -602,22 +612,9 @@ class HaeoEventsCard extends HTMLElement {
     const socMap   = buildMap(this._eid('haeo_soc'),            1);
     const buyMap   = buildMap(this._eid('haeo_buy_price'),      1);
     const sellMap  = buildMap(this._eid('haeo_sell_price'),     1);
-    // grid_net_cost is a cumulative running total — build a delta map for per-slot cost
-    // delta = value[i] - value[i-1]; negative delta = profit (export), positive = cost (import)
-    const costMap = (() => {
-      const fc = this._hass?.states[this._eid('haeo_grid_net_cost')]?.attributes?.forecast;
-      const m = new Map();
-      if (!Array.isArray(fc)) return m;
-      for (let i = 0; i < fc.length; i++) {
-        const ts = new Date(fc[i].time).getTime();
-        if (isNaN(ts)) continue;
-        if (i === 0) { m.set(ts, 0); continue; }
-        const prev = new Date(fc[i-1].time).getTime();
-        const delta = (fc[i].value ?? 0) - (fc[i-1].value ?? 0);
-        m.set(ts, isNaN(delta) ? 0 : delta);
-      }
-      return m;
-    })();
+    // Cost/Profit calculated directly: export profit = |gridKwh| × sellP, import cost = gridKwh × buyP
+    // sensor.grid_net_cost is not used for per-slot calculation (cumulative running total,
+    // timestamps misalign with battery forecast axis causing nearestGet errors)
 
     // Nearest-timestamp lookup: for sensors with coarser step sizes (prices, cost)
     // find the Map entry whose key is closest to the target timestamp.
@@ -705,8 +702,8 @@ class HaeoEventsCard extends HTMLElement {
     sbar.innerHTML =
       (nowSoc   != null ? '<span>🔋 SoC now: <strong style="color:' + socColor  + ';">' + nowSoc.toFixed(1)  + '%</strong></span>' : '') +
       (dawnSoc  != null ? '<span>' + dawnLabel + ' (' + dawnTime + '): <strong style="color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%</strong></span>' : '') +
-      (nowBuy   != null ? '<span>💸 Buy: <strong>$' + nowBuy.toFixed(4)  + '/kWh</strong></span>' : '') +
-      (nowSell  != null ? '<span>💰 Sell: <strong>$' + nowSell.toFixed(4) + '/kWh</strong></span>' : '') +
+      (nowBuy   != null ? '<span>💲 Buy: <strong>$' + nowBuy.toFixed(4)  + '/kWh</strong></span>' : '') +
+      (nowSell  != null ? '<span>💲 Sell: <strong>$' + nowSell.toFixed(4) + '/kWh</strong></span>' : '') +
       (gridImportTime ? '<span class="pill" style="background:#e65100;">⚡ Grid import from ' + gridImportTime + '</span>' : '') +
       (gridExportTime ? '<span class="pill" style="background:#2e7d32;">📤 Grid export from ' + gridExportTime + '</span>' : '') +
       '<span style="margin-left:auto;"></span>';
@@ -720,13 +717,16 @@ class HaeoEventsCard extends HTMLElement {
       const day     = new Date(ts).toLocaleDateString('en-CA');
       const battKw  = battMap.get(ts)  || 0;
       const gridKw  = gridMap.get(ts)  || 0;
-      // Only count grid_net_cost when grid is actually active this slot
-      const rawCost0 = nearestGet(costMap, ts);
-      const cost     = Math.abs(gridKw) > 0.05 ? rawCost0 : 0;
       const loadKw  = loadMap.get(ts)  || 0;
       const solarKw = solarMap.get(ts) || 0;
-      // Step size in hours — inferred from gap to next forecast timestamp
       const stepH   = stepHFor(ts);
+      // Cost/Profit: export = |gridKwh| × sellP (negative = profit), import = gridKwh × buyP (positive = cost)
+      const buyP0   = nearestGet(buyMap, ts);
+      const sellP0  = nearestGet(sellMap, ts);
+      const gridKwh0 = gridKw * stepH;
+      const cost    = gridKw < -0.05 ? -(Math.abs(gridKwh0) * sellP0)
+                    : gridKw >  0.05 ?   Math.abs(gridKwh0) * buyP0
+                    : 0;
       dailyCosts[day] = (dailyCosts[day] || 0) + cost;
       const dk = dailyKwh[day] || { load:0, pv:0, grid:0, batt:0 };
       dk.load += loadKw  * stepH;
@@ -753,7 +753,7 @@ class HaeoEventsCard extends HTMLElement {
         const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0 };
         const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
         const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(ts).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-        // cost from grid_net_cost: positive = money spent (import), negative = money earned
+        // cost: positive = money spent (import), negative = money earned (export)
         const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
         const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
         // Grid: negative=export(green), positive=import(red)
@@ -793,10 +793,13 @@ class HaeoEventsCard extends HTMLElement {
       // Price/cost sensors have coarser steps — use nearest timestamp
       const buyP    = nearestGet(buyMap,  ts);
       const sellP   = nearestGet(sellMap, ts);
-      // grid_net_cost: only meaningful when grid is actually active.
-      // When battery powers home with no grid flow, cost = 0 → show —
-      const rawCost = nearestGet(costMap, ts);
-      const cost    = Math.abs(gridKw) > 0.05 ? rawCost : 0;
+      // kWh = kW × stepH where stepH is inferred from gap to next forecast timestamp
+      const stepH    = stepHFor(ts);
+      // Cost/Profit: export profit = |gridKwh| × sellP (negative), import cost = gridKwh × buyP (positive)
+      const gridKwh  = gridKw * stepH;
+      const cost     = gridKw < -0.05 ? -(Math.abs(gridKwh) * sellP)
+                     : gridKw >  0.05 ?   Math.abs(gridKwh) * buyP
+                     : 0;
 
       const cls = _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw);
       const c   = _HAEO_COLOURS[cls.color] || { bg: 'transparent', txt: 'var(--primary-text-color)', cost: 'var(--primary-text-color)' };
@@ -811,9 +814,6 @@ class HaeoEventsCard extends HTMLElement {
       const socCol   = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
       const costFmt  = _haeo_fmtCost(cost);
       const costCol  = costFmt.col || (cost > 0.0001 ? c.cost : c.txt);
-
-      // kWh = kW × stepH where stepH is inferred from gap to next forecast timestamp
-      const stepH    = stepHFor(ts);
       const fmtKwh   = (v) => Math.abs(v * stepH) > 0.001 ? (v * stepH).toFixed(3) : '—';
       const fmtKwhC  = (v, col) => {
         const kwh = v * stepH;
@@ -841,7 +841,7 @@ class HaeoEventsCard extends HTMLElement {
 
     tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="14" class="msg">No future forecast rows available.</td></tr>';
     requestAnimationFrame(() => this._setWrapHeight());
-  }
+  } // end _renderFutureInner
 
   // ── Past tab ────────────────────────────────────────────────────────────────
   _getRangeP() {
