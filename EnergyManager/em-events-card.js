@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.4.21';
+const _EMEC_VERSION = 'v2.4.22';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -318,7 +318,8 @@ function _emec_buildHTML() {
     '<div class="tabs">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
-    '<span id="range-past-wrap" style="display:none;margin-left:auto;align-self:center;padding-right:4px;">' +
+    '<span style="margin-left:auto;display:flex;gap:6px;align-items:center;align-self:center;padding-right:4px;">' +
+    '<span id="range-past-wrap" style="display:none;">' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option>' +
     '<option value="yesterday">Yesterday</option>' +
@@ -328,6 +329,8 @@ function _emec_buildHTML() {
     '<option value="96">Last 96h</option>' +
     '<option value="168">Last 7 days</option>' +
     '</select></span>' +
+    '<span id="tab-alerts" style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;"></span>' +
+    '</span>' +
     '</div>' +
 
     // ── Future pane ──
@@ -804,13 +807,17 @@ class EmEventsCard extends HTMLElement {
       '<span>💲 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
       '<span>💲 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
       (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;">' + exportLimitDisp + '</span></span>' : '') +
-      (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '') +
-      '<span style="margin-left:auto;display:flex;gap:8px;align-items:center;">' +
-      (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">📤 Forced Export from ' + forceExportTime + '</span>' : '') +
-      (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚡ Forced Import from ' + forceImportTime + '</span>' : '') +
-      (gridExportTime  ? '<span class="pill" style="background:#28a745;">⚡ Grid Export from ' + gridExportTime + '</span>' : '') +
-      (gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import from ' + gridImportTime + '</span>' : '') +
-      '</span>';
+      (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '');
+
+    // Alert pills in tab bar — right-aligned
+    const tabAlerts = this.shadowRoot.getElementById('tab-alerts');
+    if (tabAlerts) {
+      tabAlerts.innerHTML =
+        (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">📤 Forced Export from ' + forceExportTime + '</span>' : '') +
+        (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚡ Forced Import from ' + forceImportTime + '</span>' : '') +
+        (gridExportTime  ? '<span class="pill" style="background:#28a745;">⚡ Grid Export from ' + gridExportTime + '</span>' : '') +
+        (gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import from ' + gridImportTime + '</span>' : '');
+    }
 
     // Table rows
     const rows = [];
