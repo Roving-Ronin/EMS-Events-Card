@@ -1,5 +1,6 @@
-// HAEO Events Card
+// HAEO Events Card v2.4.1b
 // Combines Future Decisions (forecast) and Past Events (history) in one card
+// Enhanced with: Smart Alert Pills, single-pass day totals, improved formatting
 // Requires: sensor.grid_net_cost + associated HAEO sensors
 // Copy to /config/www/haeo-events-card.js
 // Add resource: /local/haeo-events-card.js (type: JavaScript module)
@@ -37,7 +38,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.3.9';
+const _HAEO_VERSION = 'v2.4.3b';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -52,6 +53,10 @@ const _HAEO_DEFAULTS = {
   haeo_buy_price:     'number.grid_import_price',
   haeo_sell_price:    'number.grid_export_price',
   haeo_grid_net_cost: 'sensor.grid_net_cost',
+  haeo_export_limit:  'number.grid_export_limit',
+  haeo_import_limit:  'number.grid_import_limit',
+  haeo_batt_charge_limit:    'number.battery_max_charge_power',
+  haeo_batt_discharge_limit: 'number.battery_max_discharge_power',
   // ── PAST tab: inverter power sensors (Sigenergy Local Modbus defaults) ──
   past_battery_power: 'sensor.sigen_plant_battery_power',       // -ve=discharge, +ve=charge
   past_load_power:    'sensor.sigen_plant_total_load_power',    // always +ve
@@ -98,6 +103,32 @@ const _HAEO_LEG_R = [
   ['#ccfff5','#333','🚗 EV Charger','Placeholder - EV Charger'],
   ['#ccfff5','#333','❄️ 🚿 Scheduled Load(s)','Placeholder - HVAC, HWS - Surplus Solar'],
 ];
+
+// ── Determine Mode and Focus from classification ────────────────────────────
+function _haeo_getModeAndFocus(label) {
+  let mode = '', focus = '';
+  let modeColor = '#9c27b0', focusColor = '#555';
+  
+  // Determine mode from label keywords
+  if (label.includes('Self Consumption') || label.includes('Battery → 🏠') || label.includes('Solar → 🏠')) {
+    mode = 'SELF CONSUMPTION';
+    modeColor = '#28a745'; // green
+    focus = 'Optimising Self Use';
+    focusColor = '#28a745';
+  } else if (label.includes('Profit') || label.includes('Grid Export') || label.includes('→ ⚡ Grid')) {
+    mode = 'MAXIMISE PROFIT';
+    modeColor = '#FF6B2C'; // orange
+    focus = 'Optimising Grid Export';
+    focusColor = '#FF6B2C';
+  } else if (label.includes('Cost') || label.includes('Grid Import') || label.includes('⚡ Grid →')) {
+    mode = 'MINIMISE COST';
+    modeColor = '#2196F3'; // blue
+    focus = 'Optimising Grid Import';
+    focusColor = '#2196F3';
+  }
+  
+  return { mode, focus, modeColor, focusColor };
+}
 
 // ── Classify future ───────────────────────────────────────────────────────────
 // battKw: positive = discharge, negative = charge
@@ -293,7 +324,7 @@ function _haeo_buildLegend() {
 }
 
 // ── Shared column definitions ─────────────────────────────────────────────────
-// Time(52) | Event(40%) | Buy(68) | Sell(68) | Load kW(44) kWh(46) | PV kW(44) kWh(46) | Grid kW(44) kWh(46) | Batt kW(44) kWh(46) | SoC(46) | Cost(68)
+// Time(52) | Event(40%) | Buy(68) | Sell(68) | Load kW(44) kWh(46) | PV kW(44) kWh(46) | Grid kW(44) kWh(46) | Batt kW(44) kWh(46) SoC(46) | Cost(68)
 const _HAEO_COLGROUP =
   '<colgroup>' +
   '<col style="width:52px;"><col style="width:40%;"><col style="width:68px;"><col style="width:68px;">' +
@@ -307,13 +338,12 @@ const _HAEO_THEAD =
   '<tr>' +
   '<th rowspan="2" style="text-align:left;vertical-align:bottom;">Time</th>' +
   '<th rowspan="2" style="text-align:center;vertical-align:bottom;">Event</th>' +
-  '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>$/kWh</th>' +
-  '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>$/kWh</th>' +
+  '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>$</th>' +
+  '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>$</th>' +
   '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Load</th>' +
   '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">PV</th>' +
   '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Grid</th>' +
-  '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Battery</th>' +
-  '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">SoC %</th>' +
+  '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Battery</th>' +
   '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Cost/<br>Profit</th>' +
   '</tr>' +
   '<tr>' +
@@ -325,6 +355,7 @@ const _HAEO_THEAD =
   '<th class="bgi" style="text-align:right;">kWh</th>' +
   '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
   '<th class="bgi" style="text-align:right;">kWh</th>' +
+  '<th class="bgi" style="text-align:right;">SoC %</th>' +
   '</tr>' +
   '</thead>';
 
@@ -336,8 +367,8 @@ const _HAEO_STYLE = [
   '.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--divider-color,#444); margin-bottom: 10px; align-items: stretch; }',
   '.tab { padding: 6px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--secondary-text-color); border-bottom: 3px solid transparent; margin-bottom: -2px; }',
   '.tab.active { color: #2196F3; border-bottom-color: #2196F3; background: rgba(33,150,243,0.07); }',
-  '.sbar { display: flex; gap: 14px; align-items: center; padding: 4px 0 8px 0; font-size: 12px; flex-wrap: wrap; width: 100%; border-bottom: 2px solid #888; margin-bottom: 0; }',
-  '.pill { padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 11px; color: #fff; }',
+  '.sbar { display: flex; gap: 8px; align-items: center; padding: 4px 0 8px 0; font-size: 12px; flex-wrap: wrap; width: 100%; border-bottom: 2px solid #888; margin-bottom: 0; }',
+  '.pill { padding: 3px 10px; border-radius: 12px; font-weight: 500; font-size: 11px; color: #fff; }',
   '.stxt { color: var(--secondary-text-color); font-size: 11px; }',
   '.wrap { overflow-y: auto; width: 100%; }',
   '.pane { display: none; }',
@@ -367,7 +398,8 @@ function _haeo_buildHTML() {
     '<div class="tabs">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
-    '<span id="range-past-wrap" style="display:none;margin-left:auto;align-self:center;padding-right:4px;">' +
+    '<span id="grid-export-alert" style="margin-left:auto;align-self:center;padding-right:8px;"></span>' +
+    '<span id="range-past-wrap" style="display:none;align-self:center;padding-right:4px;">' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option>' +
     '<option value="yesterday">Yesterday</option>' +
@@ -648,6 +680,24 @@ class HaeoEventsCard extends HTMLElement {
     const nowSoc  = parseFloat(this._hass?.states[this._eid('haeo_soc')]?.state)       || null;
     const nowBuy  = parseFloat(this._hass?.states[this._eid('haeo_buy_price')]?.state)  || null;
     const nowSell = parseFloat(this._hass?.states[this._eid('haeo_sell_price')]?.state) || null;
+    const exportLimit = parseFloat(this._hass?.states[this._eid('haeo_export_limit')]?.state) || null;
+    const importLimit = parseFloat(this._hass?.states[this._eid('haeo_import_limit')]?.state) || null;
+    const battChargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_charge_limit')]?.state) || null;
+    const battDischargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_discharge_limit')]?.state) || null;
+
+    // Current activity: use live sensors, fallback to forecast if unavailable
+    const liveGridKw = parseFloat(this._hass?.states[this._eid('haeo_grid')]?.state) || null;
+    const liveBattKw = parseFloat(this._hass?.states[this._eid('haeo_battery')]?.state) || null;
+    const currentGridKw = liveGridKw != null ? liveGridKw : gridMap.get(nowTs) || 0;
+    const currentBattKw = liveBattKw != null ? liveBattKw : battMap.get(nowTs) || 0;
+    const isGridImporting = currentGridKw > 0.05;  // 50W threshold
+    const isBattCharging = currentBattKw < -0.1;   // 100W threshold
+    const isGridExporting = currentGridKw < -0.05; // 50W threshold
+    const isBattExporting = currentBattKw > 0.1 && isGridExporting; // discharge + grid export
+
+    // Get current Mode and Focus
+    const nowClassification = _haeo_classifyFuture(solarMap.get(nowTs) || 0, loadMap.get(nowTs) || 0, currentBattKw, currentGridKw);
+    const { mode, focus, modeColor, focusColor } = _haeo_getModeAndFocus(nowClassification.label);
 
     // Morning SoC / Peak SoC — same logic as EM card
     let closestDiff = Infinity, chargingNow = false;
@@ -671,7 +721,7 @@ class HaeoEventsCard extends HTMLElement {
           pkTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(' 0', ' ');
         }
       }
-      if (pkSoc > 0) { dawnSoc = pkSoc; dawnTime = pkTime; dawnLabel = '🔋 Peak SoC'; }
+      if (pkSoc > 0) { dawnSoc = pkSoc; dawnTime = pkTime; dawnLabel = 'Peak SoC'; }
     } else {
       for (const row of primaryFc) {
         if (dawnSoc !== null) break;
@@ -680,46 +730,61 @@ class HaeoEventsCard extends HTMLElement {
         if ((solarMap.get(ts) || 0) > 0.5 && (battMap.get(ts) || 0) < -0.1) {
           dawnSoc   = socMap.get(ts) || 0;
           dawnTime  = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(' 0', ' ');
-          dawnLabel = '🌅 Morning SoC';
+          dawnLabel = 'Morning SoC';
         }
       }
     }
 
+    // ── Smart Alert Pills: next grid import/export windows ──
     let gridImportTime = '', gridExportTime = '';
+    const fmtSbarTime = (ts) => new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
     for (const row of primaryFc) {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
       const gridKw = gridMap.get(ts) || 0;
-      if (!gridImportTime && gridKw > 0.05)
-        gridImportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-      if (!gridExportTime && gridKw < -0.05)
-        gridExportTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      if (!gridImportTime && gridKw > 0.1)
+        gridImportTime = fmtSbarTime(ts);
+      if (!gridExportTime && gridKw < -0.1)
+        gridExportTime = fmtSbarTime(ts);
     }
 
     const socColor  = nowSoc  != null ? (nowSoc  <= 20 ? '#f44336' : nowSoc  >= 75 ? '#4caf50' : 'var(--primary-text-color)') : '';
     const dawnColor = dawnSoc != null ? (dawnSoc <= 20 ? '#f44336' : dawnSoc <= 35 ? '#ff9800' : '#4caf50') : '';
 
     sbar.innerHTML =
-      (nowSoc   != null ? '<span>🔋 SoC now: <strong style="color:' + socColor  + ';">' + nowSoc.toFixed(1)  + '%</strong></span>' : '') +
-      (dawnSoc  != null ? '<span>' + dawnLabel + ' (' + dawnTime + '): <strong style="color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%</strong></span>' : '') +
-      (nowBuy   != null ? '<span>💲 Buy: <strong>$' + nowBuy.toFixed(4)  + '/kWh</strong></span>' : '') +
-      (nowSell  != null ? '<span>💲 Sell: <strong>$' + nowSell.toFixed(4) + '/kWh</strong></span>' : '') +
-      (gridImportTime ? '<span class="pill" style="background:#e65100;">⚡ Grid import from ' + gridImportTime + '</span>' : '') +
-      (gridExportTime ? '<span class="pill" style="background:#2e7d32;">📤 Grid export from ' + gridExportTime + '</span>' : '') +
-      '<span style="margin-left:auto;"></span>';
+      (mode ? '📌 Mode: <span class="pill" style="background-color:' + (modeColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + mode + '</span>' : '') +
+      (focus ? '🎯 Focus: <span class="pill" style="background-color:' + (focusColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + focus + '</span>' : '') +
+      (nowSoc   != null ? '🔋 SoC now: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + nowSoc.toFixed(1)  + '%</span>' : '') +
+      (dawnSoc  != null ? '☀️ ' + dawnLabel + ': <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + dawnSoc.toFixed(1) + '% (' + dawnTime + ')</span>' : '') +
+      (nowBuy   != null ? '💲 Buy: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">$' + nowBuy.toFixed(4)  + '</span>' : '') +
+      (nowSell  != null ? '💲 Sell: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">$' + nowSell.toFixed(4) + '</span>' : '') +
+      (exportLimit != null ? '📤 Export Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + exportLimit.toFixed(2) + ' kW</span>' : '') +
+      (isGridImporting && importLimit != null ? '⚡ Import Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + importLimit.toFixed(2) + ' kW</span>' : '') +
+      (isBattCharging && battChargeLimit != null ? '🔋 ESS Charge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battChargeLimit.toFixed(2) + ' kW</span>' : '') +
+      (isBattExporting && battDischargeLimit != null ? '🔋 ESS Discharge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battDischargeLimit.toFixed(2) + ' kW</span>' : '');
 
-    // ── Pre-pass: daily cost and kWh totals ──
+    // Set grid export alert in tab bar
+    const alertEl = this.shadowRoot.getElementById('grid-export-alert');
+    if (alertEl) {
+      alertEl.innerHTML = gridExportTime ? '<span class="pill" style="background:#2e7d32;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">📤 Grid export from ' + gridExportTime + '</span>' : '';
+    }
+
+    // ── Single-pass day totals: accumulate while iterating ──
+    // Pre-pass: daily cost and kWh totals (single loop)
     const dailyCosts = {};
     const dailyKwh   = {};
+    const dailyOrder = [];  // Track order of first appearance
+
     for (const row of primaryFc) {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
-      const day     = new Date(ts).toLocaleDateString('en-CA');
+      const dayStr = new Date(ts).toLocaleDateString('en-CA');
       const battKw  = battMap.get(ts)  || 0;
       const gridKw  = gridMap.get(ts)  || 0;
       const loadKw  = loadMap.get(ts)  || 0;
       const solarKw = solarMap.get(ts) || 0;
       const stepH   = stepHFor(ts);
+
       // Cost/Profit: export = |gridKwh| × sellP (negative = profit), import = gridKwh × buyP (positive = cost)
       const buyP0   = nearestGet(buyMap, ts);
       const sellP0  = nearestGet(sellMap, ts);
@@ -727,16 +792,56 @@ class HaeoEventsCard extends HTMLElement {
       const cost    = gridKw < -0.05 ? -(Math.abs(gridKwh0) * sellP0)
                     : gridKw >  0.05 ?   Math.abs(gridKwh0) * buyP0
                     : 0;
-      dailyCosts[day] = (dailyCosts[day] || 0) + cost;
-      const dk = dailyKwh[day] || { load:0, pv:0, grid:0, batt:0 };
+
+      if (!dailyCosts.hasOwnProperty(dayStr)) {
+        dailyOrder.push(dayStr);
+        dailyCosts[dayStr] = 0;
+        dailyKwh[dayStr] = { load: 0, pv: 0, grid: 0, batt: 0 };
+      }
+
+      dailyCosts[dayStr] += cost;
+      const dk = dailyKwh[dayStr];
       dk.load += loadKw  * stepH;
       dk.pv   += solarKw * stepH;
-      dk.grid += gridKw  * stepH;  // +ve=import, -ve=export
-      dk.batt += battKw  * stepH;  // +ve=discharge, -ve=charge
-      dailyKwh[day] = dk;
+      dk.grid += gridKw  * stepH;
+      dk.batt += battKw  * stepH;
     }
 
-    // ── Table rows ──
+    // ── Build day header row ──
+    const _buildDayHeaderRow = (day) => {
+      const dayTotal = dailyCosts[day] || 0;
+      const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0 };
+      const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
+      const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+      const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
+      const fmtGrid = (v) => {
+        if (Math.abs(v) <= 0.001) return '—';
+        const col = v < 0 ? '#4caf50' : '#f44336';
+        return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
+      };
+      const fmtBatt = (v) => {
+        if (Math.abs(v) <= 0.001) return '—';
+        const col = v < 0 ? '#f44336' : '#4caf50';
+        return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
+      };
+      return '<tr class="dr">' +
+        '<td colspan="2">' + dayLabel + '</td>' +
+        '<td class="bgl" colspan="2"></td>' +
+        '<td class="bgl"></td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtKd(dk.load) + '</td>' +
+        '<td class="bgl"></td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtKd(dk.pv) + '</td>' +
+        '<td class="bgl"></td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtGrid(dk.grid) + '</td>' +
+        '<td class="bgl"></td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtBatt(-dk.batt) + '</td>' +
+        '<td class="bgi" style="text-align:right;"></td>' +
+        '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLabel + '</td>' +
+        '</tr>';
+    };
+
+    // ── Table rows: single pass with day header injection ──
     const rows = [];
     let lastDay = '';
 
@@ -744,44 +849,13 @@ class HaeoEventsCard extends HTMLElement {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
 
-      const day     = new Date(ts).toLocaleDateString('en-CA');
+      const dayStr  = new Date(ts).toLocaleDateString('en-CA');
       const timeStr = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-      if (day !== lastDay) {
-        lastDay = day;
-        const dayTotal = dailyCosts[day] || 0;
-        const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0 };
-        const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
-        const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(ts).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-        // cost: positive = money spent (import), negative = money earned (export)
-        const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
-        const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
-        // Grid: negative=export(green), positive=import(red)
-        const fmtKdCol = (v) => {
-          if (Math.abs(v) <= 0.001) return '—';
-          const col = v < 0 ? '#4caf50' : '#f44336';
-          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-        };
-        // Battery: negative=discharge(red), positive=charge(green) — inverted from grid
-        const fmtKdColBatt = (v) => {
-          if (Math.abs(v) <= 0.001) return '—';
-          const col = v < 0 ? '#f44336' : '#4caf50';
-          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-        };
-        rows.push('<tr class="dr">' +
-          '<td colspan="2">' + dayLabel + '</td>' +
-          '<td class="bgl" colspan="2"></td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKd(dk.load) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKd(dk.pv) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKdCol(dk.grid) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-dk.batt) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLabel + '</td>' +
-          '</tr>');
+      // Inject day header when day changes
+      if (dayStr !== lastDay) {
+        lastDay = dayStr;
+        rows.push(_buildDayHeaderRow(dayStr));
       }
 
       // Power sensors share the battery timestamp axis — exact match
@@ -805,11 +879,11 @@ class HaeoEventsCard extends HTMLElement {
       const c   = _HAEO_COLOURS[cls.color] || { bg: 'transparent', txt: 'var(--primary-text-color)', cost: 'var(--primary-text-color)' };
 
       // Grid: positive=import (red=costing), negative=export (green=earning)
-      const gridCol  = gridKw > 0 ? '#f44336' : gridKw < 0 ? '#4caf50' : c.txt;
+      const gridCol  = gridKw > 0.1 ? '#f44336' : gridKw < -0.1 ? '#4caf50' : c.txt;
       // Battery: positive=discharge=red, negative=charge; charge from grid=amber, from solar=green
-      const battCol  = battKw > 0.05 ? '#f44336'
-                     : battKw < -0.05 && gridKw > 0.05 ? '#ff9800'
-                     : battKw < -0.05 ? '#4caf50'
+      const battCol  = battKw > 0.1 ? '#f44336'
+                     : battKw < -0.1 && gridKw > 0.1 ? '#ff9800'
+                     : battKw < -0.1 ? '#4caf50'
                      : c.txt;
       const socCol   = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
       const costFmt  = _haeo_fmtCost(cost);
@@ -834,7 +908,7 @@ class HaeoEventsCard extends HTMLElement {
         '<td class="bgi">' + (Math.abs(gridKw) >= 0.1 ? fmtKwhC(gridKw, gridCol) : '—') + '</td>' +
         '<td class="bgl">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span>' : '—') + '</td>' +
         '<td class="bgi">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + fmtKwh(-battKw) + '</span>' : '—') + '</td>' +
-        '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
+        '<td class="bgi"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
         '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
         '</tr>');
     }
@@ -909,11 +983,6 @@ class HaeoEventsCard extends HTMLElement {
       }
 
       // Build unit multiplier maps from LIVE sensor state unit_of_measurement.
-      // This is the most reliable source — the history API stores values in whatever
-      // unit the sensor was reporting, which matches the live state unit.
-      // Power sensors: W→÷1000, kW→×1, MW→×1000 (normalise to kW)
-      // Energy sensors: Wh→÷1000, kWh→×1, MWh→×1000, GWh→×1000000 (normalise to kWh)
-      // Unit multipliers — read from live sensor state unit_of_measurement
       this._pwrMult = {
         battery: _haeo_powerMult(this._hass, this._eid('past_battery_power')),
         grid:    _haeo_powerMult(this._hass, this._eid('past_grid_power')),
@@ -928,17 +997,6 @@ class HaeoEventsCard extends HTMLElement {
         past_battery_charge_energy:    _haeo_energyMult(this._hass, this._eid('past_battery_charge_energy')),
         past_battery_discharge_energy: _haeo_energyMult(this._hass, this._eid('past_battery_discharge_energy')),
       };
-      // Sanity check: log warning if any power value looks implausibly large after unit conversion
-      const _checkPwr = (key, mKey) => {
-        const arr = lookup[this._eid(key)];
-        if (!arr || !arr.length) return;
-        const sample = Math.abs(parseFloat(arr[0].s) || 0) * this._pwrMult[mKey];
-        if (sample > 500) console.warn('HAEO card: ' + key + ' = ' + sample.toFixed(1) + ' kW — check unit_of_measurement');
-      };
-      _checkPwr('past_battery_power', 'battery');
-      _checkPwr('past_grid_power',    'grid');
-      _checkPwr('past_load_power',    'load');
-      _checkPwr('past_solar_power',   'solar');
 
       // Auto-switch to Last 24h if today has no load data
       if (!lookup[this._eid('past_load_power')]?.length) {
@@ -962,12 +1020,15 @@ class HaeoEventsCard extends HTMLElement {
       for (let t = startMs; t <= end.getTime(); t += step) entries.push(t);
       entries.reverse();
 
-      // ── Pass 1: daily cost and kWh totals ──
+      // ── Single-pass day totals ──
       const pastDailyCosts = {};
       const pastDailyKwh   = {};
+      const pastDailyOrder = [];
+
       for (const ts of entries) {
         const dt     = new Date(ts);
         const dayStr = dt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
         // Sigenergy battery: -ve=discharge, +ve=charge → negate to internal convention (+ve=discharge)
         const battKwR= (parseFloat(_haeo_getAt(lookup[this._eid('past_battery_power')], ts)) || 0) * this._pwrMult.battery;
         const battKw = -battKwR;
@@ -978,20 +1039,59 @@ class HaeoEventsCard extends HTMLElement {
         const buyP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
         const sellP  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
         const stepH  = 5 / 60;
-        // Cost: import (gridKw > 0) = positive cost, export (gridKw < 0) = negative (earning)
+
         const importing = gridKw > 0.1;
         const exporting = gridKw < -0.1;
         const cost = importing ? Math.abs(gridKw) * buyP * stepH : exporting ? -(gridKw * sellP * stepH) : 0;
-        pastDailyCosts[dayStr] = (pastDailyCosts[dayStr] || 0) + cost;
-        const dk = pastDailyKwh[dayStr] || { load:0, pv:0, grid:0, batt:0 };
+
+        if (!pastDailyCosts.hasOwnProperty(dayStr)) {
+          pastDailyOrder.push(dayStr);
+          pastDailyCosts[dayStr] = 0;
+          pastDailyKwh[dayStr] = { load: 0, pv: 0, grid: 0, batt: 0 };
+        }
+
+        pastDailyCosts[dayStr] += cost;
+        const dk = pastDailyKwh[dayStr];
         dk.load += loadKw  * stepH;
         dk.pv   += solarKw * stepH;
         dk.grid += gridKw  * stepH;
         dk.batt += battKw  * stepH;
-        pastDailyKwh[dayStr] = dk;
       }
 
-      // ── Pass 2: render rows ──
+      // ── Build day header row (same as future tab) ──
+      const _buildDayHeaderRowPast = (day) => {
+        const dayTotal = pastDailyCosts[day] || 0;
+        const pk       = pastDailyKwh[day]   || { load:0, pv:0, grid:0, batt:0 };
+        const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
+        const dayCostLbl = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+        const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
+        const fmtKdCol = (v) => {
+          if (Math.abs(v) <= 0.001) return '—';
+          const col = v < 0 ? '#4caf50' : '#f44336';
+          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
+        };
+        const fmtKdColBatt = (v) => {
+          if (Math.abs(v) <= 0.001) return '—';
+          const col = v < 0 ? '#f44336' : '#4caf50';
+          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
+        };
+        return '<tr class="dr">' +
+          '<td colspan="2">📅 ' + day + '</td>' +
+          '<td class="bgl" colspan="2"></td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="text-align:right;">' + fmtKd(pk.load) + '</td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="text-align:right;">' + fmtKd(pk.pv) + '</td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="text-align:right;">' + fmtKdCol(pk.grid) + '</td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-pk.batt) + '</td>' +
+          '<td class="bgi" style="text-align:right;"></td>' +
+          '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLbl + '</td>' +
+          '</tr>';
+      };
+
+      // ── Pass 2: render rows with day header injection ──
       const rows = [];
       let lastDay = '';
 
@@ -1000,47 +1100,15 @@ class HaeoEventsCard extends HTMLElement {
         const dayStr  = dt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
         const timeStr = dt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+        // Inject day header when day changes
         if (dayStr !== lastDay) {
           lastDay = dayStr;
-          const dayTotal = pastDailyCosts[dayStr] || 0;
-          const pk       = pastDailyKwh[dayStr]   || { load:0, pv:0, grid:0, batt:0 };
-          const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
-          // dayTotal: positive = cost, negative = earned
-          const dayCostLbl = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
-          const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
-          // Grid: negative=export(green), positive=import(red)
-          const fmtKdCol = (v) => {
-            if (Math.abs(v) <= 0.001) return '—';
-            const col = v < 0 ? '#4caf50' : '#f44336';
-            return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-          };
-          // Battery: negative=discharge(red), positive=charge(green)
-          const fmtKdColBatt = (v) => {
-            if (Math.abs(v) <= 0.001) return '—';
-            const col = v < 0 ? '#f44336' : '#4caf50';
-            return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-          };
-          rows.push('<tr class="dr">' +
-            '<td colspan="2">📅 ' + dayStr + '</td>' +
-            '<td class="bgl" colspan="2"></td>' +
-            '<td class="bgl"></td>' +
-            '<td class="bgi" style="text-align:right;">' + fmtKd(pk.load) + '</td>' +
-            '<td class="bgl"></td>' +
-            '<td class="bgi" style="text-align:right;">' + fmtKd(pk.pv) + '</td>' +
-            '<td class="bgl"></td>' +
-            '<td class="bgi" style="text-align:right;">' + fmtKdCol(pk.grid) + '</td>' +
-            '<td class="bgl"></td>' +
-            '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-pk.batt) + '</td>' +
-            '<td class="bgl"></td>' +
-            '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLbl + '</td>' +
-            '</tr>');
+          rows.push(_buildDayHeaderRowPast(dayStr));
         }
 
-        // Power values from Sigenergy inverter sensors (actual measured values)
-        // Sigenergy battery: -ve=discharge, +ve=charge → negate to internal convention (+ve=discharge)
+        // Power values from Sigenergy inverter sensors
         const battKwR = (parseFloat(_haeo_getAt(lookup[this._eid('past_battery_power')], ts)) || 0) * this._pwrMult.battery;
         const battKw  = -battKwR;
-        // Sigenergy grid: +ve=import, -ve=export (matches display convention — no negation)
         const gridKw  = (parseFloat(_haeo_getAt(lookup[this._eid('past_grid_power')],   ts)) || 0) * this._pwrMult.grid;
         const loadKw  = (parseFloat(_haeo_getAt(lookup[this._eid('past_load_power')],   ts)) || 0) * this._pwrMult.load;
         const solarKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_solar_power')],  ts)) || 0) * this._pwrMult.solar;
@@ -1054,7 +1122,7 @@ class HaeoEventsCard extends HTMLElement {
         const c   = _HAEO_COLOURS[cls.color] || { bg: '#ffffcc', txt: '#888888', cost: '#888888' };
 
         // Grid: positive=import (red=costing), negative=export (green=earning)
-        const gridCol = gridKw > 0 ? '#f44336' : gridKw < 0 ? '#4caf50' : c.txt;
+        const gridCol = gridKw > 0.1 ? '#f44336' : gridKw < -0.1 ? '#4caf50' : c.txt;
         // Battery: positive=discharge=red, negative=charge; from grid=amber, from solar=green
         const battCol = battKw > 0.05 ? '#f44336'
                       : battKw < -0.05 && gridKw > 0.05 ? '#ff9800'
@@ -1062,7 +1130,7 @@ class HaeoEventsCard extends HTMLElement {
                       : c.txt;
         const socCol  = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
 
-        // Cost for this slot — Sigenergy: positive=import, negative=export
+        // Cost for this slot
         const stepH    = 5 / 60;
         const importing = gridKw > 0.1;
         const exporting = gridKw < -0.1;
@@ -1070,7 +1138,7 @@ class HaeoEventsCard extends HTMLElement {
         const costFmt   = _haeo_fmtCost(slotCost);
         const costCol   = costFmt.col || (slotCost > 0.0001 ? c.cost : c.txt);
 
-        // Energy kWh deltas from total_increasing sensors — multiplied to normalise to kWh
+        // Energy kWh deltas from total_increasing sensors
         const prevTs  = ts - step;
         const eLoad   = _haeo_getDelta(lookup[this._eid('past_load_energy')],              ts, prevTs, this._engMult.past_load_energy);
         const eSolar  = _haeo_getDelta(lookup[this._eid('past_solar_energy')],             ts, prevTs, this._engMult.past_solar_energy);
@@ -1078,23 +1146,18 @@ class HaeoEventsCard extends HTMLElement {
         const eGExp   = _haeo_getDelta(lookup[this._eid('past_grid_export_energy')],       ts, prevTs, this._engMult.past_grid_export_energy);
         const eBattC  = _haeo_getDelta(lookup[this._eid('past_battery_charge_energy')],    ts, prevTs, this._engMult.past_battery_charge_energy);
         const eBattD  = _haeo_getDelta(lookup[this._eid('past_battery_discharge_energy')], ts, prevTs, this._engMult.past_battery_discharge_energy);
-        // Grid kWh: only show when kW is above threshold — suppresses energy sensor noise
-        // Export: show as negative (earning); Import: show as positive (costing)
-        // Fall back to kW×stepH estimate if energy sensor returns null
+
         const stepHG  = 5 / 60;
         const eGrid   = exporting ? (eGExp !== null ? -eGExp : -(Math.abs(gridKw) * stepHG))
                       : importing ? (eGImp !== null ?  eGImp :   Math.abs(gridKw) * stepHG)
                       : null;
-        // Batt kWh: sign matches display convention (discharge=-kW/-kWh, charge=+kW/+kWh)
-        // Fall back to kW×stepH estimate if energy sensor returns null (e.g. daily-reset gap)
         const stepHB  = 5 / 60;
         const eBatt   = battKw > 0.1
-          ? (eBattD !== null ? -eBattD : -(battKw * stepHB))        // discharge → negative
+          ? (eBattD !== null ? -eBattD : -(battKw * stepHB))
           : battKw < -0.1
-          ? (eBattC !== null ? eBattC  :  (-battKw * stepHB))       // charge → positive (battKw is -ve)
+          ? (eBattC !== null ? eBattC  :  (-battKw * stepHB))
           : null;
 
-        // Threshold 0.005 kWh (5 Wh) to suppress sensor noise and tiny update artefacts
         const fmtE = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(3) : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
@@ -1110,7 +1173,7 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgi">' + (Math.abs(gridKw) >= 0.1 && eGrid !== null && Math.abs(eGrid) > 0.005 ? '<span style="color:' + gridCol + ';">' + eGrid.toFixed(3) + '</span>' : '—') + '</td>' +
           '<td class="bgl">' + (Math.abs(battKw) >= 0.1 ? '<span style="color:' + battCol + ';">' + (-battKw).toFixed(2) + '</span>' : '—') + '</td>' +
           '<td class="bgi">' + (Math.abs(battKw) >= 0.1 && eBatt !== null && Math.abs(eBatt) > 0.005 ? '<span style="color:' + battCol + ';">' + eBatt.toFixed(3) + '</span>' : '—') + '</td>' +
-          '<td class="bgl"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
+          '<td class="bgi"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
           '<td class="bgl"><span style="color:' + costCol + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
           '</tr>');
       }
