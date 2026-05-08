@@ -4,6 +4,26 @@ All notable changes to `em-events-card.js` are documented here.
 
 ---
 
+## v2.5.2
+- **Column layout refactored to match HAEO Events Card** — 14-column structure with identical colgroup and CSS styling
+- **SoC % moved under Battery** — now appears as sub-column in row 2 header (kW | kWh | SoC %), not standalone column
+- **Full-width table layout** — Event column uses `width:auto; min-width:154px` to expand and fill available space
+- **Scrollbar compensation** — `_setWrapHeight()` measures scrollbar width and adjusts header table width accordingly for perfect alignment
+- **Alert pills now show date context for future days** — today shows "3:30pm", future days show "Saturday 3:30pm" (full day name + time)
+- **Alerts only appear in FUTURE tab** — automatically cleared on PAST Events tab (warnings are for planned/future events only)
+- **All alert types include day context** — Grid Export, Grid Import, Forced Export, and Forced Import warnings all formatted with day name for clarity
+
+## v2.5.1
+- **Date timezone fix** — Past tab now uses `toLocaleDateString('en-AU')` for display labels, matching HAEO card's proven approach
+- Friday 8 May now correctly displays as Friday, not Saturday (fixed UTC offset issue in date parsing)
+
+## v2.5.0
+- **GloBird Super Export cap tracking** — daily export cap reset with tightened `lastDayForCap` logic using consistent `toLocaleDateString('en-CA')` format
+- **Delta threshold tolerance** — changed `delta < 0` to `delta < -0.01` to filter floating-point noise around midnight
+- **Past tab single-pass render** — eliminated two-pass approach, now uses running totals (`curPastDay`, `curPastKwh`) with inline day header injection
+- **GloBird super export remaining pill** — displays in status bar showing "⚡ Super Export: X.X kWh remaining" (green) or "Cap reached" (orange)
+- **Refactored future tab rendering** — split `_renderFuture()` into smaller methods (`_buildSbar`, `_buildDayHeaderRow`, `_buildTimelineRow`) for maintainability
+
 ## v2.4.15
 - Export Limit and Charge Limit values now displayed as neutral grey pills
 - Export Limit pill only shown when next timeline decision involves grid export
