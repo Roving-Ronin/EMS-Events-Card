@@ -4,6 +4,133 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
+## [v2.5.1] — 2026-05-08
+
+### Added
+- **EV event classification** — `_haeo_classifyFuture()` and `_haeo_classifyPast()` now accept EV power parameter and generate event labels reflecting EV charging/discharging scenarios (e.g. `Solar + Battery + EV → Home`, `EV → Home`, `EV + Grid → Home`)
+- **EV charging color coding** — EV kW/kWh columns now display with semantic colors: discharging to home=amber, discharging to grid=red, charging from solar=green, charging from grid=red
+
+### Changed
+- **Battery/EV display convention reversed** — battery and EV kW values now negated for display so positive=charging, negative=discharging (opposite of raw sensor convention). Makes display more intuitive: charging shows positive, discharging shows negative
+- **Battery color logic updated** — charging from grid=red, charging from solar=green, discharging=red (adjusted for new display convention)
+- **16:00 row color** — "Solar + Battery → Home + Grid (Force)" scenario now uses `#ffb3b3` (darker pink) instead of light teal for improved readability in light mode
+- **Legend updated** — added darker pink entry for "Solar + Battery → Home + Grid (Force)" scenario
+
+---
+
+## [v2.5.0c] — 2026-05-08
+
+### Fixed
+- **Past tab column count mismatch** — day header rows and error messages had colspan="14" but should be 17 to match EV column additions. Past tab data rows were missing 3 EV columns causing blank area on right
+
+---
+
+## [v2.5.0b] — 2026-05-08
+
+### Added
+- **EV column (17 columns total)** — added kW, kWh, and SoC% sub-columns for EV charging/discharging tracking between Battery and Cost/Profit columns
+- **EV sensor defaults** — `sensor.ev_active_power` and `sensor.ev_state_of_charge`
+- **EV daily kWh accumulation** — Past tab daily totals now include EV energy
+
+### Changed
+- **Table structure** — all colspan values updated from 14 to 17 to accommodate EV columns
+
+---
+
+## [v2.5.0a] — 2026-05-08
+
+### Added
+- **Mode and Focus pills** — status bar now displays current optimizer mode (SELF CONSUMPTION / MAXIMISE PROFIT / MINIMISE COST) with semantic colors (green / orange / blue) and corresponding focus statement
+- **Limit sensor support** — added defaults for grid export/import limits, battery charge/discharge limits with conditional visibility logic based on current activity
+- **EV1 fallback sensor support** — EV power and SoC can use either `sensor.ev_active_power`/`sensor.ev_state_of_charge` (primary) or `sensor.ev1_active_power`/`sensor.ev1_state_of_charge` (fallback)
+
+### Changed
+- **Status bar restructure** — Mode/Focus pills now appear at far left, other pills follow in standard order
+
+---
+
+## [v2.4.2] — 2026-05-07
+
+### Added
+- **Sensor existence checking** — new `_evSensorExists()` method detects if EV sensors are present in HA
+- **EV sensor missing indicator** — displays `x` in EV columns when sensors not found (vs `—` for no activity)
+- **Light mode text color** — rows with light backgrounds now use black text in light mode for better contrast
+
+### Changed
+- **EV display** — shows `x` when sensor missing, `—` when no activity, actual values when data present
+- **Battery/EV color coding** — amber for charging from grid, green for charging from solar/battery, red for discharging
+
+---
+
+## [v2.4.1l] — 2026-05-06
+
+### Added
+- **Limit sensor defaults** — grid export/import limits, battery charge/discharge limits now read from Home Assistant
+- **Conditional limit visibility** — Import Limit only shows when importing; ESS Charge Limit only when charging; ESS Discharge Limit only when discharging+exporting
+
+---
+
+## [v2.4.1k] — 2026-05-06
+
+### Fixed
+- **Grid and battery kW/kWh display** — values below ±100W threshold now consistently show `—` in both Future and Past tabs
+
+---
+
+## [v2.4.1j] — 2026-05-05
+
+### Changed
+- **Grid export alert position** — moved from status bar to tab bar far right as a standalone green pill badge
+- **Alert format** — single green pill containing full label and time (e.g. `📤 Grid export from 6:50 pm`)
+
+---
+
+## [v2.4.1i] — 2026-05-05
+
+### Changed
+- **SoC column restructure** — Battery SoC% moved from own column to display under Battery kWh column (right-aligned alongside kWh)
+- **Morning/Peak SoC format** — time now included inside pill badge (e.g. `50.7% (8:00 am)`)
+- **Time format** — 12-hour format without leading zero on hour (e.g. `6:00 am` not `06:00 am`)
+- **Buy/Sell pill labels** — removed `/kWh` suffix, display price only
+- **Status bar pills** — all non-modal pills now use neutral grey background (#555) with white text
+
+---
+
+## [v2.4.1h] — 2026-05-05
+
+### Changed
+- **Status bar pill redesign** — SoC%, Morning SoC, Buy/Sell prices now display as grey pills with white text instead of plain text
+- **Pill styling** — consistent padding, border-radius, and font-weight across all status bar indicators
+
+---
+
+## [v2.4.1] — 2026-05-04
+
+### Added
+- **EV2 sensor support** — added `sensor.ev2_active_power` and `sensor.ev2_state_of_charge` for second EV charging tracking
+- **EV2 columns** — 18-column layout with separate EV and EV2 kW/kWh/SoC% sub-columns
+
+### Changed
+- **Event column width** — reduced from 220px to 154px (70% of original) to make room for additional columns
+- **Column padding** — added 8px right padding to data columns to prevent negative numbers from touching borders
+- **Colgroup structure** — Event column changed from 40% to `auto; min-width:154px` for flexible sizing
+
+---
+
+## [v2.4.0] — 2026-05-03
+
+### Added
+- **EV1 sensor support** — added `sensor.ev_active_power` and `sensor.ev_state_of_charge` for EV charging tracking
+- **EV columns** — 17-column layout with EV kW/kWh/SoC% sub-columns between Battery and Cost/Profit
+- **EV SoC color coding** — red ≤20%, green ≥80%, default otherwise
+- **Daily EV kWh accumulation** — Future and Past tabs now track daily EV energy totals
+
+### Changed
+- **Table structure** — all colspan values updated from 14 to 17
+- **Colgroup** — adjusted column widths to accommodate EV columns
+
+---
+
 ## [v2.3.8] — 2026-04-28
 
 ### Fixed
@@ -59,7 +186,7 @@ All notable changes to `haeo-events-card.js` are documented here.
 - **Grid kWh fallback** — same fallback for grid import/export energy sensors when delta is null
 
 ### Fixed
-- **Grid and battery kW noise display** — values below ±50W (0.05 kW) now show `—` instead of small coloured numbers
+- **Grid and battery kW/kWh noise display** — values below ±50W (0.05 kW) now show `—` instead of small coloured numbers
 
 ---
 
