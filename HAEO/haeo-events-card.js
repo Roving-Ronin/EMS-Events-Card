@@ -1,4 +1,4 @@
-// HAEO Events Card v2.5.1
+// HAEO Events Card v2.5.2
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Enhanced with: Smart Alert Pills, single-pass day totals, improved formatting
 // Requires: sensor.grid_net_cost + associated HAEO sensors
@@ -38,7 +38,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.5.1';
+const _HAEO_VERSION = 'v2.5.2';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -692,6 +692,8 @@ class HaeoEventsCard extends HTMLElement {
     });
     const wrap = sr.getElementById('range-past-wrap');
     if (wrap) wrap.style.display = tab === 'past' ? 'inline-flex' : 'none';
+    const alertEl = sr.getElementById('grid-export-alert');
+    if (alertEl) alertEl.style.display = tab === 'future' ? 'inline' : 'none';
     requestAnimationFrame(() => this._setWrapHeight());
   }
 
@@ -875,17 +877,43 @@ class HaeoEventsCard extends HTMLElement {
       }
     }
 
-    // ── Smart Alert Pills: next grid import/export windows ──
-    let gridImportTime = '', gridExportTime = '';
+    // Smart alert pills: next grid import/export & force charge/discharge windows (FUTURE TAB ONLY)
+    let gridImportTime = '', gridExportTime = '', forceChargeTime = '', forceDischargeTime = '';
     const fmtSbarTime = (ts) => new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    const fmtAlertTime = (ts) => {
+      const d = new Date(ts);
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const eventDayStr = d.toLocaleDateString('en-CA');
+      const timeStr = fmtSbarTime(ts);
+      if (eventDayStr !== todayStr) {
+        const dayName = d.toLocaleDateString('en-AU', { weekday: 'short' });
+        return dayName + ' ' + timeStr;
+      }
+      return timeStr;
+    };
     for (const row of primaryFc) {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
       const gridKw = gridMap.get(ts) || 0;
+      const battKw = battMap.get(ts) || 0;
+      const solarKw = solarMap.get(ts) || 0;
+      const loadKw = loadMap.get(ts) || 0;
+      
+      // Grid Import (grid > 0.1 kW)
       if (!gridImportTime && gridKw > 0.1)
-        gridImportTime = fmtSbarTime(ts);
+        gridImportTime = fmtAlertTime(ts);
+      
+      // Grid Export (grid < -0.1 kW)
       if (!gridExportTime && gridKw < -0.1)
-        gridExportTime = fmtSbarTime(ts);
+        gridExportTime = fmtAlertTime(ts);
+      
+      // Force Charge: battery charging from grid (battKw < -0.1 and gridKw > 0.1 and solarKw < 0.05)
+      if (!forceChargeTime && battKw < -0.1 && gridKw > 0.1 && solarKw < 0.05)
+        forceChargeTime = fmtAlertTime(ts);
+      
+      // Force Discharge: battery discharging to grid (battKw > 0.1 and gridKw < -0.1)
+      if (!forceDischargeTime && battKw > 0.1 && gridKw < -0.1)
+        forceDischargeTime = fmtAlertTime(ts);
     }
 
     const socColor  = nowSoc  != null ? (nowSoc  <= 20 ? '#f44336' : nowSoc  >= 75 ? '#4caf50' : 'var(--primary-text-color)') : '';
@@ -903,10 +931,17 @@ class HaeoEventsCard extends HTMLElement {
       (isBattCharging && battChargeLimit != null ? '🔋 ESS Charge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battChargeLimit.toFixed(2) + ' kW</span>' : '') +
       (isBattExporting && battDischargeLimit != null ? '🔋 ESS Discharge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battDischargeLimit.toFixed(2) + ' kW</span>' : '');
 
-    // Set grid export alert in tab bar
+    // Set grid export alert in tab bar (FUTURE TAB ONLY - hide when on Past tab)
     const alertEl = this.shadowRoot.getElementById('grid-export-alert');
     if (alertEl) {
-      alertEl.innerHTML = gridExportTime ? '<span class="pill" style="background:#2e7d32;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">📤 Grid export from ' + gridExportTime + '</span>' : '';
+      let alertHtml = '';
+      if (gridImportTime) alertHtml += '<span class="pill" style="background:#ff6b6b;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;margin-right:4px;">⚡ Grid import from ' + gridImportTime + '</span>';
+      if (gridExportTime) alertHtml += '<span class="pill" style="background:#2e7d32;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;margin-right:4px;">📤 Grid export from ' + gridExportTime + '</span>';
+      if (forceChargeTime) alertHtml += '<span class="pill" style="background:#ff9800;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;margin-right:4px;">🔋 Force charge from ' + forceChargeTime + '</span>';
+      if (forceDischargeTime) alertHtml += '<span class="pill" style="background:#f44336;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">🔋 Force discharge from ' + forceDischargeTime + '</span>';
+      alertEl.innerHTML = alertHtml;
+      alertEl.style.display = this._activeTab === 'future' && alertHtml ? 'flex' : 'none';
+      if (alertEl.style.display === 'flex') alertEl.style.gap = '4px';
     }
 
     // ── Single-pass day totals: accumulate while iterating ──
