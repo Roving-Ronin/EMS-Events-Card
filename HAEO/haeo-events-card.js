@@ -1,4 +1,4 @@
-// HAEO Events Card v2.5.1a
+// HAEO Events Card v2.5.1
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Enhanced with: Smart Alert Pills, single-pass day totals, improved formatting
 // Requires: sensor.grid_net_cost + associated HAEO sensors
@@ -38,7 +38,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.5.1a';
+const _HAEO_VERSION = 'v2.5.1';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
