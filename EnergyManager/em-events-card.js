@@ -4,7 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.5.2';
+const _EMEC_VERSION = 'v2.6.0';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -57,6 +57,48 @@ const _EMEC_LEG_R = [
   ['#ccfff5','#333','❄️ 🚿 Scheduled Load(s)','Placeholder - HVAC, HWS - Surplus Solar'],
   ['','','',''],
 ];
+
+// ── Event Descriptions — specific rationale for each scenario ────────────────────
+const _EMEC_DESCRIPTIONS = {
+  '🌞 Solar → 🏠 Home (Self Consumption)': 
+    'Solar covering home load, maximizing self-consumption and avoiding grid import.',
+  
+  '🌞 Solar → 🏠 Home + 🔋 Battery': 
+    'Solar covering home load while charging battery, maximizing self-consumption and storing excess for later use.',
+  
+  '🌞 Solar → 🏠 Home + ⚡ Grid': 
+    'Solar covering home load and exporting surplus to grid, due to high export tariff rate.',
+  
+  '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid': 
+    'Solar covering home load, charging battery, and exporting surplus to grid simultaneously, due to high export tariff rate.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home': 
+    'Solar and battery together covering home load, maximizing self-consumption and reducing grid dependence.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)': 
+    'Solar and battery together covering home and exporting surplus to grid, forced due to high export tariff rate.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home': 
+    'Solar and grid together covering home load when solar alone is insufficient.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)': 
+    'Solar and grid together covering home and force-charging battery, due to low import tariff rate.',
+  
+  '🔋 Battery → 🏠 Home (Self Consumption)': 
+    'Battery discharging to cover home load, during peak tariff period to reduce grid import costs.',
+  
+  '🔋 Battery → 🏠 Home + ⚡ Grid (Force)': 
+    'Battery discharging to cover home load and exporting surplus to grid, forced due to high export tariff rate.',
+  
+  '🔋 Battery + ⚡ Grid → 🏠 Home': 
+    'Battery and grid together covering home load when battery alone is insufficient, during peak tariff period.',
+  
+  '⚡ Grid → 🏠 Home': 
+    'Grid covering home load when solar and battery are unavailable or depleted.',
+  
+  '⚡ Grid → 🏠 Home + 🔋 Battery (Force)': 
+    'Grid supplying home load and force-charging battery, due to low import tariff rate. Battery will discharge during peak tariff periods for cost savings.',
+};
 
 // ── Improved colgroup — stretches to full width (HAEO minus EV + EV2) ────────
 const _EMEC_COLGROUP =
@@ -283,16 +325,51 @@ function _emec_legTable(items) {
 function _emec_buildLegend() {
   return '<div class="leg" style="font-size:11px;margin-top:12px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:6px;font-weight:bold;">' +
-    '<span>📘 Legend</span>' +
-    '<span style="display:flex;align-items:center;gap:10px;">' +
+    '<button id="view-legend-btn" style="background:#000099;color:#fff;border:none;cursor:pointer;padding:4px 12px;border-radius:12px;font-weight:bold;font-size:11px;">View Legend</button>' +
+    '<span style="display:flex;align-items:center;gap:10px;margin-left:auto;">' +
     '<span class="pill" style="background:#555;font-size:10px;" id="provider-pill">⚡ ...</span>' +
     '<span style="color:var(--secondary-text-color);font-size:10px;font-weight:normal;">' + _EMEC_VERSION + '</span>' +
     '</span>' +
     '</div>' +
-    '<div style="display:flex;gap:12px;align-items:flex-start;">' +
-    '<div style="flex:1;min-width:0;overflow:hidden;">' + _emec_legTable(_EMEC_LEG_L) + '</div>' +
-    '<div style="flex:1;min-width:0;overflow:hidden;">' + _emec_legTable(_EMEC_LEG_R) + '</div>' +
-    '</div></div>';
+    '<div id="legend-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;padding:20px;">' +
+    '<div style="background:var(--card-background-color,#1c1c1c);border-radius:8px;padding:20px;max-width:700px;max-height:80vh;overflow-y:auto;color:var(--primary-text-color);box-shadow:0 4px 20px rgba(0,0,0,0.5);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+    '<h2 style="margin:0;font-size:16px;">Event Legend</h2>' +
+    '<button id="close-legend-btn" style="background:none;border:none;color:var(--primary-text-color);font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;">✕</button>' +
+    '</div>' +
+    '<div style="margin-bottom:16px;padding:8px;background:rgba(33,150,243,0.1);border-radius:4px;">' +
+    '<strong style="font-size:12px;">Filter by:</strong>' +
+    '<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+    '<div>' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);margin-bottom:4px;font-weight:bold;">Power Source</div>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-solar" class="legend-filter" checked> <span>☀️ Solar</span>' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-battery" class="legend-filter" checked> <span>🔋 Battery</span>' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-grid" class="legend-filter" checked> <span>⚡ Grid</span>' +
+    '</label>' +
+    '</div>' +
+    '<div>' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);margin-bottom:4px;font-weight:bold;">Category</div>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-self" class="legend-filter-cat" checked> <span>Self Consumption</span>' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-profit" class="legend-filter-cat" checked> <span>Profit</span>' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">' +
+    '<input type="checkbox" id="filter-cost" class="legend-filter-cat" checked> <span>Cost</span>' +
+    '</label>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div id="legend-items" style="font-size:10px;line-height:1.6;"></div>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
 }
 
 // ── Shared CSS ───────────────────────────────────────────────────────────────
@@ -583,6 +660,13 @@ class EmEventsCard extends HTMLElement {
     });
     const wrap = sr.getElementById('range-past-wrap');
     if (wrap) wrap.style.display = tab === 'past' ? 'inline-flex' : 'none';
+    
+    // Clear alerts when switching to Past tab
+    if (tab === 'past') {
+      const tabAlerts = sr.getElementById('tab-alerts');
+      if (tabAlerts) tabAlerts.innerHTML = '';
+    }
+    
     requestAnimationFrame(() => this._setWrapHeight());
   }
 
@@ -609,6 +693,37 @@ class EmEventsCard extends HTMLElement {
         this._loadPast();
       });
     }
+    // Wire legend modal
+    const viewBtn = this.shadowRoot.getElementById('view-legend-btn');
+    const closeBtn = this.shadowRoot.getElementById('close-legend-btn');
+    const modal = this.shadowRoot.getElementById('legend-modal');
+    const filters = this.shadowRoot.querySelectorAll('.legend-filter');
+    
+    if (viewBtn && !viewBtn._wired) {
+      viewBtn._wired = true;
+      viewBtn.addEventListener('click', () => this._openLegendModal());
+    }
+    if (closeBtn && !closeBtn._wired) {
+      closeBtn._wired = true;
+      closeBtn.addEventListener('click', () => { if (modal) modal.style.display = 'none'; });
+    }
+    if (modal && !modal._wired) {
+      modal._wired = true;
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+    }
+    filters.forEach((f, i) => {
+      if (!f._wired) {
+        f._wired = true;
+        f.addEventListener('change', () => this._applyLegendFilters());
+      }
+    });
+    const catFilters = this.shadowRoot.querySelectorAll('.legend-filter-cat');
+    catFilters.forEach((f, i) => {
+      if (!f._wired) {
+        f._wired = true;
+        f.addEventListener('change', () => this._applyLegendFilters());
+      }
+    });
   }
 
   // ── Future tab render — refactored into smaller methods ──────────────────
@@ -696,7 +811,7 @@ class EmEventsCard extends HTMLElement {
     }
 
     // Capitalise focus text
-    const focusCap = (bs?.focus || '').replace(/\b\w/g, c => c.toUpperCase());
+    const focusCap = (bs?.focus || summary?.focus || '').replace(/\b\w/g, c => c.toUpperCase());
 
     const html =
       '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + modeLabel.replace(/_/g,' ') + '</span></span>' +
@@ -809,7 +924,7 @@ class EmEventsCard extends HTMLElement {
 
     return '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
       '<td>' + timeStr + '</td>' +
-      '<td><span title="' + cls.note + '">' + cls.label + '</span></td>' +
+      '<td><span title="' + (_EMEC_DESCRIPTIONS[cls.label] || cls.note || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
       '<td class="bgl">' + _emec_fmtP(buyP)  + '</td>' +
       '<td class="bgi" style="opacity:1;font-size:12px;">' + sellDisp + '</td>' +
       '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
@@ -856,6 +971,7 @@ class EmEventsCard extends HTMLElement {
         const loadKw    = (b.load_kwh  || 0) * 2;
         return {
           ts:   b.start_local,
+          interval_minutes: meta.step_minutes || 30,  // Include interval in synthetic rows
           mode: b.action === 'charge' ? 'FORCED_CHARGE' :
                 b.action === 'export' ? 'FORCED_EXPORT'  : 'SELF_CONSUMPTION',
           band: b.band,
@@ -876,7 +992,7 @@ class EmEventsCard extends HTMLElement {
           },
         };
       });
-      meta = { step_minutes: 30 };
+      meta = plan?.meta || { step_minutes: 30 };  // Get actual meta from plan, not hardcoded
     } else {
       timeline = plan?.timeline || [];
       meta     = plan?.meta || {};
@@ -1188,7 +1304,7 @@ class EmEventsCard extends HTMLElement {
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td>' + cls.label + '</td>' +
+          '<td><span title="' + (_EMEC_DESCRIPTIONS[cls.label] || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
           '<td class="bgl">' + _emec_fmtP(buyP)    + '</td>' +
           '<td class="bgi" style="opacity:1;font-size:12px;">' + _emec_fmtP(sellP) + (capHit ? ' ⚠' : '') + '</td>' +
           '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
@@ -1223,6 +1339,59 @@ class EmEventsCard extends HTMLElement {
       if (st2) st2.textContent = 'Error — ' + e.message.slice(0,60);
       this._pastState = 'ready';
     }
+  }
+
+  _openLegendModal() {
+    const modal = this.shadowRoot.getElementById('legend-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      this._populateLegendModal();
+    }
+  }
+
+  _populateLegendModal() {
+    const container = this.shadowRoot.getElementById('legend-items');
+    if (!container) return;
+    const items = [];
+    for (const [label, desc] of Object.entries(_EMEC_DESCRIPTIONS)) {
+      items.push({ label, desc });
+    }
+    items.sort((a, b) => a.label.localeCompare(b.label));
+    let html = '';
+    for (const item of items) {
+      html += '<div style="padding:8px;margin:4px 0;background:rgba(33,150,243,0.1);border-radius:4px;border-left:3px solid #2196F3;">' +
+        '<div style="font-weight:bold;margin-bottom:4px;">' + item.label + '</div>' +
+        '<div style="color:var(--secondary-text-color);font-size:9px;">' + item.desc + '</div>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  _applyLegendFilters() {
+    const solar = this.shadowRoot.getElementById('filter-solar')?.checked;
+    const batt = this.shadowRoot.getElementById('filter-battery')?.checked;
+    const grid = this.shadowRoot.getElementById('filter-grid')?.checked;
+    const self = this.shadowRoot.getElementById('filter-self')?.checked;
+    const profit = this.shadowRoot.getElementById('filter-profit')?.checked;
+    const cost = this.shadowRoot.getElementById('filter-cost')?.checked;
+    
+    const items = this.shadowRoot.querySelectorAll('#legend-items > div');
+    items.forEach(item => {
+      const label = item.querySelector('div:first-child')?.textContent || '';
+      const desc = item.querySelector('div:last-child')?.textContent || '';
+      
+      // Power source filter (OR logic)
+      const powerOk = (solar && label.includes('🌞')) || (batt && label.includes('🔋')) || (grid && label.includes('⚡'));
+      
+      // Category filter (OR logic)
+      const isProfit = label.includes('(Force)') || label.includes('Grid') && label.includes('→') && (label.includes('Export') || label.includes('Profit'));
+      const isCost = desc.includes('cost') || desc.includes('peak tariff') || desc.includes('import');
+      const isSelf = label.includes('Self Consumption') || (label.includes('Solar') && !label.includes('Grid')) || (label.includes('Battery') && !label.includes('Grid'));
+      
+      const catOk = (self && isSelf) || (profit && isProfit) || (cost && isCost);
+      
+      item.style.display = (powerOk && catOk) ? 'block' : 'none';
+    });
   }
 
   getCardSize() { return 12; }
