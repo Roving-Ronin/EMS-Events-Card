@@ -1,4 +1,4 @@
-// HAEO Events Card v2.5.2
+// HAEO Events Card
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // Enhanced with: Smart Alert Pills, single-pass day totals, improved formatting
 // Requires: sensor.grid_net_cost + associated HAEO sensors
@@ -38,7 +38,7 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.5.2';
+const _HAEO_VERSION = 'v2.6.0';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -144,10 +144,113 @@ function _haeo_getModeAndFocus(label) {
   return { mode, focus, modeColor, focusColor };
 }
 
-// ── Classify future ───────────────────────────────────────────────────────────
-// battKw: positive = discharge, negative = charge
-// gridKw: positive = export,    negative = import
-// evKw: positive = discharge,   negative = charge
+// ── Event Descriptions (for hover tooltips & legend modal) ──────────────────────
+const _HAEO_DESCRIPTIONS = {
+  // Self Consumption - Solar scenarios
+  '🌞 Solar → 🏠 Home Load': 
+    'Solar is supplying home load only. Battery idle and no grid activity. Optimal self-consumption with zero import/export.',
+  
+  '🌞 Solar → 🏠 Home Load + 🔋 Battery': 
+    'Solar is supplying home load and charging battery. No grid activity. Battery will be available for discharge during peak demand or low solar periods.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home Load': 
+    'Solar and battery together supplying home load. Battery is discharging to supplement solar. No grid activity.',
+  
+  '🌞 Solar → 🏠 Home Load + ⚡ Grid': 
+    'Solar supplying home load with surplus exported to grid. Battery idle. Export occurs when solar generation exceeds home load.',
+  
+  '🌞 Solar → 🏠 Home Load + 🔋 Battery + ⚡ Grid': 
+    'Solar supplying home load, charging battery, and exporting surplus to grid simultaneously. Optimal three-way allocation.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home Load + ⚡ Grid': 
+    'Solar and battery together supplying home load with remaining power exported to grid. Battery discharging to maximize export.',
+  
+  '🌞 Solar → 🏠 Home Load + ⚡ Grid + 🔋 Battery (Force)': 
+    'Solar supplying home load, charging battery, and exporting surplus to grid. Scheduled battery charge at optimal solar window.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home Load': 
+    'Solar with grid supplement covering home load. Solar alone is insufficient; grid imports additional power.',
+  
+  '🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Home Load': 
+    'Solar, battery, and grid together covering home load. Battery discharging but solar and grid both needed due to high home demand.',
+  
+  '🌞 Solar → 🏠 Home Load + 🚗 EV': 
+    'Solar supplying home load and charging EV. Battery idle. Pure solar-to-load and solar-to-EV scenario.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home Load + 🚗 EV': 
+    'Solar and battery supplying home load and charging EV. No grid activity. Battery available for EV charging.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home Load + 🚗 EV': 
+    'Solar and grid together covering home load while charging EV. Solar plus grid import needed for all three loads.',
+  
+  // Cost scenarios - Grid import (forced charge)
+  '⚡ Grid → 🏠 Home Load': 
+    'Grid supplying home load only. Battery idle. Occurs during off-peak tariffs or when solar unavailable.',
+  
+  '⚡ Grid → 🏠 Home Load + 🔋 Battery (Force)': 
+    'Grid supplying home load and force-charging battery at low tariff rate during cheap import window. Battery will discharge during peak tariff periods for cost savings.',
+  
+  '⚡ Grid → 🏠 Home Load + 🚗 EV (Force)': 
+    'Grid supplying home load and charging EV at low tariff rate. EV charging optimized for lowest cost periods.',
+  
+  '⚡ Grid → 🏠 Home Load + 🔋 Battery + 🚗 EV (Force)': 
+    'Grid supplying home load, charging battery, and charging EV all at low tariff rate. Multiple loads optimized for cost savings.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home Load + 🔋 Battery (Force)': 
+    'Solar with grid supplement covering home load while force-charging battery at low tariff rate. Battery will be available for peak discharge.',
+  
+  // Profit scenarios - Grid export (forced discharge)
+  '🔋 Battery → 🏠 Home Load + ⚡ Grid (Force)': 
+    'Battery discharging to cover home load and force-export to grid at high tariff rate. Scheduled export during peak pricing window for profit.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Home Load + ⚡ Grid (Force)': 
+    'Solar and battery together covering home load with forced battery export to grid at peak tariff rate. Maximizes export revenue.',
+  
+  '🔋 Battery + 🚗 EV → ⚡ Grid (Force)': 
+    'Battery and EV both discharging to grid at high tariff rate. EV used as flexible storage asset for export during peak pricing.',
+  
+  '🌞 Solar + 🔋 Battery + 🚗 EV → ⚡ Grid': 
+    'Solar, battery, and EV all exporting to grid simultaneously at peak tariff. Maximum export revenue from all available sources.',
+  
+  // Battery scenarios - no solar, no grid
+  '🔋 Battery → 🏠 Home Load': 
+    'Battery powering home load only. No solar generation and no grid activity. Battery will deplete; grid import will follow if battery low.',
+  
+  '🔋 Battery + ⚡ Grid → 🏠 Home Load': 
+    'Battery discharging but grid supplement needed due to high home load exceeding battery capacity. Hybrid support scenario.',
+  
+  // EV scenarios
+  '🚗 EV → 🏠 Home Load': 
+    'EV discharging to cover home load (V2H/V2L). Vehicle is supplying power to home. No battery or grid involvement.',
+  
+  '🚗 EV + ⚡ Grid → 🏠 Home Load': 
+    'EV discharging plus grid covering home load. Vehicle and grid both needed for home load demand.',
+  
+  '🔋 Battery + 🚗 EV → 🏠 Home Load': 
+    'Battery and EV both discharging to cover home load. No solar or grid; using stored energy from both sources.',
+  
+  '🌞 Solar + 🔋 Battery + 🚗 EV → 🏠 Home Load': 
+    'Solar, battery, and EV together supplying home load. All available sources optimized for load coverage.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home Load + 🚗 EV': 
+    'Solar and grid together covering home load while charging EV. Solar plus grid import needed for all three loads.',
+  
+  '🌞 Solar → 🏠 Home Load + 🚗 EV + 🔋 Battery (Force)': 
+    'Solar supplying home load and charging both EV and battery at low tariff rate. Battery will discharge during peak periods.',
+  
+  '🌞 Solar + ⚡ Grid → 🏠 Home Load + 🚗 EV + 🔋 Battery (Force)': 
+    'Solar with grid supplement covering home load while force-charging both battery and EV at low tariff rate. Maximizes both storage assets.',
+  
+  '⚡ Grid → 🏠 Home Load + 🚗 EV + 🔋 Battery (Force)': 
+    'Grid covering home load and force-charging both EV and battery at low tariff rate during cheap import window. Both will discharge during peak tariff periods for cost savings.',
+  
+  '🔋 Battery → 🚗 EV + 🏠 Home Load': 
+    'Battery covering both home load and charging EV simultaneously. No solar or grid activity. Battery powering two loads.',
+  
+  '🔋 Battery → 🚗 EV (Charging)': 
+    'Battery charging EV only. No solar, no grid, no home load involvement. Pure battery-to-vehicle charge transfer.',
+};
+
 function _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw, evKw) {
   const T = 0.05;
   const charging    = battKw < -T;
@@ -176,12 +279,22 @@ function _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw, evKw) {
     return { label: '🚗 EV → 🏠 Home', note: 'EV covering home', color: 'teal' };
   if (evCharging && solarKw > T && discharging)
     return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + 🚗 EV', note: 'Solar and battery covering home and charging EV', color: 'solar_green' };
+  if (evCharging && solarKw > T && importing)
+    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🚗 EV', note: 'Solar and grid covering home and charging EV', color: 'pink' };
+  if (evCharging && solarKw > T && charging)
+    return { label: '🌞 Solar → 🏠 Home + 🚗 EV + 🔋 Battery (Force)', note: 'Solar covering home and charging both EV and battery at low tariff', color: 'solar_green' };
   if (evCharging && solarKw > T)
     return { label: '🌞 Solar → 🏠 Home + 🚗 EV', note: 'Solar covering home and charging EV', color: 'solar_green' };
+  if (evCharging && importing && charging && solarKw > T)
+    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🚗 EV + 🔋 Battery (Force)', note: 'Solar with grid supplement covering home and charging both EV and battery at low tariff', color: 'pink' };
+  if (evCharging && importing && charging)
+    return { label: '⚡ Grid → 🏠 Home + 🚗 EV + 🔋 Battery (Force)', note: 'Grid covering home and charging both EV and battery at low tariff rate', color: 'red' };
   if (evCharging && importing)
     return { label: '⚡ Grid → 🏠 Home + 🚗 EV (Force)', note: 'Grid covering home and charging EV', color: 'red' };
+  if (evCharging && charging)
+    return { label: '🔋 Battery → 🚗 EV + 🏠 Home Load', note: 'Battery covering home load and charging EV', color: 'teal' };
   if (evCharging)
-    return { label: '🚗 EV ← Battery (Charging)', note: 'Battery charging EV', color: 'teal' };
+    return { label: '🔋 Battery → 🚗 EV (Charging)', note: 'Battery charging EV', color: 'teal' };
 
   // ── Force export (battery discharging to grid) ──
   if (exporting && discharging && solarKw > T)
@@ -257,12 +370,20 @@ function _haeo_classifyPast(solarKw, loadKw, battKw, gridKw, evKw) {
     return { label: '🚗 EV → 🏠 Home', color: 'teal' };
   if (evCharging && solarKw > T && discharging)
     return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + 🚗 EV', color: 'solar_green' };
+  if (evCharging && solarKw > T && importing)
+    return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🚗 EV', color: 'pink' };
+  if (evCharging && solarKw > T && charging)
+    return { label: '🌞 Solar → 🏠 Home + 🚗 EV + 🔋 Battery (Force)', color: 'solar_green' };
   if (evCharging && solarKw > T)
     return { label: '🌞 Solar → 🏠 Home + 🚗 EV', color: 'solar_green' };
+  if (evCharging && importing && charging)
+    return { label: '⚡ Grid → 🏠 Home + 🚗 EV + 🔋 Battery (Force)', color: 'red' };
   if (evCharging && importing)
     return { label: '⚡ Grid → 🏠 Home + 🚗 EV (Force)', color: 'red' };
+  if (evCharging && charging)
+    return { label: '🔋 Battery → 🚗 EV + 🏠 Home Load', color: 'teal' };
   if (evCharging)
-    return { label: '🚗 EV ← Battery (Charging)', color: 'teal' };
+    return { label: '🔋 Battery → 🚗 EV (Charging)', color: 'teal' };
 
   // Force export (battery discharging to grid)
   if (exporting && discharging && solarKw > T)
@@ -380,14 +501,11 @@ function _haeo_legTable(items) {
 
 function _haeo_buildLegend() {
   return '<div class="leg" style="font-size:11px;margin-top:12px;">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:6px;font-weight:bold;">' +
-    '<span>📘 Legend</span>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:6px;">' +
+    '<button id="legend-view-btn" title="View legend" style="background:#000099;border:none;cursor:pointer;color:#fff;font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;">View Legend</button>' +
     '<span style="color:var(--secondary-text-color);font-size:10px;font-weight:normal;">' + _HAEO_VERSION + '</span>' +
     '</div>' +
-    '<div style="display:flex;gap:12px;align-items:flex-start;">' +
-    '<div style="flex:1;min-width:0;overflow:hidden;">' + _haeo_legTable(_HAEO_LEG_L) + '</div>' +
-    '<div style="flex:1;min-width:0;overflow:hidden;">' + _haeo_legTable(_HAEO_LEG_R) + '</div>' +
-    '</div></div>';
+    '</div>';
 }
 
 // ── Shared column definitions ─────────────────────────────────────────────────
@@ -481,6 +599,20 @@ const _HAEO_STYLE = [
   '.dr td.bgi, .dr td.bgl { text-align: right !important; }',
   '.msg { padding: 20px; text-align: center; color: var(--secondary-text-color); }',
   '.err { padding: 10px; color: #f44336; }',
+  '.tooltip { position: absolute; background: var(--card-background-color); color: var(--primary-text-color); padding: 8px 12px; border-radius: 4px; font-size: 11px; max-width: 350px; white-space: normal; z-index: 999; box-shadow: 0 2px 8px rgba(0,0,0,0.3); line-height: 1.4; }',
+  '.legend-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }',
+  '.legend-modal-content { background: var(--card-background-color); color: var(--primary-text-color); border-radius: 8px; max-width: 700px; max-height: 85vh; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }',
+  '.legend-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid var(--divider-color); position: sticky; top: 0; background: var(--card-background-color); }',
+  '.legend-modal-header h2 { margin: 0; font-size: 18px; }',
+  '.legend-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--primary-text-color); }',
+  '.legend-modal-body { padding: 16px; }',
+  '.legend-category { margin-bottom: 20px; }',
+  '.legend-category-title { font-weight: bold; font-size: 13px; margin-bottom: 10px; color: var(--secondary-text-color); }',
+  '.legend-item { display: flex; gap: 12px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.1); }',
+  '.legend-item-color { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; }',
+  '.legend-item-content { flex: 1; }',
+  '.legend-item-label { font-weight: 600; font-size: 12px; margin-bottom: 3px; }',
+  '.legend-item-desc { font-size: 11px; color: var(--secondary-text-color); line-height: 1.4; }',
 ].join('\n');
 
 // ── HTML template ─────────────────────────────────────────────────────────────
@@ -524,6 +656,33 @@ function _haeo_buildHTML() {
     '</div>' +
 
     _haeo_buildLegend() +
+    
+    '<div id="legend-modal" class="legend-modal" style="display:none;">' +
+    '<div class="legend-modal-content">' +
+    '<div class="legend-modal-header">' +
+    '<h2>Event Legend</h2>' +
+    '<button id="legend-modal-close" class="legend-modal-close" title="Close">&times;</button>' +
+    '</div>' +
+    '<div class="legend-modal-body">' +
+    '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">' +
+    '<input type="checkbox" id="filter-solar" class="legend-filter" checked style="cursor:pointer;"> ☀️ Solar' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">' +
+    '<input type="checkbox" id="filter-battery" class="legend-filter" checked style="cursor:pointer;"> 🔋 Battery' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">' +
+    '<input type="checkbox" id="filter-grid" class="legend-filter" checked style="cursor:pointer;"> ⚡ Grid' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">' +
+    '<input type="checkbox" id="filter-ev" class="legend-filter" checked style="cursor:pointer;"> 🚗 EV' +
+    '</label>' +
+    '</div>' +
+    '<div id="legend-categories-wrap"></div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    
     '</div></ha-card>';
 }
 
@@ -718,6 +877,39 @@ class HaeoEventsCard extends HTMLElement {
         this._loadPast();
       });
     }
+    
+    // Legend modal handlers
+    const legendViewBtn = this.shadowRoot.getElementById('legend-view-btn');
+    const legendModal = this.shadowRoot.getElementById('legend-modal');
+    const legendClose = this.shadowRoot.getElementById('legend-modal-close');
+    
+    if (legendViewBtn && !legendViewBtn._wired) {
+      legendViewBtn._wired = true;
+      legendViewBtn.addEventListener('click', () => this._openLegendModal());
+    }
+    
+    if (legendClose && !legendClose._wired) {
+      legendClose._wired = true;
+      legendClose.addEventListener('click', () => {
+        if (legendModal) legendModal.style.display = 'none';
+      });
+    }
+    
+    if (legendModal && !legendModal._wired) {
+      legendModal._wired = true;
+      legendModal.addEventListener('click', (e) => {
+        if (e.target === legendModal) legendModal.style.display = 'none';
+      });
+    }
+    
+    // Filter checkbox handlers
+    const filterCheckboxes = this.shadowRoot.querySelectorAll('.legend-filter');
+    filterCheckboxes.forEach(cb => {
+      if (!cb._wired) {
+        cb._wired = true;
+        cb.addEventListener('change', () => this._applyLegendFilters());
+      }
+    });
   }
 
   // ── Future tab render ───────────────────────────────────────────────────────
@@ -1128,6 +1320,18 @@ class HaeoEventsCard extends HTMLElement {
     }
 
     tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="14" class="msg">No future forecast rows available.</td></tr>';
+    
+    // Add tooltip handlers to event cells
+    if (rows.length) {
+      const eventCells = tbody.querySelectorAll('td:nth-child(2)');
+      eventCells.forEach(cell => {
+        const label = cell.textContent.trim();
+        if (label && label !== '—') {
+          this._addTooltipHandler(cell, label);
+        }
+      });
+    }
+    
     requestAnimationFrame(() => this._setWrapHeight());
   } // end _renderFutureInner
 
@@ -1441,6 +1645,18 @@ class HaeoEventsCard extends HTMLElement {
       }
 
       tb.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="20" class="msg">⚠️ No readings for this period.</td></tr>';
+      
+      // Add tooltip handlers to event cells
+      if (rows.length) {
+        const eventCells = tb.querySelectorAll('td:nth-child(2)');
+        eventCells.forEach(cell => {
+          const label = cell.textContent.trim();
+          if (label && label !== '—') {
+            this._addTooltipHandler(cell, label);
+          }
+        });
+      }
+      
       requestAnimationFrame(() => this._setWrapHeight());
       const sel2 = this.shadowRoot.getElementById('range-past');
       st.textContent = entries.length + ' readings — ' + (sel2 ? sel2.options[sel2.selectedIndex].text : '');
@@ -1453,6 +1669,132 @@ class HaeoEventsCard extends HTMLElement {
       if (st2) st2.textContent = 'Error — ' + e.message.slice(0, 60);
       this._pastState = 'ready';
     }
+  }
+
+  _openLegendModal() {
+    const modal = this.shadowRoot.getElementById('legend-modal');
+    if (!modal) return;
+    this._populateLegendModal();
+    modal.style.display = 'flex';
+  }
+
+  _populateLegendModal() {
+    const wrap = this.shadowRoot.getElementById('legend-categories-wrap');
+    if (!wrap || wrap._populated) return;
+    
+    const categories = {
+      'Self Consumption': [],
+      'Cost': [],
+      'Profit': []
+    };
+    
+    // Categorize events
+    for (const [label, desc] of Object.entries(_HAEO_DESCRIPTIONS)) {
+      let cat = 'Self Consumption';
+      if (desc.includes('low tariff') || desc.includes('cheap') || label.includes('Grid Import') || label.includes('Grid →')) {
+        cat = 'Cost';
+      } else if (desc.includes('peak') || desc.includes('export') || label.includes('Grid Export') || label.includes('→ Grid')) {
+        cat = 'Profit';
+      }
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push({ label, desc });
+    }
+    
+    // Sort items alphabetically within each category
+    for (const cat in categories) {
+      categories[cat].sort((a, b) => a.label.localeCompare(b.label));
+    }
+    
+    let html = '';
+    for (const [cat, events] of Object.entries(categories)) {
+      html += '<div class="legend-category">' +
+        '<div class="legend-category-title">' + cat + ' (' + events.length + ')</div>';
+      
+      for (const { label, desc } of events) {
+        const color = this._getColorForLabel(label);
+        html += '<div class="legend-item">' +
+          '<div class="legend-item-color" style="background:' + color + ';"></div>' +
+          '<div class="legend-item-content">' +
+          '<div class="legend-item-label">' + label + '</div>' +
+          '<div class="legend-item-desc">' + desc + '</div>' +
+          '</div>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    wrap.innerHTML = html;
+    wrap._populated = true;
+  }
+
+  _applyLegendFilters() {
+    const solarChecked = this.shadowRoot.getElementById('filter-solar')?.checked ?? true;
+    const batteryChecked = this.shadowRoot.getElementById('filter-battery')?.checked ?? true;
+    const gridChecked = this.shadowRoot.getElementById('filter-grid')?.checked ?? true;
+    const evChecked = this.shadowRoot.getElementById('filter-ev')?.checked ?? true;
+
+    const items = this.shadowRoot.querySelectorAll('.legend-item');
+    items.forEach(item => {
+      const label = item.querySelector('.legend-item-label')?.textContent || '';
+      
+      // Check which power sources are in this label
+      const hasSolar = label.includes('🌞');
+      const hasBattery = label.includes('🔋');
+      const hasGrid = label.includes('⚡');
+      const hasEV = label.includes('🚗');
+
+      // Show if ANY selected source is in this label
+      const shouldShow = (hasSolar && solarChecked) || 
+                         (hasBattery && batteryChecked) || 
+                         (hasGrid && gridChecked) || 
+                         (hasEV && evChecked);
+      
+      item.style.display = shouldShow ? 'flex' : 'none';
+    });
+  }
+
+  _getColorForLabel(label) {
+    // Map event labels to their display colors based on scenario type
+    if (label.includes('🌞') && !label.includes('Grid') && !label.includes('⚡')) return '#ccffcc'; // solar_green
+    if (label.includes('→ ⚡ Grid') && label.includes('🌞')) return '#ffb3b3'; // pink_dark (force)
+    if (label.includes('→ ⚡ Grid')) return '#ffe0e0'; // pink (export)
+    if (label.includes('⚡ Grid →') && label.includes('Force')) return '#ffaaaa'; // red (forced charge)
+    if (label.includes('⚡ Grid →')) return '#ffcccc'; // red (import)
+    if (label.includes('🔋')) return '#ccfff5'; // teal (battery)
+    return '#ffffcc'; // default yellow
+  }
+
+  _addTooltipHandler(eventCell, label) {
+    const desc = _HAEO_DESCRIPTIONS[label];
+    if (!desc) return;
+    
+    eventCell.addEventListener('mouseenter', (e) => {
+      const tooltip = this.shadowRoot.querySelector('.tooltip');
+      if (tooltip) tooltip.remove();
+      
+      const newTooltip = document.createElement('div');
+      newTooltip.className = 'tooltip';
+      newTooltip.textContent = desc;
+      
+      const rect = eventCell.getBoundingClientRect();
+      const cardRect = this.shadowRoot.host.getBoundingClientRect();
+      
+      newTooltip.style.position = 'fixed';
+      newTooltip.style.left = (rect.left) + 'px';
+      newTooltip.style.top = (rect.bottom + 4) + 'px';
+      
+      this.shadowRoot.appendChild(newTooltip);
+      
+      setTimeout(() => {
+        if (this.shadowRoot.contains(newTooltip)) {
+          newTooltip.remove();
+        }
+      }, 5000);
+    });
+    
+    eventCell.addEventListener('mouseleave', () => {
+      const tooltip = this.shadowRoot.querySelector('.tooltip');
+      if (tooltip) tooltip.remove();
+    });
   }
 
   getCardSize() { return 12; }
