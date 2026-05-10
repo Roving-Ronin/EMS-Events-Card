@@ -1052,7 +1052,7 @@ class HaeoEventsCard extends HTMLElement {
         const soc = socMap.get(ts) || 0;
         if ((solarMap.get(ts) || 0) > 0.5 && (battMap.get(ts) || 0) < -0.01 && soc > pkSoc) {
           pkSoc  = soc;
-          pkTime = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(' 0', ' ');
+          pkTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
       }
       if (pkSoc > 0) { dawnSoc = pkSoc; dawnTime = pkTime; dawnLabel = 'Peak SoC'; }
@@ -1063,7 +1063,7 @@ class HaeoEventsCard extends HTMLElement {
         if (isNaN(ts) || ts <= nowTs) continue;
         if ((solarMap.get(ts) || 0) > 0.5 && (battMap.get(ts) || 0) < -0.1) {
           dawnSoc   = socMap.get(ts) || 0;
-          dawnTime  = new Date(ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(' 0', ' ');
+          dawnTime  = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
           dawnLabel = 'Morning SoC';
         }
       }
