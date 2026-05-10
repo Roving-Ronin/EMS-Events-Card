@@ -38,7 +38,9 @@
 //   entity_past_battery_charge_energy:     sensor.sigen_plant_daily_battery_charge_energy    # Daily reset
 //   entity_past_battery_discharge_energy:  sensor.sigen_plant_daily_battery_discharge_energy # Daily reset
 
-const _HAEO_VERSION = 'v2.6.0';
+const _HAEO_VERSION = 'v2.7.1';
+
+let _HAEO_CUR = '$';
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -427,13 +429,13 @@ function _haeo_classifyPast(solarKw, loadKw, battKw, gridKw, evKw) {
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 function _haeo_fmtP(v) {
-  return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(4);
+  return (v < 0 ? '-' : '') + _HAEO_CUR + Math.abs(v).toFixed(4);
 }
 
 // Returns {disp, col} — cost > 0 = money spent (import), cost < 0 = money earned (export)
 function _haeo_fmtCost(cost) {
-  if (cost > 0.0001)  return { disp: '-$' + cost.toFixed(3),           col: null };
-  if (cost < -0.0001) return { disp: '$'  + Math.abs(cost).toFixed(3), col: '#4caf50' };
+  if (cost > 0.0001)  return { disp: '-' + _HAEO_CUR + cost.toFixed(3),           col: null };
+  if (cost < -0.0001) return { disp: _HAEO_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
 }
 
@@ -624,7 +626,7 @@ function _haeo_buildHTML() {
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
     '<span id="grid-export-alert" style="margin-left:auto;align-self:center;padding-right:8px;"></span>' +
-    '<span id="range-past-wrap" style="display:none;align-self:center;padding-right:4px;">' +
+    '<span id="range-past-wrap" style="display:none;align-self:center;padding-right:4px;margin-left:auto;">' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option>' +
     '<option value="yesterday">Yesterday</option>' +
@@ -746,6 +748,7 @@ class HaeoEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
+    _HAEO_CUR = this._config.currency_symbol || '$';
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _haeo_buildHTML();
       this._wireEvents();
@@ -1182,7 +1185,7 @@ class HaeoEventsCard extends HTMLElement {
       const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0, ev:0, ev2:0 };
       const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
       const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-      const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+      const dayCostLabel = dayTotal <= 0 ? _HAEO_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _HAEO_CUR + dayTotal.toFixed(2);
       const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
       const fmtGrid = (v) => {
         if (Math.abs(v) <= 0.001) return '—';
@@ -1465,6 +1468,8 @@ class HaeoEventsCard extends HTMLElement {
         const gridKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_grid_power')],   ts)) || 0) * this._pwrMult.grid;
         const loadKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_load_power')],   ts)) || 0) * this._pwrMult.load;
         const solarKw= (parseFloat(_haeo_getAt(lookup[this._eid('past_solar_power')],  ts)) || 0) * this._pwrMult.solar;
+        const evKw   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev_power')],      ts)) || 0;
+        const ev2Kw  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev2_power')],     ts)) || 0;
         const buyP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
         const sellP  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
         const stepH  = 5 / 60;
@@ -1476,54 +1481,96 @@ class HaeoEventsCard extends HTMLElement {
         if (!pastDailyCosts.hasOwnProperty(dayStr)) {
           pastDailyOrder.push(dayStr);
           pastDailyCosts[dayStr] = 0;
-          pastDailyKwh[dayStr] = { load: 0, pv: 0, grid: 0, batt: 0 };
+          pastDailyKwh[dayStr] = { 
+            load: 0, pv: 0, 
+            gridImp: 0, gridExp: 0, 
+            battChg: 0, battDis: 0, 
+            evChg: 0, evDis: 0, 
+            ev2Chg: 0, ev2Dis: 0 
+          };
         }
 
         pastDailyCosts[dayStr] += cost;
         const dk = pastDailyKwh[dayStr];
         dk.load += loadKw  * stepH;
         dk.pv   += solarKw * stepH;
-        dk.grid += gridKw  * stepH;
-        dk.batt += battKw  * stepH;
+        
+        // Grid: import (positive) vs export (negative)
+        if (gridKw > 0.1) dk.gridImp += gridKw * stepH;
+        if (gridKw < -0.1) dk.gridExp += (-gridKw) * stepH;
+        
+        // Battery: charge (negative kw) vs discharge (positive kw)
+        if (battKw > 0.1) dk.battDis += battKw * stepH;
+        if (battKw < -0.1) dk.battChg += (-battKw) * stepH;
+        
+        // EV: charge (negative kw) vs discharge (positive kw)
+        if (evKw > 0.1) dk.evDis += evKw * stepH;
+        if (evKw < -0.1) dk.evChg += (-evKw) * stepH;
+        
+        // EV2: charge (negative kw) vs discharge (positive kw)
+        if (ev2Kw > 0.1) dk.ev2Dis += ev2Kw * stepH;
+        if (ev2Kw < -0.1) dk.ev2Chg += (-ev2Kw) * stepH;
       }
 
-      // ── Build day header row (same as future tab) ──
+      // ── Build 2-row day header (Row 1: Import/Charge; Row 2: Export/Discharge) ──
       const _buildDayHeaderRowPast = (day) => {
         const dayTotal = pastDailyCosts[day] || 0;
-        const pk       = pastDailyKwh[day]   || { load:0, pv:0, grid:0, batt:0 };
+        const dk = pastDailyKwh[day] || { load:0, pv:0, gridImp:0, gridExp:0, battChg:0, battDis:0, evChg:0, evDis:0, ev2Chg:0, ev2Dis:0 };
         const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
-        const dayCostLbl = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
-        const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
-        const fmtKdCol = (v) => {
-          if (Math.abs(v) <= 0.001) return '—';
-          const col = v < 0 ? '#4caf50' : '#f44336';
-          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-        };
-        const fmtKdColBatt = (v) => {
-          if (Math.abs(v) <= 0.001) return '—';
-          const col = v < 0 ? '#f44336' : '#4caf50';
-          return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-        };
-        return '<tr class="dr">' +
-          '<td colspan="2">📅 ' + day + '</td>' +
+        const dayCostLbl = dayTotal <= 0 ? _HAEO_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _HAEO_CUR + dayTotal.toFixed(2);
+        const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
+        const fmtGridImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+        const fmtGridExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+        const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+        const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+        const fmtEVChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+        const fmtEVDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#ff9800;">' + v.toFixed(3) + '</span>' : '—';
+        
+        // Row 1: Load, PV, Grid "Import" label, Battery "Charge" label, EV "Charge" label, EV2 "Charge" label, Cost
+        const row1 = '<tr class="dr" style="border-bottom: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+          '<td colspan="2" style="vertical-align:middle;">📅 ' + day + '</td>' +
           '<td class="bgl" colspan="2"></td>' +
           '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKd(pk.load) + '</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.load) + '</td>' +
           '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKd(pk.pv) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKdCol(pk.grid) + '</td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;">' + fmtKdColBatt(-pk.batt) + '</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.pv) + '</td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Import</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridImp(dk.gridImp) + '</td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattChg(dk.battChg) + '</td>' +
           '<td class="bgi" style="text-align:right;"></td>' +
-          '<td class="bgl"></td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtEVChg(dk.evChg) + '</td>' +
           '<td class="bgi" style="text-align:right;"></td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtEVChg(dk.ev2Chg) + '</td>' +
           '<td class="bgi" style="text-align:right;"></td>' +
-          '<td class="bgl"></td>' +
-          '<td class="bgi" style="text-align:right;"></td>' +
-          '<td class="bgi" style="text-align:right;"></td>' +
-          '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLbl + '</td>' +
+          '<td class="bgl" style="text-align:right;color:' + dayColor + ';font-weight:bold;vertical-align:middle;">' + dayCostLbl + '</td>' +
           '</tr>';
+        
+        // Row 2: Empty Load/PV, Grid "Export" label, Battery "Discharge" label, EV "Discharge" label, EV2 "Discharge" label
+        const row2 = '<tr class="dr" style="border-top: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+          '<td colspan="2" style="vertical-align:middle;"></td>' +
+          '<td class="bgl" colspan="2"></td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="vertical-align:middle;"></td>' +
+          '<td class="bgl"></td>' +
+          '<td class="bgi" style="vertical-align:middle;"></td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Export</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridExp(dk.gridExp) + '</td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattDis(dk.battDis) + '</td>' +
+          '<td class="bgi" style="text-align:right;"></td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtEVDis(dk.evDis) + '</td>' +
+          '<td class="bgi" style="text-align:right;"></td>' +
+          '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
+          '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtEVDis(dk.ev2Dis) + '</td>' +
+          '<td class="bgi" style="text-align:right;"></td>' +
+          '<td class="bgl" style="vertical-align:middle;box-shadow:inset 2px 0 0 #666;"></td>' +
+          '</tr>';
+        
+        return row1 + row2;
       };
 
       // ── Pass 2: render rows with day header injection ──
