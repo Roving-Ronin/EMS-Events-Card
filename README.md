@@ -14,7 +14,7 @@ A collection of custom Home Assistant Lovelace cards for energy management and o
 
 ### Past Events
 
-![Energy Manager - Past Events](/EnergyManager/EM-Card-Past-Decisions.jpg)
+![Energy Manager - Past Events](/EnergyManager/EM-Card-Past-Events.jpg)
 
 ---
 
