@@ -12,7 +12,7 @@ Current version: **v2.6.0**
 
 ### Past Events
 
-![Energy Manager - Past Events](EM-Card-Past-Decisions.jpg)
+![Energy Manager - Past Events](EM-Card-Past-Events.jpg)
 
 ---
 
