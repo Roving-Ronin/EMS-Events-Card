@@ -6,6 +6,18 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 ---
 
+### Future Decisions
+
+![Energy Manager - Future Decisions](HAEO-Card-Future-Decisions.jpg)
+
+### Past Events
+
+![Energy Manager - Past Events](HAEO-Card-Past-Events.jpg)
+
+---
+
+---
+
 ## Features
 
 - **Future Decisions tab** — shows the HAEO optimizer's forecast for the next several days, reading directly from the `forecast` attributes on your HAEO sensors. Includes:
