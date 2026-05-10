@@ -4,7 +4,9 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.7.3';
+const _EMEC_VERSION = 'v2.7.5';
+
+let _EMEC_CUR = '$';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -175,14 +177,14 @@ function _emec_classifyPast(solar, gridImp, gridExp, battC, battD) {
 }
 
 function _emec_fmtP(v) {
-  return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(4);
+  return (v < 0 ? '-' : '') + _EMEC_CUR + Math.abs(v).toFixed(4);
 }
 
 function _emec_fmtCost(cost) {
   // cost > 0 = money spent (import) = show as -$
   // cost < 0 = money earned (export) = show as $
-  if (cost > 0.0001)  return { disp: '-$' + cost.toFixed(3),           col: null };
-  if (cost < -0.0001) return { disp: '$'  + Math.abs(cost).toFixed(3), col: '#4caf50' };
+  if (cost > 0.0001)  return { disp: '-' + _EMEC_CUR + cost.toFixed(3),           col: null };
+  if (cost < -0.0001) return { disp: _EMEC_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
 }
 
@@ -544,6 +546,7 @@ class EmEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
+    _EMEC_CUR = this._config.currency_symbol || '$';
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _emec_buildHTML();
       this._wireRange();
@@ -839,7 +842,7 @@ class EmEventsCard extends HTMLElement {
     const dayLabel = displayLabel 
       ? '📅 ' + displayLabel 
       : (day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }));
-    const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+    const dayCostLabel = dayTotal <= 0 ? _EMEC_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _EMEC_CUR + dayTotal.toFixed(2);
     const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
     const fmtGrid = (v) => {
       if (Math.abs(v) <= 0.001) return '—';
@@ -872,7 +875,7 @@ class EmEventsCard extends HTMLElement {
     const dk = pastDailyKwh[day] || { load: 0, pv: 0, gridImp: 0, gridExp: 0, battChg: 0, battDis: 0 };
     const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
     const dayLabel = '📅 ' + displayLabel;
-    const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+    const dayCostLabel = dayTotal <= 0 ? _EMEC_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _EMEC_CUR + dayTotal.toFixed(2);
     const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
     const fmtGridImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
     const fmtGridExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
@@ -1336,10 +1339,10 @@ class EmEventsCard extends HTMLElement {
 
         let costDisp, costCol;
         if (gridExpKw > 0.2 && cost < -0.0001) {
-          costDisp = '$' + Math.abs(cost).toFixed(3);
+          costDisp = _EMEC_CUR + Math.abs(cost).toFixed(3);
           costCol  = '#4caf50';
         } else if (gridImpKw > 0.2 && cost > 0.0001) {
-          costDisp = '-$' + cost.toFixed(3);
+          costDisp = '-' + _EMEC_CUR + cost.toFixed(3);
           costCol  = '#f44336';
         } else {
           costDisp = '—';
