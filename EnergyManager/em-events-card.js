@@ -4,10 +4,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.6.1';
-
-// Currency symbol — set from card config, defaults to '$'
-let _EMEC_CUR = '$';
+const _EMEC_VERSION = 'v2.7.3';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
@@ -178,14 +175,14 @@ function _emec_classifyPast(solar, gridImp, gridExp, battC, battD) {
 }
 
 function _emec_fmtP(v) {
-  return (v < 0 ? '-' : '') + _EMEC_CUR + Math.abs(v).toFixed(4);
+  return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(4);
 }
 
 function _emec_fmtCost(cost) {
   // cost > 0 = money spent (import) = show as -$
   // cost < 0 = money earned (export) = show as $
-  if (cost > 0.0001)  return { disp: '-' + _EMEC_CUR + cost.toFixed(3),           col: null };
-  if (cost < -0.0001) return { disp: _EMEC_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
+  if (cost > 0.0001)  return { disp: '-$' + cost.toFixed(3),           col: null };
+  if (cost < -0.0001) return { disp: '$'  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
 }
 
@@ -414,8 +411,12 @@ const _EMEC_STYLE = [
   '.bgl { box-shadow: inset 2px 0 0 #666; }',
   /* thin left border = kW/kWh within group */
   '.bgi { box-shadow: inset 1px 0 0 #555; }',
-  '.dr td { background: var(--secondary-background-color); font-weight: bold; border-top: 2px solid var(--divider-color); text-align: left !important; padding: 5px 6px; }',
+  /* Sell column (4th) — vertical border on left to separate from Buy */
+  '.dt td:nth-child(4), .dt th:nth-child(4) { box-shadow: inset 2px 0 0 #666; }',
+  '.dr td { background: var(--secondary-background-color); font-weight: bold; text-align: left !important; padding: 5px 6px; }',
   '.dr td.bgi, .dr td.bgl { text-align: right !important; }',
+  /* Day rows: Sell column (4th) gets separator */
+  '.dr td:nth-child(4) { box-shadow: inset 2px 0 0 #666; }',
   '.msg { padding: 20px; text-align: center; color: var(--secondary-text-color); }',
   '.err { padding: 10px; color: #f44336; }',
 ].join('\n');
@@ -543,7 +544,6 @@ class EmEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
-    _EMEC_CUR = this._config.currency_symbol || '$';
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _emec_buildHTML();
       this._wireRange();
@@ -839,7 +839,7 @@ class EmEventsCard extends HTMLElement {
     const dayLabel = displayLabel 
       ? '📅 ' + displayLabel 
       : (day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }));
-    const dayCostLabel = dayTotal <= 0 ? _EMEC_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _EMEC_CUR + dayTotal.toFixed(2);
+    const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
     const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
     const fmtGrid = (v) => {
       if (Math.abs(v) <= 0.001) return '—';
@@ -865,6 +865,53 @@ class EmEventsCard extends HTMLElement {
       '<td class="bgl"></td>' +
       '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLabel + '</td>' +
       '</tr>';
+  }
+
+  _buildDayHeaderRowPast(day, pastDailyCosts, pastDailyKwh, displayLabel) {
+    const dayTotal = pastDailyCosts[day] || 0;
+    const dk = pastDailyKwh[day] || { load: 0, pv: 0, gridImp: 0, gridExp: 0, battChg: 0, battDis: 0 };
+    const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
+    const dayLabel = '📅 ' + displayLabel;
+    const dayCostLabel = dayTotal <= 0 ? '$' + Math.abs(dayTotal).toFixed(2) : '-$' + dayTotal.toFixed(2);
+    const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
+    const fmtGridImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtGridExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+    
+    // Row 1: Load kWh, PV kWh, Grid "Import" label, Battery "Charge" label
+    const row1 = '<tr class="dr" style="border-bottom: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+      '<td colspan="2" style="vertical-align:middle;">' + dayLabel + '</td>' +
+      '<td class="bgl" colspan="2"></td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.load) + '</td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.pv) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Import</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridImp(dk.gridImp) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattChg(dk.battChg) + '</td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="text-align:right;color:' + dayColor + ';font-weight:bold;vertical-align:middle;">' + dayCostLabel + '</td>' +
+      '</tr>';
+    
+    // Row 2: Empty Load/PV, Grid "Export" label, Battery "Discharge" label
+    const row2 = '<tr class="dr" style="border-top: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+      '<td colspan="2" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" colspan="2"></td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="vertical-align:middle;"></td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Export</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridExp(dk.gridExp) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattDis(dk.battDis) + '</td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '</tr>';
+    
+    return row1 + row2;
   }
 
   _buildTimelineRow(row, provider, meta, nowTs) {
@@ -1201,7 +1248,7 @@ class EmEventsCard extends HTMLElement {
       for (let t = startMs; t <= end.getTime(); t += step) entries.push(t);
       entries.reverse();
 
-      // ── PASS 1: Calculate all daily totals ──
+      // ── PASS 1: Calculate all daily totals (with import/export & charge/discharge split) ──
       const pastDailyCosts = {};
       const pastDailyKwh = {};
 
@@ -1215,8 +1262,6 @@ class EmEventsCard extends HTMLElement {
         const loadKw = (parseFloat(_emec_getAt(lookup['sensor.inverter_load_power'], ts)) || 0) / 1000;
         const battCKw = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_charging_power'], ts)) || 0) / 1000;
         const battDKw = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_discharging_power'], ts)) || 0) / 1000;
-        const gridKw = gridExpKw > 0.2 ? -gridExpKw : gridImpKw > 0.2 ? gridImpKw : 0;
-        const battKw = battCKw > 0.2 ? battCKw : battDKw > 0.2 ? -battDKw : 0;
         const buyP = parseFloat(_emec_getAt(lookup['sensor.nodered_buyprice'], ts)) || 0;
         const sellP = parseFloat(_emec_getAt(lookup['sensor.nodered_sellprice'], ts)) || 0;
         
@@ -1225,14 +1270,16 @@ class EmEventsCard extends HTMLElement {
         
         if (!pastDailyCosts.hasOwnProperty(dayStr)) {
           pastDailyCosts[dayStr] = 0;
-          pastDailyKwh[dayStr] = { load: 0, pv: 0, grid: 0, batt: 0 };
+          pastDailyKwh[dayStr] = { load: 0, pv: 0, gridImp: 0, gridExp: 0, battChg: 0, battDis: 0 };
         }
         
         pastDailyCosts[dayStr] += cost;
         pastDailyKwh[dayStr].load += loadKw * stepHP;
         pastDailyKwh[dayStr].pv += solarKw * stepHP;
-        pastDailyKwh[dayStr].grid += gridKw * stepHP;
-        pastDailyKwh[dayStr].batt += battKw * stepHP;
+        pastDailyKwh[dayStr].gridImp += gridImpKw * stepHP;
+        pastDailyKwh[dayStr].gridExp += gridExpKw * stepHP;
+        pastDailyKwh[dayStr].battChg += battCKw * stepHP;
+        pastDailyKwh[dayStr].battDis += battDKw * stepHP;
       }
 
       // ── PASS 2: Render rows with pre-calculated day headers ──
@@ -1249,7 +1296,7 @@ class EmEventsCard extends HTMLElement {
         // Inject day header when day changes
         if (dayStr !== lastDay) {
           lastDay = dayStr;
-          rows.push(this._buildDayHeaderRow(dayStr, pastDailyCosts, pastDailyKwh, '', dayStrDisplay));
+          rows.push(this._buildDayHeaderRowPast(dayStr, pastDailyCosts, pastDailyKwh, dayStrDisplay));
         }
 
         const gridImpKw = (parseFloat(_emec_getAt(lookup['sensor.inverter_import_power'], ts)) || 0) / 1000;
@@ -1289,10 +1336,10 @@ class EmEventsCard extends HTMLElement {
 
         let costDisp, costCol;
         if (gridExpKw > 0.2 && cost < -0.0001) {
-          costDisp = _EMEC_CUR + Math.abs(cost).toFixed(3);
+          costDisp = '$' + Math.abs(cost).toFixed(3);
           costCol  = '#4caf50';
         } else if (gridImpKw > 0.2 && cost > 0.0001) {
-          costDisp = '-' + _EMEC_CUR + cost.toFixed(3);
+          costDisp = '-$' + cost.toFixed(3);
           costCol  = '#f44336';
         } else {
           costDisp = '—';
