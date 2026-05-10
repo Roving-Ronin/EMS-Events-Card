@@ -3,7 +3,15 @@
 All notable changes to `em-events-card.js` are documented here.
 
 ---
+## v2.6.0
 
+* **Event Description Tooltips** — Hover over event labels to see detailed rationale for each decision (tariff rates, peak periods, battery discharge timing, cost implications)
+* **Interactive Modal Legend** — Click "View Legend" button to open searchable legend instead of static 2-column table
+* **Dual-Filter Legend System** — Filter events by power source (☀️ Solar / 🔋 Battery / ⚡ Grid) and category (Self Consumption / Profit / Cost) with independent OR-logic filtering
+* **13 Energy Scenarios Documented** — All energy flow scenarios now include specific descriptions explaining tariff-based logic and cost optimization strategy
+* **Legend Modal with Backdrop** — Modal overlay (z-index: 1000) with close button (✕) and click-to-close backdrop for better UX
+* **Enhanced Tooltips on Past Events** — Past Events tab now shows full event descriptions on hover, matching Future Decisions tab
+  
 ## v2.5.2
 - **Column layout refactored to match HAEO Events Card** — 14-column structure with identical colgroup and CSS styling
 - **SoC % moved under Battery** — now appears as sub-column in row 2 header (kW | kWh | SoC %), not standalone column
