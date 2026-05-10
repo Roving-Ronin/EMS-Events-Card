@@ -8,11 +8,11 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 ### Future Decisions
 
-![Energy Manager - Future Decisions](HAEO-Card-Future-Decisions.jpg)
+![Energy Manager - Future Decisions](HAEO-Card-Future-Decisions.png)
 
 ### Past Events
 
-![Energy Manager - Past Events](HAEO-Card-Past-Events.jpg)
+![Energy Manager - Past Events](HAEO-Card-Past-Events.png)
 
 ---
 
