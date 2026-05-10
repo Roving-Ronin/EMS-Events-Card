@@ -4,7 +4,47 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
-## [v2.5.1] — 2026-05-08
+## [v2.6.0] — 2026-05-10
+
+### Added
+- **Event Description Tooltips** — Hover over event labels to see detailed rationale for each decision (tariff rates, peak periods, battery discharge timing, cost implications)
+- **Interactive Modal Legend** — Click "View Legend" button to open searchable legend with color blocks instead of static 2-column table
+- **Power Source Filter Checkboxes** — Filter legend events by ☀️ Solar / 🔋 Battery / ⚡ Grid / 🚗 EV with OR-logic (show events matching ANY selected source)
+- **Category-Based Legend Organization** — Legend grouped into Self Consumption / Cost / Profit categories with alphabetical sorting within each
+- **34 Event Descriptions** — Complete tooltip documentation including tariff-based rationale, battery state implications, cost/profit logic
+- **Legend Modal Backdrop** — Modal overlay (z-index: 1000) with close button (✕) and click-to-close backdrop for better UX
+- **Enhanced EV Charging Classification** — Fixed event labels when EV charges alongside grid import and battery charging (now includes all three in event label)
+- **EV+Battery Combination Scenarios** — 6 new scenarios covering EV charging with grid import, solar, and battery simultaneously
+
+### Fixed
+- **EV Discharging Classification Precedence** — EV scenarios now checked before non-EV scenarios, preventing missing EV labels in complex multi-source scenarios
+- **Peak SoC Time Format** — Removed leading zero from hour (01:55pm → 1:55pm)
+- **Morning SoC Time Format** — Same fix as Peak SoC badge
+
+### Changed
+- **Legend Header** — Removed emoji and "Legend:" text; replaced with single "View Legend" pill badge (navy #000099, white text)
+- **Legend Display Method** — Static table replaced with dynamic modal for space efficiency and better interactivity
+- **Event Classification Logic** — Restructured EV charging cascade to check grid+battery combinations before single-source scenarios
+
+### Preserved
+- All v2.5.2 core functionality (auto-refresh, multi-provider support, energy calculations, column alignment, status bar, history querying)
+- Future/Past tab structure and data flow
+- Smart alert pills (Grid Import / Export / Force Charge / Discharge)
+- Mode and Focus pills with color coding
+- Daily totals and Cost/Profit calculations
+- All sensor defaults and configuration options
+
+---
+
+
+
+### Fixed
+- **Grid export/import alerts showing on Past Events tab** — alert pills are now hidden when Past tab is active (alerts are for planned Future events only)
+- **Grid export/import alert date format** — when alert refers to a future day, format now includes day name (e.g. `Grid export from Saturday 3:30pm` instead of just `3:30pm`). Today events show time only (e.g. `3:30pm`)
+
+---
+
+## [v2.5.1a] — 2026-05-08
 
 ### Added
 - **EV event classification** — `_haeo_classifyFuture()` and `_haeo_classifyPast()` now accept EV power parameter and generate event labels reflecting EV charging/discharging scenarios (e.g. `Solar + Battery + EV → Home`, `EV → Home`, `EV + Grid → Home`)
