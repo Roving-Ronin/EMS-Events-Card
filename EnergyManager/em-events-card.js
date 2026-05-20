@@ -1,10 +1,10 @@
-// EM Events Card
+// EM Events Card — FIXED Morning SoC + CLEANED legacy code
 // Combines Future Decisions (timeline) and Past Events (history) in one card
 // Requires: sensor.energy_manager_plan + inverter sensors
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.7.5a';
+const _EMEC_VERSION = 'v2.7.11';
 
 let _EMEC_CUR = '$';
 
@@ -19,14 +19,13 @@ const _EMEC_SENSORS = [
   'sensor.inverter_battery_level',
   'sensor.nodered_buyprice',
   'sensor.nodered_sellprice',
-  // Energy sensors for kWh display (total_increasing — delta between slots)
   'sensor.monthly_imported_energy',
   'sensor.monthly_exported_energy',
   'sensor.monthly_pv_generation',
   'sensor.monthly_battery_charge',
   'sensor.monthly_battery_discharge',
-  'sensor.daily_consumed_energy',                 // load kWh (resets daily at midnight)
-  'sensor.daily_exported_energy',                 // Globird super export cap tracking
+  'sensor.daily_consumed_energy',
+  'sensor.daily_exported_energy',
 ];
 
 const _EMEC_COLOURS = {
@@ -38,29 +37,6 @@ const _EMEC_COLOURS = {
   green:       { bg: 'rgba(30,150,80,0.55)',  txt: '#ffffff', cost: '#90ffb0' },
 };
 
-const _EMEC_LEG_L = [
-  ['#ccfff5','#333','🌞 Solar + 🔋 Battery → 🏠 Home','Self Consumption - No Grid'],
-  ['#ffe0e0','#333','🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)','Profit - Grid Export (Forced)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home','Self Consumption - Solar'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery','Self Consumption - Charge Battery'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid','Profit - Grid Export (Forced)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + ⚡ Grid','Profit - Grid Export (Solar)'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home','Cost - Solar + Grid Import'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost - Solar + Grid Import - Charge Battery'],
-];
-
-const _EMEC_LEG_R = [
-  ['#ccfff5','#333','🔋 Battery → 🏠 Home','Self Consumption - Battery'],
-  ['#ffffcc','#333','🔋 Battery → 🏠 Home + ⚡ Grid (Force)','Profit - Grid Export (Forced)'],
-  ['#ffe0e0','#333','🔋 Battery + ⚡ Grid → 🏠 Home','Cost - Battery + Grid Import'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home','Cost - Grid Import (Battery Idle | No Solar)'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost - Grid Import (Fored Battery Charge)'],
-  ['#ccfff5','#333','🚗 EV Charger','Placeholder - EV Charger'],
-  ['#ccfff5','#333','❄️ 🚿 Scheduled Load(s)','Placeholder - HVAC, HWS - Surplus Solar'],
-  ['','','',''],
-];
-
-// ── Event Descriptions — specific rationale for each scenario ────────────────────
 const _EMEC_DESCRIPTIONS = {
   '🌞 Solar → 🏠 Home (Self Consumption)': 
     'Solar covering home demand, maximizing self-consumption and avoiding grid import.',
@@ -102,27 +78,24 @@ const _EMEC_DESCRIPTIONS = {
     'Grid supplying home load and force-charging battery, due to low import tariff rate. Battery will discharge during peak tariff periods for cost savings.',
 };
 
-// ── Improved colgroup — stretches to full width (HAEO minus EV + EV2) ────────
 const _EMEC_COLGROUP =
   '<colgroup>' +
-  '<col style="width:52px;">' +                    // Time
-  '<col style="width:auto; min-width:154px;">' +   // Event — let this expand
-  '<col style="width:68px;">' +                    // Buy $
-  '<col style="width:68px;">' +                    // Sell $
-  '<col style="width:44px;">' +                    // Load kW
-  '<col style="width:46px;">' +                    // Load kWh
-  '<col style="width:44px;">' +                    // PV kW
-  '<col style="width:46px;">' +                    // PV kWh
-  '<col style="width:44px;">' +                    // Grid kW
-  '<col style="width:46px;">' +                    // Grid kWh
-  '<col style="width:44px;">' +                    // Batt kW
-  '<col style="width:46px;">' +                    // Batt kWh
-  '<col style="width:46px;">' +                    // Batt SoC
-  '<col style="width:72px;">' +                    // Cost/Profit
+  '<col style="width:52px;">' +
+  '<col style="width:auto; min-width:154px;">' +
+  '<col style="width:68px;">' +
+  '<col style="width:68px;">' +
+  '<col style="width:44px;">' +
+  '<col style="width:46px;">' +
+  '<col style="width:44px;">' +
+  '<col style="width:46px;">' +
+  '<col style="width:44px;">' +
+  '<col style="width:46px;">' +
+  '<col style="width:44px;">' +
+  '<col style="width:46px;">' +
+  '<col style="width:46px;">' +
+  '<col style="width:72px;">' +
   '</colgroup>';
 
-
-// ── Shared classify — future (mode-aware) ────────────────────────────────────
 function _emec_classifyFuture(mode, pvKw, impKw, expKw, battCKw, battDKw, curtail, soc) {
   const T = 0.1;
   if (mode === 'FORCED_EXPORT') {
@@ -157,7 +130,6 @@ function _emec_classifyFuture(mode, pvKw, impKw, expKw, battCKw, battDKw, curtai
   return null;
 }
 
-// ── Shared classify — past (sensor-based) ───────────────────────────────────
 function _emec_classifyPast(solar, gridImp, gridExp, battC, battD) {
   const T = 0.2;
   if (solar > T && gridExp > T && battD > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'pink' };
@@ -181,46 +153,34 @@ function _emec_fmtP(v) {
 }
 
 function _emec_fmtCost(cost) {
-  // cost > 0 = money spent (import) = show as -$
-  // cost < 0 = money earned (export) = show as $
   if (cost > 0.0001)  return { disp: '-' + _EMEC_CUR + cost.toFixed(3),           col: null };
   if (cost < -0.0001) return { disp: _EMEC_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
 }
 
-
-// ── Provider-aware price helpers ─────────────────────────────────────────────
-
-// Parse HH:MM:SS time string into minutes-since-midnight
 function _emec_timeToMins(timeStr) {
   if (!timeStr) return 0;
   const parts = timeStr.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
 
-// Get minutes-since-midnight for a timestamp
 function _emec_tsToMins(ts) {
   const d = new Date(ts);
   return d.getHours() * 60 + d.getMinutes();
 }
 
-// Check if time (mins since midnight) is within a window (handles overnight wrap)
 function _emec_inWindow(mins, startMins, endMins) {
   if (startMins <= endMins) {
     return mins >= startMins && mins < endMins;
   } else {
-    // overnight wrap e.g. 23:00 → 02:00
     return mins >= startMins || mins < endMins;
   }
 }
 
-// Get provider-aware buy/sell prices for a given timestamp
-// Returns { buyP, sellP, inSuper } — inSuper only meaningful for Globird
 function _emec_getPrices(ts, provider, hass, rowBuyP, rowSellP) {
   const mins = _emec_tsToMins(ts);
 
   if (provider === 'Globird') {
-    // ── Buy price ──
     const peakBuyStart = _emec_timeToMins(hass.states['input_datetime.globird_peak_buy_start']?.state || '16:00:00');
     const peakBuyEnd   = _emec_timeToMins(hass.states['input_datetime.globird_peak_buy_end']?.state   || '23:00:00');
     const freeBuyStart = _emec_timeToMins(hass.states['input_datetime.globird_free_buy_start']?.state  || '11:00:00');
@@ -239,7 +199,6 @@ function _emec_getPrices(ts, provider, hass, rowBuyP, rowSellP) {
       buyP = otherBuyP;
     }
 
-    // ── Sell price ──
     const superStart = _emec_timeToMins(hass.states['input_datetime.globird_super_start']?.state || '18:00:00');
     const superEnd   = _emec_timeToMins(hass.states['input_datetime.globird_super_end']?.state   || '21:00:00');
     const stdStart   = _emec_timeToMins(hass.states['input_datetime.globird_std_start']?.state   || '16:00:00');
@@ -263,21 +222,15 @@ function _emec_getPrices(ts, provider, hass, rowBuyP, rowSellP) {
     return { buyP, sellP, inSuper, stdSellP, otherSellP, mins, stdStart, stdEnd };
 
   } else if (provider === 'Flow Power') {
-    // ── Flat buy price ──
     const buyP = parseFloat(hass.states['input_number.flowpower_buy_price']?.state || 0) / 100;
-
-    // ── Time-based sell price ──
     const peakStart = _emec_timeToMins(hass.states['input_datetime.flowpower_peak_start_time']?.state || '17:30:00');
     const peakEnd   = _emec_timeToMins(hass.states['input_datetime.flowpower_peak_end_time']?.state   || '19:30:00');
     const peakSellP = parseFloat(hass.states['input_number.flowpower_peak_feedin_price']?.state    || 0) / 100;
     const offSellP  = parseFloat(hass.states['input_number.flowpower_offpeak_feedin_price']?.state || 0) / 100;
-
     const sellP = _emec_inWindow(mins, peakStart, peakEnd) ? peakSellP : offSellP;
-
     return { buyP, sellP, inSuper: false };
 
   } else {
-    // Amber Electric / LocalVolts — use plan values directly
     return { buyP: rowBuyP, sellP: rowSellP, inSuper: false };
   }
 }
@@ -293,35 +246,20 @@ function _emec_getAt(arr, ts) {
   return best;
 }
 
-// Get energy delta between two consecutive 5-min slots from a total_increasing sensor
-// Handles daily/monthly resets by returning 0 if delta is less than -0.01 kWh
 function _emec_getDelta(arr, ts, prevTs) {
   if (!arr || !arr.length) return null;
   const curr = parseFloat(_emec_getAt(arr, ts));
   const prev = parseFloat(_emec_getAt(arr, prevTs));
   if (isNaN(curr) || isNaN(prev)) return null;
   const delta = curr - prev;
-  return delta < -0.01 ? 0 : delta; // delta < -0.01 = reset occurred, treat as 0
+  return delta < -0.01 ? 0 : delta;
 }
 
-// Format kWh value for display in brackets
 function _emec_fmtKwh(kwh) {
   if (kwh === null || kwh === undefined) return '';
   if (kwh < 0.001) return '';
   if (kwh < 0.1)   return ' (' + (kwh * 1000).toFixed(0) + 'Wh)';
   return ' (' + kwh.toFixed(3) + 'kWh)';
-}
-
-// ── Shared legend HTML ───────────────────────────────────────────────────────
-function _emec_legTable(items) {
-  const rows = items.map(([bg, txt, label, desc]) => {
-    if (!label) return '<tr><td colspan="2" style="border:none;padding:2px 0;"></td></tr>';
-    return '<tr>' +
-      '<td style="background-color:' + bg + ';color:' + txt + ';padding:3px 8px;white-space:nowrap;border:none;font-size:11px;">' + label + '</td>' +
-      '<td style="padding:3px 8px;color:var(--primary-text-color);border:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;">' + desc + '</td>' +
-      '</tr>';
-  }).join('');
-  return '<table style="width:100%;border-collapse:collapse;table-layout:auto;border-spacing:0;">' + rows + '</table>';
 }
 
 function _emec_buildLegend() {
@@ -374,7 +312,6 @@ function _emec_buildLegend() {
     '</div>';
 }
 
-// ── Shared CSS ───────────────────────────────────────────────────────────────
 const _EMEC_STYLE = [
   ':host { display: block; }',
   '.card { padding: 8px 12px; font-family: var(--primary-font-family, sans-serif); font-size: 12px; }',
@@ -397,27 +334,11 @@ const _EMEC_STYLE = [
   '.wrap { overflow-y: auto; width: 100%; }',
   '.pane { display: none; }',
   '.pane.active { display: block; }',
-  /* All data-table rules scoped to .dt to prevent leaking into legend tables */
-  '.dt { border-collapse: collapse; width: 100%; table-layout: fixed; }',
-  '.dt th, .dt td { padding: 4px 6px; border-bottom: 1px solid var(--divider-color,#444); font-size: 12px; line-height: 1.3; white-space: nowrap; text-align: right; }',
-  '.dt th:nth-child(1) { text-align: left; box-shadow: inset -1px 0 0 #555; }',
-  '.dt td:nth-child(1) { text-align: left !important; box-shadow: inset -1px 0 0 #555; }',
-  /* nth-child(2) = Event col: left-align data rows, but NOT !important so th inline style can override to center */
-  '.dt td:nth-child(2) { text-align: left; white-space: normal; box-shadow: inset -1px 0 0 #555; }',
-  '.dt th:nth-child(2) { white-space: normal; box-shadow: inset -1px 0 0 #555; }',
-  '.dt thead { background-color: var(--card-background-color,#1c1c1c); }',
-  '.dt thead th { background-color: var(--card-background-color,#1c1c1c); font-weight: bold; color: var(--primary-text-color); border-bottom: 1px solid #666; }',
-  /* Last row of thead = kW/kWh row — thick bottom border separates header from data */
-  '.dt thead tr:last-child th { border-bottom: 2px solid #888; }',
-  /* thick left border = major group boundary */
   '.bgl { box-shadow: inset 2px 0 0 #666; }',
-  /* thin left border = kW/kWh within group */
   '.bgi { box-shadow: inset 1px 0 0 #555; }',
-  /* Sell column (4th) — vertical border on left to separate from Buy */
   '.dt td:nth-child(4), .dt th:nth-child(4) { box-shadow: inset 2px 0 0 #666; }',
   '.dr td { background: var(--secondary-background-color); font-weight: bold; text-align: left !important; padding: 5px 6px; }',
   '.dr td.bgi, .dr td.bgl { text-align: right !important; }',
-  /* Day rows: Sell column (4th) gets separator */
   '.dr td:nth-child(4) { box-shadow: inset 2px 0 0 #666; }',
   '.msg { padding: 20px; text-align: center; color: var(--secondary-text-color); }',
   '.err { padding: 10px; color: #f44336; }',
@@ -426,8 +347,6 @@ const _EMEC_STYLE = [
 function _emec_buildHTML() {
   return '<style>' + _EMEC_STYLE + '</style>' +
     '<ha-card><div class="card">' +
-
-    // ── Tabs ──
     '<div class="tabs">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
@@ -445,11 +364,8 @@ function _emec_buildHTML() {
     '</select></span>' +
     '</span>' +
     '</div>' +
-
-    // ── Future pane ──
     '<div class="pane active" id="pane-future">' +
     '<div class="sbar" id="sbar-future">⏳ Loading...</div>' +
-    // Header table — sits above the scroll area, never scrolls
     '<table class="dt dt-head" style="margin-bottom:0;">' +
     _EMEC_COLGROUP +
     '<thead>' +
@@ -477,20 +393,16 @@ function _emec_buildHTML() {
     '</tr>' +
     '</thead>' +
     '</table>' +
-    // Body scroll area
     '<div class="wrap"><table class="dt">' +
     _EMEC_COLGROUP +
     '<tbody id="tb-future"><tr><td colspan="14" class="msg">⏳ Loading...</td></tr></tbody>' +
     '</table></div>' +
     '</div>' +
-
-    // ── Past pane ──
     '<div class="pane" id="pane-past">' +
     '<div class="sbar">' +
     '<strong style="color:var(--primary-text-color);">Past Events</strong>' +
     '<span class="stxt" id="st-past">Loading...</span>' +
     '</div>' +
-    // Header table — never scrolls
     '<table class="dt dt-head" style="margin-bottom:0;">' +
     _EMEC_COLGROUP +
     '<thead>' +
@@ -518,19 +430,15 @@ function _emec_buildHTML() {
     '</tr>' +
     '</thead>' +
     '</table>' +
-    // Body scroll area
     '<div class="wrap"><table class="dt">' +
     _EMEC_COLGROUP +
     '<tbody id="tb-past"><tr><td colspan="14" class="msg">⏳ Select range to load...</td></tr></tbody>' +
     '</table></div>' +
     '</div>' +
-
-    // ── Shared legend ──
     _emec_buildLegend() +
     '</div></ha-card>';
 }
 
-// ── Custom Element ────────────────────────────────────────────────────────────
 class EmEventsCard extends HTMLElement {
   constructor() {
     super();
@@ -557,8 +465,6 @@ class EmEventsCard extends HTMLElement {
         this._ro = new ResizeObserver(() => this._setWrapHeight());
         this._ro.observe(document.documentElement);
       }
-      // Smart refresh: fires at :01, :06, :11, :16 ... past the hour (1 min after each 5-min HA update)
-      // Only refreshes when tab is visible; if hidden, catches up on next visibilitychange
       this._scheduleRefresh();
       if (!this._visHandler) {
         this._visHandler = () => {
@@ -574,17 +480,13 @@ class EmEventsCard extends HTMLElement {
     }
   }
 
-  // Calculate ms until next :01, :06, :11, :16 ... past the hour
-  // (1 min after each 5-min HA update boundary)
   _msUntilNextBoundary() {
     const now = new Date();
     const secInHour = now.getMinutes() * 60 + now.getSeconds();
-    // Target minutes past hour: 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56
     const targets = [1,6,11,16,21,26,31,36,41,46,51,56];
     const minNow  = now.getMinutes() + now.getSeconds() / 60;
-    // Find next target minute that is ahead of now
     let nextMin = targets.find(t => t > minNow);
-    if (nextMin === undefined) nextMin = targets[0] + 60; // wrap to next hour
+    if (nextMin === undefined) nextMin = targets[0] + 60;
     const msUntil = (nextMin * 60 - secInHour) * 1000 - now.getMilliseconds();
     return Math.max(1000, msUntil);
   }
@@ -595,13 +497,12 @@ class EmEventsCard extends HTMLElement {
       if (document.visibilityState !== 'hidden' && this._hass) {
         this._doRefresh();
       }
-      // Always reschedule regardless of visibility
       this._scheduleRefresh();
     }, this._msUntilNextBoundary());
   }
 
   _doRefresh() {
-    this._lastPlanTs = null; // force future re-render on next hass set
+    this._lastPlanTs = null;
     this._renderFuture();
     if (this._activeTab === 'past' && this._pastState === 'ready') {
       this._pastState = 'loading';
@@ -609,6 +510,7 @@ class EmEventsCard extends HTMLElement {
     }
     this._lastRenderTs = Date.now();
   }
+
   _setWrapHeight() {
     const wraps = this.shadowRoot.querySelectorAll('.wrap');
     wraps.forEach(w => {
@@ -620,7 +522,6 @@ class EmEventsCard extends HTMLElement {
       const contentH  = w.scrollHeight;
       w.style.height = Math.min(viewportH, contentH) + 'px';
     });
-    // Sync header table widths — subtract scrollbar width so columns align
     const wrap = this.shadowRoot.querySelector('.pane.active .wrap');
     if (!wrap) return;
     const scrollbarW = wrap.offsetWidth - wrap.clientWidth;
@@ -635,25 +536,21 @@ class EmEventsCard extends HTMLElement {
       this.shadowRoot.innerHTML = _emec_buildHTML();
       this._wireRange();
     }
-    // Update provider pill in legend
     const providerState = hass.states['input_select.electricity_provider']?.state || 'Amber Electric';
     const provPill = this.shadowRoot.getElementById('provider-pill');
     if (provPill) provPill.textContent = '⚡ ' + providerState;
 
-    // Re-render future tab when plan changes
     const planState = hass.states['sensor.energy_manager_plan'];
     const planTs    = planState?.last_changed;
     if (planTs !== this._lastPlanTs) {
       this._lastPlanTs = planTs;
       this._renderFuture();
     }
-    // Auto-load past on first hass set, or recover if stuck loading
     if (this._pastState === 'idle') {
       this._pastState = 'loading';
       this._pastLoadTs = Date.now();
       this._loadPast();
     } else if (this._pastState === 'loading' && this._pastLoadTs && (Date.now() - this._pastLoadTs) > 30000) {
-      // Stuck in loading for >30s — reset and retry
       this._pastState = 'idle';
     }
   }
@@ -667,18 +564,14 @@ class EmEventsCard extends HTMLElement {
     });
     const wrap = sr.getElementById('range-past-wrap');
     if (wrap) wrap.style.display = tab === 'past' ? 'inline-flex' : 'none';
-    
-    // Clear alerts when switching to Past tab
     if (tab === 'past') {
       const tabAlerts = sr.getElementById('tab-alerts');
       if (tabAlerts) tabAlerts.innerHTML = '';
     }
-    
     requestAnimationFrame(() => this._setWrapHeight());
   }
 
   _wireRange() {
-    // Wire tab clicks
     const tabFuture = this.shadowRoot.getElementById('tab-future');
     const tabPast   = this.shadowRoot.getElementById('tab-past');
     if (tabFuture && !tabFuture._wired) {
@@ -689,7 +582,6 @@ class EmEventsCard extends HTMLElement {
       tabPast._wired = true;
       tabPast.addEventListener('click', () => this._switchTab('past'));
     }
-    // Wire range selector
     const sel = this.shadowRoot.getElementById('range-past');
     if (sel && !sel._wired) {
       sel._wired = true;
@@ -700,7 +592,6 @@ class EmEventsCard extends HTMLElement {
         this._loadPast();
       });
     }
-    // Wire legend modal
     const viewBtn = this.shadowRoot.getElementById('view-legend-btn');
     const closeBtn = this.shadowRoot.getElementById('close-legend-btn');
     const modal = this.shadowRoot.getElementById('legend-modal');
@@ -718,22 +609,20 @@ class EmEventsCard extends HTMLElement {
       modal._wired = true;
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
     }
-    filters.forEach((f, i) => {
+    filters.forEach((f) => {
       if (!f._wired) {
         f._wired = true;
         f.addEventListener('change', () => this._applyLegendFilters());
       }
     });
     const catFilters = this.shadowRoot.querySelectorAll('.legend-filter-cat');
-    catFilters.forEach((f, i) => {
+    catFilters.forEach((f) => {
       if (!f._wired) {
         f._wired = true;
         f.addEventListener('change', () => this._applyLegendFilters());
       }
     });
   }
-
-  // ── Future tab render — refactored into smaller methods ──────────────────
 
   _buildSbar(timeline, bs, summary, provider, nowTs) {
     const fmtSbarTime = (ts) => new Date(ts).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
@@ -748,52 +637,52 @@ class EmEventsCard extends HTMLElement {
     const modeIcon   = modeIcons[modeLabel]  || '🔧';
     const nowSoc     = summary?.now_soc_pct;
 
-    // Peak / morning SoC
-    let closestDiff = Infinity, chargingNow = false;
+    // Scan timeline once for min/max forecasted SoC (direct from em_plan)
+    let minSoc = null, minSocTime = '', maxSoc = null, maxSocTime = '';
+    
     for (const row of timeline) {
-      const diff = Math.abs(new Date(row.ts).getTime() - nowTs);
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        chargingNow = (row.inputs.pv_kw || 0) > 0.5 && (row.expected.battery_charge_kw || 0) > 0.1;
+      const ts = new Date(row.ts).getTime();
+      if (ts <= nowTs) continue; // Skip past events
+      
+      const forecSoc = row.inputs.soc_pct_start || 0; // SoC AT the start of this slot
+      
+      // Track minimum
+      if (minSoc === null || forecSoc < minSoc) {
+        minSoc = forecSoc;
+        minSocTime = fmtSbarTime(ts);
+      }
+      
+      // Track maximum
+      if (maxSoc === null || forecSoc > maxSoc) {
+        maxSoc = forecSoc;
+        maxSocTime = fmtSbarTime(ts);
       }
     }
-
+    
+    // Show the appropriate metric
     let dawnSoc = null, dawnTime = '', dawnLabel = '';
-    if (chargingNow) {
-      let peakSoc = 0, peakTime = '';
-      for (const row of timeline) {
-        const ts = new Date(row.ts).getTime();
-        if (ts >= nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.1 && (row.expected.soc_pct_end||0) > peakSoc) {
-          peakSoc  = row.expected.soc_pct_end;
-          peakTime = fmtSbarTime(ts);
-        }
-      }
-      if (peakSoc > 0) { dawnSoc = peakSoc; dawnTime = peakTime; dawnLabel = '🔋 Peak SoC:'; }
-    } else {
-      for (const row of timeline) {
-        if (dawnSoc !== null) break;
-        const ts = new Date(row.ts).getTime();
-        if (ts > nowTs && (row.inputs.pv_kw||0) > 0.5 && (row.expected.battery_charge_kw||0) > 0.1 && (row.expected.battery_discharge_kw||0) < 0.001) {
-          dawnSoc   = row.inputs.soc_pct_start || 0;
-          dawnTime  = fmtSbarTime(ts);
-          dawnLabel = '🌅 Morning SoC:';
-        }
-      }
+    if (maxSoc !== null && maxSoc > (nowSoc || 0) + 5) {
+      // Currently charging or about to charge — show peak
+      dawnSoc = maxSoc;
+      dawnTime = maxSocTime;
+      dawnLabel = '🔋 Peak SoC:';
+    } else if (minSoc !== null && minSoc < 99) {
+      // Not charging — show minimum before recovery
+      dawnSoc = minSoc;
+      dawnTime = minSocTime;
+      dawnLabel = '🌅 Minimum SoC:';
     }
 
     const dawnColor  = dawnSoc <= 20 ? '#ff6b6b' : dawnSoc <= 35 ? '#ff9800' : '#39ff14';
 
-    // Next decision — first future row
-    let nextExporting = false, nextImporting = false, nextCharging = false;
+    let nextImporting = false, nextCharging = false;
     for (const row of timeline) {
       if (new Date(row.ts).getTime() < nowTs) continue;
-      nextExporting = (row.expected.grid_export_kw   || 0) > 0.1;
       nextImporting = (row.expected.grid_import_kw   || 0) > 0.1;
       nextCharging  = (row.expected.battery_charge_kw|| 0) > 0.1;
       break;
     }
 
-    // Export / Charge limit pills
     const exportLimitW  = parseFloat(this._hass.states['sensor.inverter_current_export_power_limit']?.state || 0);
     const chargeLimitW  = parseFloat(this._hass.states['sensor.inverter_current_max_charge_power']?.state  || 0);
     const importLimitKw = parseFloat(this._hass.states['input_number.inverter_import_limit']?.state        || 0);
@@ -804,7 +693,6 @@ class EmEventsCard extends HTMLElement {
     const exportLimitDisp = showExportLimit ? fmtKwLimit(exportLimitW / 1000) : null;
     const chargeLimitDisp = showChargeLimit ? fmtKwLimit(chargeLimitKw)       : null;
 
-    // Globird super export remaining
     let superExportPill = '';
     if (provider === 'Globird' && this._hass) {
       const superCapKwh = parseFloat(this._hass.states['input_number.globird_super_max_export']?.state || 10);
@@ -817,7 +705,6 @@ class EmEventsCard extends HTMLElement {
       }
     }
 
-    // Capitalise focus text
     const focusCap = (bs?.focus || summary?.focus || '').replace(/\b\w/g, c => c.toUpperCase());
 
     const html =
@@ -838,7 +725,6 @@ class EmEventsCard extends HTMLElement {
     const dayTotal = dailyCosts[day] || 0;
     const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0 };
     const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
-    // If displayLabel provided (from past tab), use it; otherwise calculate from day
     const dayLabel = displayLabel 
       ? '📅 ' + displayLabel 
       : (day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }));
@@ -882,7 +768,6 @@ class EmEventsCard extends HTMLElement {
     const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
     const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
     
-    // Row 1: Load kWh, PV kWh, Grid "Import" label, Battery "Charge" label
     const row1 = '<tr class="dr" style="border-bottom: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
       '<td colspan="2" style="vertical-align:middle;">' + dayLabel + '</td>' +
       '<td class="bgl" colspan="2"></td>' +
@@ -898,7 +783,6 @@ class EmEventsCard extends HTMLElement {
       '<td class="bgl" style="text-align:right;color:' + dayColor + ';font-weight:bold;vertical-align:middle;">' + dayCostLabel + '</td>' +
       '</tr>';
     
-    // Row 2: Empty Load/PV, Grid "Export" label, Battery "Discharge" label
     const row2 = '<tr class="dr" style="border-top: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
       '<td colspan="2" style="vertical-align:middle;"></td>' +
       '<td class="bgl" colspan="2"></td>' +
@@ -934,12 +818,10 @@ class EmEventsCard extends HTMLElement {
     const gridKw  = expKw > 0.1 ? -expKw : impKw > 0.1 ? impKw : 0;
     const battKw  = battCKw > 0.1 ? battCKw : battDKw > 0.1 ? -battDKw : 0;
 
-    // Globird super export cap — track running total
     let capHit = false;
     if (provider === 'Globird' && inSuper && expKw > 0.1 && this._hass) {
       const superCapKwh = parseFloat(this._hass.states['input_number.globird_super_max_export']?.state || 10);
       const slotExpKwh = expKw * rowStepH;
-      // Read current daily total from sensor
       const dailyExpedNow = parseFloat(this._hass.states['sensor.daily_exported_energy']?.state || 0);
       if (dailyExpedNow >= superCapKwh) {
         sellP = _emec_inWindow(mins, stdStart, stdEnd) ? stdSellP : otherSellP;
@@ -1026,7 +908,7 @@ class EmEventsCard extends HTMLElement {
         const loadKw    = (b.load_kwh  || 0) * 2;
         return {
           ts:   b.start_local,
-          interval_minutes: meta?.step_minutes || 30,  // Include interval in synthetic rows
+          interval_minutes: meta?.step_minutes || 30,
           mode: b.action === 'charge' ? 'FORCED_CHARGE' :
                 b.action === 'export' ? 'FORCED_EXPORT'  : 'SELF_CONSUMPTION',
           band: b.band,
@@ -1061,7 +943,6 @@ class EmEventsCard extends HTMLElement {
     const nowTs    = Date.now();
     const todayStr = new Date().toLocaleDateString('en-CA');
 
-    // Single pass: accumulate daily costs and kWh as we go
     const dailyCosts = {};
     const dailyKwh   = {};
     let curDay = '', curTotal = 0, curKwh = { load:0, pv:0, grid:0, batt:0 };
@@ -1094,10 +975,8 @@ class EmEventsCard extends HTMLElement {
     }
     if (curDay) { dailyCosts[curDay] = Math.round(curTotal * 10000) / 10000; dailyKwh[curDay] = { ...curKwh }; }
 
-    // Build status bar
     sbar.innerHTML = this._buildSbar(timeline, bs, summary, provider, nowTs);
 
-    // Alert pills in tab bar — FUTURE TAB ONLY, with day names for future dates
     const tabAlerts = this.shadowRoot.getElementById('tab-alerts');
     const activePane = this.shadowRoot.querySelector('.pane.active');
     const isFutureTab = activePane?.id === 'pane-future';
@@ -1114,16 +993,16 @@ class EmEventsCard extends HTMLElement {
         const eventDay = d.toLocaleDateString('en-CA');
         
         if (eventDay === today) {
-          return timeStr; // "3:30pm"
+          return timeStr;
         } else {
-          const dayName = d.toLocaleDateString('en-AU', { weekday:'long' }); // "Saturday"
-          return dayName + ' ' + timeStr; // "Saturday 3:30pm"
+          const dayName = d.toLocaleDateString('en-AU', { weekday:'long' });
+          return dayName + ' ' + timeStr;
         }
       };
 
       for (const row of timeline) {
         const ts = new Date(row.ts).getTime();
-        if (ts < nowTs) continue; // Skip past events
+        if (ts < nowTs) continue;
         
         if (!gridImportTime && (row.expected.grid_import_kw||0) > 0.1) {
           gridImportTime = fmtAlertTime(ts);
@@ -1154,10 +1033,9 @@ class EmEventsCard extends HTMLElement {
         (gridExportTime  ? '<span class="pill" style="background:#28a745;">⚡ Grid Export from ' + gridExportTime + '</span>' : '') +
         (gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import from ' + gridImportTime + '</span>' : '');
     } else if (tabAlerts) {
-      tabAlerts.innerHTML = ''; // Clear alerts on Past tab
+      tabAlerts.innerHTML = '';
     }
 
-    // Table rows — single pass with day header injection
     const rows = [];
     let lastDay = '';
 
@@ -1167,13 +1045,11 @@ class EmEventsCard extends HTMLElement {
       const tsDate = new Date(ts);
       const day = tsDate.toLocaleDateString('en-CA');
 
-      // Inject day header when day changes
       if (day !== lastDay) {
         lastDay = day;
         rows.push(this._buildDayHeaderRow(day, dailyCosts, dailyKwh, todayStr));
       }
 
-      // Build and add data row
       const dataRow = this._buildTimelineRow(row, provider, meta, nowTs);
       if (dataRow) rows.push(dataRow);
     }
@@ -1182,7 +1058,6 @@ class EmEventsCard extends HTMLElement {
     requestAnimationFrame(() => this._setWrapHeight());
   }
 
-  // ── Past tab load ───────────────────────────────────────────────────────────
   _getRangeP() {
     const sel = this.shadowRoot.getElementById('range-past');
     const val = sel ? sel.value : 'today';
@@ -1229,7 +1104,6 @@ class EmEventsCard extends HTMLElement {
         })).sort((a,b) => a.t - b.t);
       }
 
-      // Auto-switch to Last 24h if today has no data
       if (!lookup['sensor.inverter_load_power']?.length) {
         const sel = this.shadowRoot.getElementById('range-past');
         if (sel && sel.value === 'today') {
@@ -1251,7 +1125,6 @@ class EmEventsCard extends HTMLElement {
       for (let t = startMs; t <= end.getTime(); t += step) entries.push(t);
       entries.reverse();
 
-      // ── PASS 1: Calculate all daily totals (with import/export & charge/discharge split) ──
       const pastDailyCosts = {};
       const pastDailyKwh = {};
 
@@ -1285,18 +1158,15 @@ class EmEventsCard extends HTMLElement {
         pastDailyKwh[dayStr].battDis += battDKw * stepHP;
       }
 
-      // ── PASS 2: Render rows with pre-calculated day headers ──
       const rows = [];
       let lastDay = '';
 
       for (const ts of entries) {
         const dt      = new Date(ts);
-        // Use local date (en-CA format) for grouping, same as future tab
         const dayStr  = dt.toLocaleDateString('en-CA');
         const dayStrDisplay = dt.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
         const timeStr = dt.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false });
 
-        // Inject day header when day changes
         if (dayStr !== lastDay) {
           lastDay = dayStr;
           rows.push(this._buildDayHeaderRowPast(dayStr, pastDailyCosts, pastDailyKwh, dayStrDisplay));
@@ -1314,7 +1184,6 @@ class EmEventsCard extends HTMLElement {
         const rawSellP  = parseFloat(_emec_getAt(lookup['sensor.nodered_sellprice'], ts)) || 0;
         let { buyP, sellP, inSuper, stdSellP, otherSellP, mins, stdStart, stdEnd } = _emec_getPrices(ts, provider, this._hass, rawBuyP, rawSellP);
 
-        // Globird super export cap
         let capHit = false;
         if (provider === 'Globird' && inSuper) {
           const superCapKwhP = parseFloat(this._hass.states['input_number.globird_super_max_export']?.state || 10);
@@ -1349,7 +1218,6 @@ class EmEventsCard extends HTMLElement {
           costCol  = c.txt;
         }
 
-        // Calculate kWh directly from power × 5-minute interval (instead of relying on total_increasing sensors)
         const eLoad = loadKw * stepHP;
         const eSolar = solarKw * stepHP;
         const eGrid = gridKw * stepHP;
@@ -1361,12 +1229,6 @@ class EmEventsCard extends HTMLElement {
         const fmtKwh = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
         const fmtGKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + gridCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
         const fmtBKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + battCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
-
-        // Inject day header when day changes
-        if (dayStr !== lastDay) {
-          lastDay = dayStr;
-          rows.push(this._buildDayHeaderRow(dayStr, pastDailyCosts, pastDailyKwh, '', dayStrDisplay));
-        }
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
@@ -1441,10 +1303,8 @@ class EmEventsCard extends HTMLElement {
       const label = item.querySelector('div:first-child')?.textContent || '';
       const desc = item.querySelector('div:last-child')?.textContent || '';
       
-      // Power source filter (OR logic)
       const powerOk = (solar && label.includes('🌞')) || (batt && label.includes('🔋')) || (grid && label.includes('⚡'));
       
-      // Category filter (OR logic)
       const isProfit = label.includes('(Force)') || label.includes('Grid') && label.includes('→') && (label.includes('Export') || label.includes('Profit'));
       const isCost = desc.includes('cost') || desc.includes('peak tariff') || desc.includes('import');
       const isSelf = label.includes('Self Consumption') || (label.includes('Solar') && !label.includes('Grid')) || (label.includes('Battery') && !label.includes('Grid'));
@@ -1470,5 +1330,3 @@ if (!window.customCards.find(c => c.type === 'em-events-card')) {
     description: 'Energy Manager future decisions and past events in one card',
   });
 }
-
-
