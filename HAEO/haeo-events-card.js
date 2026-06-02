@@ -5,7 +5,7 @@
 // Copy to /config/www/haeo-events-card.js
 // Add resource: /local/haeo-events-card.js (type: JavaScript module)
 
-const _HAEO_VERSION = 'v3.0.183';
+const _HAEO_VERSION = 'v3.1.0';
 
 let _HAEO_CUR = '$';
 
@@ -314,6 +314,15 @@ const _HAEO_DESCRIPTIONS = {
   
   '🔋 Battery → 🚗 EV (Charging)': 
     'Battery charging EV only. No solar, no grid, no home load involvement. Pure battery-to-vehicle charge transfer.',
+  
+  '🌞 Solar + 🔋 Battery → Loads (No Grid)': 
+    'Solar and battery together supplying all loads with no grid involvement. Pure self-consumption with battery discharge. Occurs during high demand periods with sufficient solar generation.',
+  
+  '🌞 Solar + 🔋 Battery → 🏠 Base Load + 🚗 EV (Charge)': 
+    'Solar and battery together covering home load and charging EV simultaneously. No grid activity. Both home and EV drawing from solar and battery discharge.',
+  
+  '🌞 Solar → 🏠 Base Load + 🚗 EV + 🔋 Battery (Force)': 
+    'Solar supplying home load, charging EV, and force-charging battery at low tariff rate simultaneously. Battery will discharge during peak periods for cost optimization.',
 };
 
 function _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw, evKw, deferLoadKw = 0, ev2Kw = 0, optionalLoadsKw = [], optionalLoadsConfig = []) {
@@ -510,7 +519,7 @@ function _haeo_classifyPast(solarKw, loadKw, battKw, gridKw, evKw, deferLoadKw =
     return { label: '🔋 Battery → 🏠 Base Load + ⚡ Grid (Force)', color: 'battery_to_baseload_grid_force' };
   // Solar with export
   if (solarKw > T && exporting && charging)
-    return { label: '🌞 Solar → 🏠 Base Load + 🔋 Battery + ⚡ Grid', color: 'pv_to_baseload_battery_grid' };
+    return { label: '🌞 Solar → 🏠 Base Load + 🔋 Battery + ⚡ Grid', note: 'Solar covering home, charging battery, and exporting to grid', color: 'pv_to_baseload_battery_grid' };
   if (solarKw > T && exporting)
     return { label: '🌞 Solar → 🏠 Base Load + ⚡ Grid', color: 'pv_to_baseload_battery' };
   // Forced grid charge
@@ -722,10 +731,13 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
 }
 
 // Build THEAD dynamically based on column settings and deferrable loads config
-function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = []) {
+function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], tabType = 'future') {
+  let eventHeader = tabType === 'past' 
+    ? '<span style="font-size:2.0em;">🔎</span> BESS Past Events' 
+    : '<span style="font-size:2.0em;">🔮</span> HAEO Forecast Decisions';
   let topHeaders = [
     '<th rowspan="2" style="text-align:left;vertical-align:bottom;background-color:#1a1a1a;">Time</th>',
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;background-color:#1a1a1a;">Event</th>',
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;background-color:#1a1a1a;">' + eventHeader + '</th>',
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:#1a1a1a;">Buy<br>💲/kWh</th>',
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;background-color:#1a1a1a;">Sell<br>💲/kWh</th>',
     '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🏠 Base Load</th>',
@@ -819,7 +831,7 @@ const _HAEO_STYLE = [
   '.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--divider-color,#444); margin-bottom: 10px; align-items: stretch; }',
   '.tab { padding: 6px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--secondary-text-color); border-bottom: 3px solid transparent; margin-bottom: -2px; }',
   '.tab.active { color: #2196F3; border-bottom-color: #2196F3; background: rgba(33,150,243,0.07); }',
-  '.sbar { display: flex; gap: 8px; align-items: center; padding: 4px 0 8px 0; font-size: 12px; flex-wrap: wrap; width: 100%; border-bottom: 3px solid #333; margin-bottom: 0; position: sticky; top: 0; background: var(--card-background-color); z-index: 10; }',
+  '.sbar { display: flex; gap: 4px; align-items: center; padding: 4px 0 8px 12px; font-size: 12px; flex-wrap: wrap; width: 100%; border-bottom: 3px solid #333; margin-bottom: 0; position: sticky; top: 0; background: var(--card-background-color); z-index: 10; }',
   '.pill { padding: 3px 10px; border-radius: 12px; font-weight: 500; font-size: 11px; color: #fff; }',
   '.stxt { color: var(--secondary-text-color); font-size: 11px; }',
   '.wrap { overflow: auto; width: 100%; }',
@@ -883,7 +895,8 @@ const _HAEO_STYLE = [
 // ── HTML template ─────────────────────────────────────────────────────────────
 function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig = [], enabledOptionalLoads = []) {
   const colgroup = _haeo_buildColgroup(colSettings, deferLoadsConfig, enabledOptionalLoads);
-  const thead = _haeo_buildThead(colSettings, deferLoadsConfig, enabledOptionalLoads);
+  const thead_future = _haeo_buildThead(colSettings, deferLoadsConfig, enabledOptionalLoads, 'future');
+  const thead_past = _haeo_buildThead(colSettings, deferLoadsConfig, enabledOptionalLoads, 'past');
   
   const html = '<style>' + _HAEO_STYLE + '</style>' +
     '<ha-card><div class="card">' +
@@ -897,11 +910,11 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<option value="48">Last 48h</option><option value="72">Last 72h</option><option value="96">Last 96h</option>' +
     '<option value="168">Last 7 days</option></select></span>' +
     '</div>' +
-    '<div id="grid-export-alert" style="display:flex;gap:4px;padding:8px 10px;background:rgba(0,0,0,0.1);border-bottom:1px solid var(--divider-color);flex-wrap:wrap;align-items:center;min-height:24px;"></div>' +
+    '<div id="grid-export-alert" style="display:flex;gap:4px;padding:8px 0 8px 12px;background:rgba(0,0,0,0.1);border-bottom:1px solid var(--divider-color);flex-wrap:wrap;align-items:center;min-height:24px;"></div>' +
     '<div class="pane active" id="pane-future">' +
     '<div class="sbar" id="sbar-future">⏳ Loading...</div>' +
     '<div class="wrap">' +
-    '<table class="dt dt-head" id="table-future-head" style="margin-bottom:0;">' + colgroup + thead + '</table>' +
+    '<table class="dt dt-head" id="table-future-head" style="margin-bottom:0;">' + colgroup + thead_future + '</table>' +
     '<table class="dt" id="table-future">' + colgroup +
     '<tbody id="tb-future"><tr><td colspan="20" class="msg">⏳ Loading...</td></tr></tbody>' +
     '</table></div></div>' +
@@ -909,9 +922,10 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div class="sbar">' +
     '<strong style="color:var(--primary-text-color);">Past Events</strong>' +
     '<span class="stxt" id="st-past">Select a range to load</span>' +
+    '<span style="margin:0 auto;font-size:inherit;color:#f44336;font-weight:600;">📝 Note: Shows recorded sensor values for your inverter/battery system, not HAEO decisions.</span>' +
     '</div>' +
     '<div class="wrap">' +
-    '<table class="dt dt-head" id="table-past-head" style="margin-bottom:0;">' + colgroup + thead + '</table>' +
+    '<table class="dt dt-head" id="table-past-head" style="margin-bottom:0;">' + colgroup + thead_past + '</table>' +
     '<table class="dt" id="table-past">' + colgroup +
     '<tbody id="tb-past"><tr><td colspan="20" class="msg">⏳ Select range to load...</td></tr></tbody>' +
     '</table></div></div>' +
@@ -2726,6 +2740,7 @@ class HaeoEventsCard extends HTMLElement {
     }
 
     sbar.innerHTML =
+      '<span style="color:#2196f3;font-weight:bold;margin-right:12px;">STATUS:</span>' +
       (mode ? '📌 Mode: <span class="pill" style="background-color:' + (modeColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + mode + '</span>' : '') +
       (focus ? '🎯 Focus: <span class="pill" style="background-color:' + (focusColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + focus + '</span>' : '') +
       (nowSoc   != null ? '🔋 SoC now: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + nowSoc.toFixed(1)  + '%</span>' : '') +
@@ -2767,6 +2782,11 @@ class HaeoEventsCard extends HTMLElement {
       if (gridExportTime) alertHtml += '<span class="pill" style="background:#28a745;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;margin-right:4px;">💲 Grid export from ' + gridExportTime + '</span>';
       if (forceChargeTime) alertHtml += '<span class="pill" style="background:' + (gridImportTime ? '#28a745' : '#f44336') + ';color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;margin-right:4px;">🔋 Force charge from ' + forceChargeTime + '</span>';
       if (forceDischargeTime) alertHtml += '<span class="pill" style="background:' + (gridExportTime ? '#28a745' : '#ff9800') + ';color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">🔋 Force discharge from ' + forceDischargeTime + '</span>';
+      
+      // Prepend ALERTS: label in red if there are alerts
+      if (alertHtml) {
+        alertHtml = '<span style="color:#f44336;font-weight:bold;margin-right:8px;">ALERTS:</span>' + alertHtml;
+      }
       
       alertEl.innerHTML = alertHtml;
       alertEl.style.display = this._activeTab === 'future' && alertHtml ? 'flex' : 'none';
@@ -3019,8 +3039,10 @@ class HaeoEventsCard extends HTMLElement {
       
       const eventLabel = cls.label + deferLoadLabel;
       
-      // Collect event labels for dynamic legend (FUTURE tab) - no need to store descriptions,
-      // the tooltip handler will generate them from the label itself
+      // Get detailed description from _HAEO_DESCRIPTIONS
+      const detailedDesc = _HAEO_DESCRIPTIONS[eventLabel] || _HAEO_DESCRIPTIONS[cls.label] || cls.note || 'Energy flow event';
+      
+      // Collect event labels for dynamic legend (FUTURE tab)
       if (!this._futureEvents) this._futureEvents = {};
       if (!this._futureEvents[eventLabel]) {
         this._futureEvents[eventLabel] = true;
@@ -3028,7 +3050,7 @@ class HaeoEventsCard extends HTMLElement {
 
       rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
         '<td>' + timeStr + '</td>' +
-        '<td><span title="' + cls.note + '">' + eventLabel + '</span></td>' +
+        '<td><span title="' + detailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
         '<td class="bgl">' + _haeo_fmtP(buyP)   + '</td>' +
         '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
         '<td class="bgl">' + loadKw.toFixed(3)  + '</td>' +
@@ -3603,16 +3625,18 @@ class HaeoEventsCard extends HTMLElement {
         
         const eventLabel = cls.label + deferLoadLabel;
         
-        // Collect event labels for dynamic legend (PAST tab) - no need to store descriptions,
-        // the tooltip handler will generate them from the label itself
+        // Collect event labels for dynamic legend (PAST tab)
         if (!this._pastEvents) this._pastEvents = {};
         if (!this._pastEvents[eventLabel]) {
           this._pastEvents[eventLabel] = true;
         }
+        
+        // Get detailed description from _HAEO_DESCRIPTIONS
+        const pastDetailedDesc = _HAEO_DESCRIPTIONS[eventLabel] || _HAEO_DESCRIPTIONS[cls.label] || cls.note || 'Recorded sensor values';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td>' + eventLabel + '</td>' +
+          '<td><span title="' + pastDetailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
           '<td class="bgl">' + _haeo_fmtP(buyP)   + '</td>' +
           '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
           '<td class="bgl">' + (loadKw >= _thresholdKw('load') ? loadKw.toFixed(3) : '—')  + '</td>' +
@@ -3716,17 +3740,24 @@ class HaeoEventsCard extends HTMLElement {
     if (modal) modal.style.display = 'none';
     
     const enabledOptionalLoads = this._getEnabledOptionalLoads();
-    // Rebuild colgroup and thead
+    // Rebuild colgroup and theads for both tabs
     const colgroup = _haeo_buildColgroup(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads);
-    const thead = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads);
+    const thead_future = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'future');
+    const thead_past = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'past');
     
-    // Update header tables (sticky)
-    const headerTables = this.shadowRoot.querySelectorAll('table.dt-head');
-    headerTables.forEach(table => {
-      table.innerHTML = colgroup + thead;
-    });
+    // Update FUTURE header table
+    const futureHeaderTable = this.shadowRoot.getElementById('table-future-head');
+    if (futureHeaderTable) {
+      futureHeaderTable.innerHTML = colgroup + thead_future;
+    }
     
-    // Update body table colgroupss only (preserve tbody with current data)
+    // Update PAST header table
+    const pastHeaderTable = this.shadowRoot.getElementById('table-past-head');
+    if (pastHeaderTable) {
+      pastHeaderTable.innerHTML = colgroup + thead_past;
+    }
+    
+    // Update body table colgroups only (preserve tbody with current data)
     const bodyTables = this.shadowRoot.querySelectorAll('table.dt:not(.dt-head)');
     bodyTables.forEach(table => {
       const oldColgroup = table.querySelector('colgroup');
@@ -4229,39 +4260,49 @@ class HaeoEventsCard extends HTMLElement {
   }
 
   _generateDescriptionFromLabel(label) {
-    // Build a detailed description from the event label
+    // Build a detailed description from the event label, properly parsing sources vs loads
     let desc = '';
     const enabledOptionalLoads = this._getEnabledOptionalLoads();
     
-    // Extract power sources and loads from label
+    // Split by arrow to get sources and loads/destinations
+    const arrowIndex = label.indexOf('→');
+    if (arrowIndex === -1) {
+      return 'Energy flow event'; // No arrow, can't parse
+    }
+    
+    const sourcePart = label.substring(0, arrowIndex).trim();
+    const loadPart = label.substring(arrowIndex + 1).trim();
+    
+    // Extract sources (before arrow)
     const sources = [];
+    if (sourcePart.includes('🌞')) sources.push('Solar');
+    if (sourcePart.includes('⚡')) sources.push('Grid (import)');
+    if (sourcePart.includes('🔋')) sources.push('Battery');
+    
+    // Extract loads/destinations (after arrow)
     const loads = [];
-    const optionalLoads = [];
+    if (loadPart.includes('🏠')) loads.push('Base Load');
+    if (loadPart.includes('🚗')) loads.push('EV');
+    if (loadPart.includes('🚙')) loads.push('EV2');
+    if (loadPart.includes('⏰')) loads.push('Deferrable Loads');
+    if (loadPart.includes('🔋')) loads.push('Battery');
+    if (loadPart.includes('⚡')) loads.push('Grid (export)');
     
-    if (label.includes('🌞')) sources.push('Solar');
-    if (label.includes('⚡ Grid →')) sources.push('Grid (import)');
-    if (label.includes('→ ⚡ Grid')) sources.push('Grid (export)');
-    if (label.includes('🔋')) sources.push('Battery');
-    
-    if (label.includes('🏠')) loads.push('Base Load');
-    if (label.includes('🚗')) loads.push('EV');
-    if (label.includes('🚙')) loads.push('EV2');
-    if (label.includes('⏰')) loads.push('Deferrable Loads');
-    
-    // Check for optional loads
+    // Check for optional loads in load part only
     for (const config of enabledOptionalLoads) {
-      if (label.includes(config.emoji)) {
+      if (loadPart.includes(config.emoji)) {
         const displayInfo = _haeo_getOptionalLoadDisplay(config);
-        optionalLoads.push(displayInfo.name);
+        loads.push(displayInfo.name);
       }
     }
     
     // Build description
     if (sources.length > 0 && loads.length > 0) {
       desc = sources.join(' + ') + ' → ' + loads.join(' + ');
-      if (optionalLoads.length > 0) {
-        desc += ' + ' + optionalLoads.join(' + ');
-      }
+    } else if (sources.length > 0) {
+      desc = sources.join(' + ') + ' (no destination)';
+    } else if (loads.length > 0) {
+      desc = 'Unknown source → ' + loads.join(' + ');
     }
     
     return desc || 'Energy flow event';
