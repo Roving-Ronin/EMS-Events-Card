@@ -4,6 +4,51 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
+## [v3.1.0] — 2026-06-02
+
+### Added
+- **Comprehensive Hover Tooltips** — All 36 events now display detailed descriptions on hover:
+  - FUTURE tab: Rich, contextual tooltips explaining tariff strategies, battery implications, and cost/profit logic
+  - PAST tab: Descriptive tooltips showing energy flow scenarios and recorded sensor values
+- **Tooltip Arrow Parsing** — Smart tooltip generation that correctly distinguishes energy **sources** (before `→`) from **destinations** (after `→`), fixing battery/grid misclassification in multi-source scenarios
+- **Complete Event Description Coverage** — All 36 event classifications have dedicated descriptions aligned with legend
+
+### Fixed
+- **Tooltip Generation Logic** — Fixed `_generateDescriptionFromLabel()` to properly parse arrow position, correcting ~10 events where Battery or Grid appeared in the destination (charging/export) position but was being labeled as a source
+- **Missing Event Tooltip** — Added tooltip for `pv_to_baseload_battery_grid` event (Solar → Base Load + Battery + Grid)
+- **PAST Tab Tooltip Coverage** — PAST tab event cells now display tooltips (previously no hover descriptions on historical events)
+
+### Changed
+- **FUTURE Tab Tooltips** — Upgraded from short `cls.note` descriptions to detailed `_HAEO_DESCRIPTIONS` with full context
+- **PAST Tab Tooltips** — Now use `_HAEO_DESCRIPTIONS` instead of auto-generated descriptions for consistency and clarity
+
+---
+
+## [v3.0.0] — 2026-05-30
+
+### Added
+- **Redesigned Column Headers** — Tab-specific event column headers with emoji indicators:
+  - FUTURE tab: 🔮 **HAEO Forecast Decisions** — planned optimization scenarios
+  - PAST tab: 🔎 **BESS Past Events** — recorded inverter/battery measurements
+- **Restructured Header Bars** — New visual hierarchy with labeled sections:
+  - **ALERTS:** section (red) for weather, curtailment, grid import/export status
+  - **STATUS:** section (blue) for Mode, Focus, SoC, tariff prices, limits
+- **PAST Tab Informational Note** — Centered red message clarifying that PAST tab shows recorded sensor values, not HAEO decisions
+- **36 Complete Event Labels** — Full emoji-rich event descriptions in settings display (`_HAEO_EVENT_LABELS`)
+
+### Changed
+- **Tab Navigation** — More explicit visual distinction between Future (forecast) and Past (historical) views
+- **Status Bar Layout** — ALERTS and STATUS labels aligned with consistent 12px left padding for visual symmetry
+- **Legend Accuracy** — All 36 events now have complete descriptions and visual representations
+
+### Preserved
+- All v2.6.0 core functionality (modal legend, description tooltips, EV/EV2 support, smart thresholds)
+- Future/Past tab data flow and classification logic
+- Smart alert pills and Mode/Focus color coding
+- Multi-provider support and configurable sensor defaults
+
+---
+
 ## [v2.6.0] — 2026-05-10
 
 ### Added
@@ -20,6 +65,8 @@ All notable changes to `haeo-events-card.js` are documented here.
 - **EV Discharging Classification Precedence** — EV scenarios now checked before non-EV scenarios, preventing missing EV labels in complex multi-source scenarios
 - **Peak SoC Time Format** — Removed leading zero from hour (01:55pm → 1:55pm)
 - **Morning SoC Time Format** — Same fix as Peak SoC badge
+- **Grid export/import alerts showing on Past Events tab** — alert pills are now hidden when Past tab is active (alerts are for planned Future events only)
+- **Grid export/import alert date format** — when alert refers to a future day, format now includes day name (e.g. `Grid export from Saturday 3:30pm` instead of just `3:30pm`). Today events show time only (e.g. `3:30pm`)
 
 ### Changed
 - **Legend Header** — Removed emoji and "Legend:" text; replaced with single "View Legend" pill badge (navy #000099, white text)
@@ -33,14 +80,6 @@ All notable changes to `haeo-events-card.js` are documented here.
 - Mode and Focus pills with color coding
 - Daily totals and Cost/Profit calculations
 - All sensor defaults and configuration options
-
----
-
-
-
-### Fixed
-- **Grid export/import alerts showing on Past Events tab** — alert pills are now hidden when Past tab is active (alerts are for planned Future events only)
-- **Grid export/import alert date format** — when alert refers to a future day, format now includes day name (e.g. `Grid export from Saturday 3:30pm` instead of just `3:30pm`). Today events show time only (e.g. `3:30pm`)
 
 ---
 
