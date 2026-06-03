@@ -4,8 +4,16 @@
 // Requires: sensor.grid_net_cost + associated HAEO sensors
 // Copy to /config/www/haeo-events-card.js
 // Add resource: /local/haeo-events-card.js (type: JavaScript module)
+//
+// Card YAML example with all overrides:
+//
+//   type: custom:haeo-events-card
+//   grid_options:
+//     columns: full
+//     rows: auto
 
-const _HAEO_VERSION = 'v3.1.2';
+
+const _HAEO_VERSION = 'v3.2.0';
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -329,7 +337,7 @@ const _HAEO_DESCRIPTIONS = {
   '🔋 Battery → 🚗 EV (Charging)': 
     'Battery charging EV only. No solar, no grid, no home load involvement. Pure battery-to-vehicle charge transfer.',
   
-  '🌞 Solar + 🔋 Battery → Loads (No Grid)': 
+  '🌞 Solar +    Battery → Loads (No Grid)': 
     'Solar and battery together supplying all loads with no grid involvement. Pure self-consumption with battery discharge. Occurs during high demand periods with sufficient solar generation.',
   
   '🌞 Solar + 🔋 Battery → 🏠 Base Load + 🚗 EV (Charge)': 
@@ -567,8 +575,8 @@ function _haeo_classifyPast(solarKw, loadKw, battKw, gridKw, evKw, deferLoadKw =
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
-function _haeo_fmtP(v) {
-  return (v < 0 ? '-' : '') + _HAEO_CUR + Math.abs(v).toFixed(4);
+function _haeo_fmtP(v, priceDecimals = 4) {
+  return (v < 0 ? '-' : '') + _HAEO_CUR + Math.abs(v).toFixed(priceDecimals);
 }
 
 // Returns {disp, col} — cost > 0 = money spent (import), cost < 0 = money earned (export)
@@ -576,6 +584,47 @@ function _haeo_fmtCost(cost) {
   if (cost > 0.0001)  return { disp: '-' + _HAEO_CUR + cost.toFixed(3),           col: null };
   if (cost < -0.0001) return { disp: _HAEO_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
+}
+
+// Build finances bar with current prices and daily totals
+function _haeo_buildFinancesBar(buyPrice, sellPrice, dailyCost, dailyGridImportKwh, dailyGridExportKwh, dailyGridImportFmt, dailyGridExportFmt, priceDecimals = 4) {
+  const buyFmt = buyPrice !== null ? _HAEO_CUR + Math.abs(buyPrice).toFixed(priceDecimals) : '—';
+  const sellFmt = sellPrice !== null ? _HAEO_CUR + Math.abs(sellPrice).toFixed(priceDecimals) : '—';
+  
+  let netColor = '#555';
+  let netDisplay = '—';
+  if (dailyCost !== null && dailyCost !== undefined) {
+    if (dailyCost < -0.01) {
+      netColor = '#4caf50'; // Green: credit
+      netDisplay = _HAEO_CUR + Math.abs(dailyCost).toFixed(2) + ' (credit)';
+    } else if (dailyCost > 0.01) {
+      netColor = '#f44336'; // Red: cost
+      netDisplay = '-' + _HAEO_CUR + dailyCost.toFixed(2);
+    } else {
+      netColor = '#666'; // Grey: balanced
+      netDisplay = _HAEO_CUR + '0.00';
+    }
+  }
+  
+  // Calculate import cost and export income (for future use if needed)
+  let importCost = 0;
+  let exportIncome = 0;
+  if (dailyGridImportKwh !== null && buyPrice !== null) {
+    importCost = dailyGridImportKwh * buyPrice;
+  }
+  if (dailyGridExportKwh !== null && sellPrice !== null) {
+    exportIncome = dailyGridExportKwh * sellPrice;
+  }
+  
+  const importDisplay = dailyGridImportFmt;
+  const exportDisplay = dailyGridExportFmt;
+  
+  return '<span style="color:#FF9800;font-weight:bold;margin-right:12px;">FINANCES:</span>' +
+         '<span style="margin-right:12px;">💲 <strong>Buy:</strong> <span style="background:#555;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;">' + buyFmt + '</span></span>' +
+         '<span style="margin-right:12px;">💲 <strong>Sell:</strong> <span style="background:#555;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;">' + sellFmt + '</span></span>' +
+         '<span style="margin-right:12px;">💰 <strong>Daily Net:</strong> <span style="background:' + netColor + ';color:#000;padding:2px 8px;border-radius:4px;font-weight:600;">' + netDisplay + '</span></span>' +
+         '<span style="margin-right:12px;">📥 <strong>Imported:</strong> <span style="background:#555;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;">' + importDisplay + '</span></span>' +
+         '<span>📤 <strong>Exported:</strong> <span style="background:#555;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600;">' + exportDisplay + '</span></span>';
 }
 
 // Binary search: most recent state value at or before timestamp ts
@@ -788,7 +837,7 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
     topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🚙 EV2</th>');
   }
   
-  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:#1a1a1a;">Cost/<br>Profit</th>');
+  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:#1a1a1a;">💰 Cost/<br>Profit</th>');
   
   let botHeaders = [
     '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
@@ -927,6 +976,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div id="grid-export-alert" style="display:flex;gap:4px;padding:8px 0 8px 12px;background:rgba(0,0,0,0.1);border-bottom:1px solid var(--divider-color);flex-wrap:wrap;align-items:center;min-height:24px;"></div>' +
     '<div class="pane active" id="pane-future">' +
     '<div class="sbar" id="sbar-future">⏳ Loading...</div>' +
+    '<div class="sbar" id="finances-bar-future" style="border-bottom:2px solid #888;font-size:12px;">⏳ Loading financials...</div>' +
     '<div class="wrap">' +
     '<table class="dt dt-head" id="table-future-head" style="margin-bottom:0;">' + colgroup + thead_future + '</table>' +
     '<table class="dt" id="table-future">' + colgroup +
@@ -954,10 +1004,10 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div style="display:flex;border-bottom:1px solid var(--divider-color);overflow-x:auto;">' +
     '<button class="settings-tab active" data-tab="loads" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--primary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Loads</button>' +
     '<button class="settings-tab" data-tab="optional-loads" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Optional Loads</button>' +
+    '<button class="settings-tab" data-tab="entities" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Entities & Options</button>' +
     '<button class="settings-tab" data-tab="colours-self" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Colours - Self Consumption</button>' +
     '<button class="settings-tab" data-tab="colours-profit" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Colours - Profit</button>' +
     '<button class="settings-tab" data-tab="colours-cost" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Colours - Cost</button>' +
-    '<button class="settings-tab" data-tab="entities" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Entities</button>' +
     '<button class="settings-tab" data-tab="backup" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Backup</button>' +
     '</div>' +
     '<div class="settings-modal-body" style="flex:1;overflow-y:auto;padding:16px;">' +
@@ -1023,6 +1073,16 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div style="display:flex;flex-direction:column;gap:4px;">' +
     '<input type="text" id="grid-energy" placeholder="sensor.sigen_plant_total_imported_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="grid-energy-export" placeholder="sensor.sigen_plant_total_exported_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;margin-left:284px;width:280px;">' +
+    '<div style="display:flex;flex-direction:column;gap:2px;">' +
+    '<input type="text" id="grid-daily-import" placeholder="sensor.sigen_plant_daily_grid_import_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:9px;color:#999;">Daily Grid Import (kWh)</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;">' +
+    '<input type="text" id="grid-daily-export" placeholder="sensor.sigen_plant_daily_grid_export_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:9px;color:#999;">Daily Grid Export (kWh)</div>' +
     '</div>' +
     '</div>' +
     '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
@@ -1146,6 +1206,37 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '</div>' +
     '</div>' +
 
+    '<div class="settings-tab-content" data-content="entities">' +
+    '<div style="padding:16px;display:flex;flex-direction:column;gap:16px;max-width:600px;">' +
+    '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Configure miscellaneous entities:</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<label style="font-weight:bold;min-width:120px;font-size:12px;">🌧️ Weather Entity:</label>' +
+    '<input type="text" id="weather-entity-input" placeholder="weather.forecast_home" style="flex:1;padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<span style="font-size:11px;color:var(--secondary-text-color);min-width:150px;text-align:right;">Default: weather.forecast_home</span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<label style="font-weight:bold;min-width:120px;font-size:12px;">⚠️ Curtailment Switch:</label>' +
+    '<input type="text" id="curtailment-entity-input" placeholder="switch.solar_curtailment" style="flex:1;padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<span style="font-size:11px;color:var(--secondary-text-color);min-width:150px;text-align:right;">Default: switch.solar_curtailment</span>' +
+    '</div>' +
+    '</div>' +
+    '<div style="border-top:1px solid var(--divider-color);padding-top:16px;margin-top:16px;display:flex;flex-direction:column;gap:8px;">' +
+    '<div style="font-size:13px;font-weight:bold;color:#FFC107;margin-bottom:8px;">💰 Price Display</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<label style="font-weight:bold;min-width:180px;font-size:12px;">Buy/Sell Decimals:</label>' +
+    '<select id="settings-price-decimals" style="padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;width:220px;">' +
+    '<option value="2">2 decimal places</option>' +
+    '<option value="3">3 decimal places</option>' +
+    '<option value="4" selected>4 decimal places</option>' +
+    '<option value="5">5 decimal places</option>' +
+    '</select>' +
+    '</div>' +
+    '<span style="font-size:11px;color:var(--secondary-text-color);">Precision for tariff Buy/Sell prices</span>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+
     '<div class="settings-tab-content" data-content="colours-self">' +
     '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Self Consumption - Solar/Battery scenarios (no grid):</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-height:500px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-radius:4px;">' +
@@ -1216,23 +1307,6 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_to_loads_battery_grid || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_to_loads_battery_grid-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_to_loads_battery_grid-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_to_loads_battery_grid-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_to_baseload_ev_battery_force || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_to_baseload_ev_battery_force-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_to_baseload_ev_battery_force-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_to_baseload_ev_battery_force-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_battery_to_baseload_ev_charge || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_ev_charge-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_ev_charge-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_ev_charge-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
-    '</div>' +
-    '</div>' +
-    '</div>' +
-    '<div class="settings-tab-content" data-content="entities">' +
-    '<div style="padding:16px;display:flex;flex-direction:column;gap:16px;max-width:600px;">' +
-    '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Configure miscellaneous entities:</div>' +
-    '<div style="display:flex;flex-direction:column;gap:8px;">' +
-    '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<label style="font-weight:bold;min-width:120px;font-size:12px;">🌧️ Weather Entity:</label>' +
-    '<input type="text" id="weather-entity-input" placeholder="weather.forecast_home" style="flex:1;padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<span style="font-size:11px;color:var(--secondary-text-color);min-width:150px;text-align:right;">Default: weather.forecast_home</span>' +
-    '</div>' +
-    '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<label style="font-weight:bold;min-width:120px;font-size:12px;">⚠️ Curtailment Switch:</label>' +
-    '<input type="text" id="curtailment-entity-input" placeholder="switch.solar_curtailment" style="flex:1;padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<span style="font-size:11px;color:var(--secondary-text-color);min-width:150px;text-align:right;">Default: switch.solar_curtailment</span>' +
-    '</div>' +
     '</div>' +
     '</div>' +
     '</div>' +
@@ -1723,6 +1797,18 @@ class HaeoEventsCard extends HTMLElement {
       // localStorage unavailable or corrupted, use defaults
     }
 
+    // Load display settings (price decimals) from localStorage if available
+    try {
+      const savedDisplay = localStorage.getItem('haeo-events-card-display');
+      if (savedDisplay) {
+        this._displaySettings = JSON.parse(savedDisplay);
+      } else {
+        this._displaySettings = { priceDecimals: 4 };
+      }
+    } catch (e) {
+      this._displaySettings = { priceDecimals: 4 };
+    }
+
     // Load deferrable loads configuration from localStorage if available
     // NOTE: We now use entity-based config only (_loadDeferrableLoadsConfig)
     // Keep _deferableLoadsConfig as empty array to avoid rendering old presets
@@ -1954,6 +2040,25 @@ class HaeoEventsCard extends HTMLElement {
         });
       }
     });
+
+    // Price decimals setting handler
+    const priceDecimalsSelect = this.shadowRoot.getElementById('settings-price-decimals');
+    if (priceDecimalsSelect && !priceDecimalsSelect._wired) {
+      priceDecimalsSelect._wired = true;
+      priceDecimalsSelect.value = this._displaySettings?.priceDecimals || 4;
+      priceDecimalsSelect.addEventListener('change', () => {
+        this._displaySettings.priceDecimals = parseInt(priceDecimalsSelect.value) || 4;
+        try {
+          localStorage.setItem('haeo-events-card-display', JSON.stringify(this._displaySettings));
+        } catch (e) {
+          console.error('Failed to save display settings:', e);
+        }
+        // Re-render to apply the new decimal places
+        if (this._activeTab === 'future') {
+          this._renderFuture();
+        }
+      });
+    }
 
     // Column toggle checkboxes
     const colToggles = this.shadowRoot.querySelectorAll('.col-toggle');
@@ -2767,8 +2872,6 @@ class HaeoEventsCard extends HTMLElement {
       (focus ? '🎯 Focus: <span class="pill" style="background-color:' + (focusColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + focus + '</span>' : '') +
       (nowSoc   != null ? '🔋 SoC now: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + nowSoc.toFixed(1)  + '%</span>' : '') +
       (dawnSoc  != null ? '☀️ <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + dawnSoc + '</span>' : '') +
-      (nowBuy   != null ? '💲 Buy: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">$' + nowBuy.toFixed(4)  + '</span>' : '') +
-      (nowSell  != null ? '💲 Sell: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">$' + nowSell.toFixed(4) + '</span>' : '') +
       (exportLimit != null ? '📤 Export Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + exportLimit.toFixed(2) + ' kW</span>' : '') +
       (isGridImporting && importLimit != null ? '⚡ Import Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + importLimit.toFixed(2) + ' kW</span>' : '') +
       (isBattCharging && battChargeLimit != null ? '🔋 ESS Charge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battChargeLimit.toFixed(2) + ' kW</span>' : '') +
@@ -2866,7 +2969,7 @@ class HaeoEventsCard extends HTMLElement {
       if (!dailyCosts.hasOwnProperty(dayStr)) {
         dailyOrder.push(dayStr);
         dailyCosts[dayStr] = 0;
-        dailyKwh[dayStr] = { load: 0, deferLoad: 0, pv: 0, grid: 0, batt: 0, ev: 0, ev2: 0 };
+        dailyKwh[dayStr] = { load: 0, deferLoad: 0, pv: 0, gridImp: 0, gridExp: 0, battChg: 0, battDis: 0, ev: 0, ev2: 0 };
         // Initialize keys for dynamic deferrable loads
         this._deferableLoadsConfig.forEach((config, idx) => {
           dailyKwh[dayStr][`deferLoad${idx}`] = 0;
@@ -2888,8 +2991,20 @@ class HaeoEventsCard extends HTMLElement {
       });
       
       dk.pv   += solarKw * stepH;
-      dk.grid += gridKw  * stepH;
-      dk.batt += battKw  * stepH;
+      
+      // Separate grid into import (positive) and export (negative)
+      if (gridKw > 0.05) {
+        dk.gridImp += gridKw * stepH;
+      } else if (gridKw < -0.05) {
+        dk.gridExp += Math.abs(gridKw) * stepH;
+      }
+      
+      // Separate battery into charge (positive) and discharge (negative)
+      if (battKw > 0.05) {
+        dk.battChg += battKw * stepH;
+      } else if (battKw < -0.05) {
+        dk.battDis += Math.abs(battKw) * stepH;
+      }
       dk.ev   += (evPowerMap.get(ts) || 0) * stepH;
       dk.ev2  += (ev2PowerMap.get(ts) || 0) * stepH;
       
@@ -2899,10 +3014,28 @@ class HaeoEventsCard extends HTMLElement {
       });
     }
 
+    // Update finances bar with today's data and actual sensors
+    const todayDailyCost = dailyCosts[todayStr] || null;
+    const todayKwh = dailyKwh[todayStr] || { gridImp: 0, gridExp: 0, battChg: 0, battDis: 0 };
+    
+    // Read actual energy sensors for imported/exported (with user-configured defaults)
+    const dailyImportSensor = loadEntityConfig.grid?.dailyImport || 'sensor.sigen_plant_daily_grid_import_energy';
+    const dailyExportSensor = loadEntityConfig.grid?.dailyExport || 'sensor.sigen_plant_daily_grid_export_energy';
+    
+    const dailyImportedEnergySensor = this._hass?.states[dailyImportSensor]?.state || null;
+    const dailyExportedEnergySensor = this._hass?.states[dailyExportSensor]?.state || null;
+    const dailyImportedFmt = dailyImportedEnergySensor ? parseFloat(dailyImportedEnergySensor).toFixed(3) + ' kWh' : todayKwh.gridImp.toFixed(3) + ' kWh';
+    const dailyExportedFmt = dailyExportedEnergySensor ? parseFloat(dailyExportedEnergySensor).toFixed(3) + ' kWh' : todayKwh.gridExp.toFixed(3) + ' kWh';
+    
+    const financesBar = this.shadowRoot.getElementById('finances-bar-future');
+    if (financesBar) {
+      financesBar.innerHTML = _haeo_buildFinancesBar(nowBuy, nowSell, todayDailyCost, todayKwh.gridImp, todayKwh.gridExp, dailyImportedFmt, dailyExportedFmt, this._displaySettings?.priceDecimals || 4);
+    }
+
     // ── Build day header row ──
     const _buildDayHeaderRow = (day) => {
       const dayTotal = dailyCosts[day] || 0;
-      let defaultDk = { load:0, deferLoad:0, pv:0, grid:0, batt:0, ev:0, ev2:0 };
+      let defaultDk = { load:0, deferLoad:0, pv:0, gridImp:0, gridExp:0, battChg:0, battDis:0, ev:0, ev2:0 };
       // Add optional load fields to default
       optionalLoadMaps.forEach((config, idx) => {
         defaultDk[`optload${idx}`] = 0;
@@ -2912,9 +3045,13 @@ class HaeoEventsCard extends HTMLElement {
       const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
       const dayCostLabel = dayTotal <= 0 ? _HAEO_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _HAEO_CUR + dayTotal.toFixed(2);
       const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) : '—';
-      const fmtGrid = (v) => Math.abs(v) <= 0.001 ? '—' : '<span style="color:' + (v < 0 ? '#4caf50' : '#f44336') + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>';
-      const fmtBatt = (v) => Math.abs(v) <= 0.001 ? '—' : '<span style="color:' + (v < 0 ? '#f44336' : '#4caf50') + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>';
-      let html = '<tr class="dr">' +
+      const fmtImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+      const fmtExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+      const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+      const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+      
+      // Row 1: Load, PV, Grid Import, Battery Charge
+      let html = '<tr class="dr" style="border-bottom:1px solid var(--divider-color,#444);">' +
         '<td colspan="2">' + dayLabel + '</td>' +
         '<td class="bgl" colspan="2"></td>' +
         '<td class="bgl"></td>' +
@@ -2922,9 +3059,7 @@ class HaeoEventsCard extends HTMLElement {
       
       // Add Def. Loads toggle column (single entity, not multiple presets)
       if (columnSettings.deferLoad !== false) {
-        const deferLoadThreshold = this._thresholdSettings['deferLoad'] || 50;
-        const thresholdKwh = deferLoadThreshold / 1000 * 24; // threshold per day
-        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + (dk.deferLoad > 0 ? fmtKd(dk.deferLoad) : '—') + '</td>';
+        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">—</td>';
       }
       
       // Add optional loads columns
@@ -2934,19 +3069,50 @@ class HaeoEventsCard extends HTMLElement {
       
       html += '<td class="bgl"></td>' +
         '<td class="bgi" style="text-align:right;">' + fmtKd(dk.pv) + '</td>' +
-        '<td class="bgl"></td>' +
-        '<td class="bgi" style="text-align:right;">' + fmtGrid(dk.grid) + '</td>' +
-        '<td class="bgl"></td>' +
-        '<td class="bgi" style="text-align:right;">' + fmtBatt(-dk.batt) + '</td>' +
-        '<td class="bgi" style="text-align:right;"></td>';
+        '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Import:</td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtImp(dk.gridImp) + '</td>' +
+        '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Charge:</td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtBattChg(dk.battChg) + '</td>' +
+        '<td class="bgi"></td>';
       if (columnSettings.ev !== false) {
-        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + fmtKd(dk.ev) + '</td><td class="bgi" style="text-align:right;"></td>';
+        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">—</td><td class="bgi"></td>';
       }
       if (columnSettings.ev2 !== false) {
-        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + fmtKd(dk.ev2) + '</td><td class="bgi" style="text-align:right;"></td>';
+        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">—</td><td class="bgi"></td>';
       }
       html += '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLabel + '</td></tr>';
-      return html;
+      
+      // Row 2: Export and Discharge totals
+      let row2 = '<tr class="dr" style="border-top:1px solid var(--divider-color,#444);">' +
+        '<td colspan="2"></td>' +
+        '<td class="bgl" colspan="2"></td>' +
+        '<td class="bgl"></td>' +
+        '<td></td>';
+      
+      if (columnSettings.deferLoad !== false) {
+        row2 += '<td></td><td></td>';
+      }
+      
+      optionalLoadMaps.forEach((config, idx) => {
+        row2 += '<td></td><td></td>';
+      });
+      
+      row2 += '<td class="bgl"></td>' +
+        '<td class="bgi"></td>' +
+        '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Export:</td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtExp(dk.gridExp) + '</td>' +
+        '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Disch.:</td>' +
+        '<td class="bgi" style="text-align:right;">' + fmtBattDis(dk.battDis) + '</td>' +
+        '<td class="bgi"></td>';
+      if (columnSettings.ev !== false) {
+        row2 += '<td class="bgl"></td><td class="bgi"></td><td class="bgi"></td>';
+      }
+      if (columnSettings.ev2 !== false) {
+        row2 += '<td class="bgl"></td><td class="bgi"></td><td class="bgi"></td>';
+      }
+      row2 += '<td class="bgl"></td></tr>';
+      
+      return html + row2;
     };
 
     // ── Table rows: single pass with day header injection ──
@@ -3073,8 +3239,8 @@ class HaeoEventsCard extends HTMLElement {
       rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
         '<td>' + timeStr + '</td>' +
         '<td><span title="' + detailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
-        '<td class="bgl">' + _haeo_fmtP(buyP)   + '</td>' +
-        '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
+        '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
+        '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
         '<td class="bgl">' + loadKw.toFixed(3)  + '</td>' +
         '<td class="bgi">' + fmtKwh(loadKw)     + '</td>' +
         // Def. Loads toggle column (single entity, not multiple presets)
@@ -3659,8 +3825,8 @@ class HaeoEventsCard extends HTMLElement {
         rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
           '<td>' + timeStr + '</td>' +
           '<td><span title="' + pastDetailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
-          '<td class="bgl">' + _haeo_fmtP(buyP)   + '</td>' +
-          '<td class="bgi">' + _haeo_fmtP(sellP)  + '</td>' +
+          '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
+          '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
           '<td class="bgl">' + (loadKw >= _thresholdKw('load') ? loadKw.toFixed(3) : '—')  + '</td>' +
           '<td class="bgi">' + (loadKw >= _thresholdKw('load') ? fmtE(eLoad) : '—')  + '</td>' +
           // Def. Loads toggle column (single entity, not multiple presets)
@@ -4756,7 +4922,7 @@ class HaeoEventsCard extends HTMLElement {
     const loads = {
       base: { forecast: this.shadowRoot.getElementById('load-forecast')?.value || '', historical: this.shadowRoot.getElementById('load-historical')?.value || '', energy: this.shadowRoot.getElementById('load-energy')?.value || '' },
       pv: { forecast: this.shadowRoot.getElementById('pv-forecast')?.value || '', historical: this.shadowRoot.getElementById('pv-historical')?.value || '', energy: this.shadowRoot.getElementById('pv-energy')?.value || '' },
-      grid: { forecast: this.shadowRoot.getElementById('grid-forecast')?.value || '', historical: this.shadowRoot.getElementById('grid-historical')?.value || '', energy: this.shadowRoot.getElementById('grid-energy')?.value || '', energyExport: this.shadowRoot.getElementById('grid-energy-export')?.value || '' },
+      grid: { forecast: this.shadowRoot.getElementById('grid-forecast')?.value || '', historical: this.shadowRoot.getElementById('grid-historical')?.value || '', energy: this.shadowRoot.getElementById('grid-energy')?.value || '', energyExport: this.shadowRoot.getElementById('grid-energy-export')?.value || '', dailyImport: this.shadowRoot.getElementById('grid-daily-import')?.value || '', dailyExport: this.shadowRoot.getElementById('grid-daily-export')?.value || '' },
       battery: { forecast: this.shadowRoot.getElementById('battery-forecast')?.value || '', historical: this.shadowRoot.getElementById('battery-historical')?.value || '', energy: this.shadowRoot.getElementById('battery-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('battery-energy-discharge')?.value || '' },
       ev: { forecast: this.shadowRoot.getElementById('ev-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev-historical')?.value || '', energy: this.shadowRoot.getElementById('ev-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev-energy-discharge')?.value || '' },
       ev2: { forecast: this.shadowRoot.getElementById('ev2-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev2-historical')?.value || '', energy: this.shadowRoot.getElementById('ev2-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev2-energy-discharge')?.value || '' }
@@ -4780,7 +4946,7 @@ class HaeoEventsCard extends HTMLElement {
     return {
       base: { forecast: 'sensor.load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
       pv: { forecast: 'sensor.solar_power', historical: 'sensor.sigen_plant_pv_power', energy: 'sensor.sigen_plant_total_pv_generation' },
-      grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy' },
+      grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy', dailyImport: 'sensor.sigen_plant_daily_grid_import_energy', dailyExport: 'sensor.sigen_plant_daily_grid_export_energy' },
       battery: { forecast: 'sensor.battery_active_power', historical: 'sensor.sigen_plant_battery_power', energy: 'sensor.sigen_plant_daily_battery_charge_energy', energyDischarge: 'sensor.sigen_plant_daily_battery_discharge_energy' },
       ev: { forecast: 'sensor.ev_active_power', historical: 'sensor.sigen_ac_charger_charging_power', energy: '', energyDischarge: '' },
       ev2: { forecast: 'sensor.ev2_active_power', historical: 'sensor.sigen_ac_charger_charging_power_2', energy: '', energyDischarge: '' }
@@ -4814,6 +4980,16 @@ class HaeoEventsCard extends HTMLElement {
     const gridExportInput = this.shadowRoot.getElementById('grid-energy-export');
     if (gridExportInput && config.grid) {
       gridExportInput.value = config.grid.energyExport || '';
+    }
+    
+    // Handle daily grid import/export sensors
+    const gridDailyImportInput = this.shadowRoot.getElementById('grid-daily-import');
+    const gridDailyExportInput = this.shadowRoot.getElementById('grid-daily-export');
+    if (gridDailyImportInput) {
+      gridDailyImportInput.value = config.grid?.dailyImport || '';
+    }
+    if (gridDailyExportInput) {
+      gridDailyExportInput.value = config.grid?.dailyExport || '';
     }
     
     const batteryDischargeInput = this.shadowRoot.getElementById('battery-energy-discharge');
