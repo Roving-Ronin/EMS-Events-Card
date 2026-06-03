@@ -5,9 +5,23 @@
 // Copy to /config/www/haeo-events-card.js
 // Add resource: /local/haeo-events-card.js (type: JavaScript module)
 
-const _HAEO_VERSION = 'v3.1.0';
+const _HAEO_VERSION = 'v3.1.2';
 
+// Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
+
+// Map ISO 4217 currency codes to symbols
+const _HAEO_CUR_MAP = {
+  AUD:'$', USD:'$', CAD:'$', NZD:'$', SGD:'$', HKD:'$',
+  GBP:'£', EUR:'€', JPY:'¥', CNY:'¥', CHF:'Fr', SEK:'kr',
+  NOK:'kr', DKK:'kr', INR:'₹', KRW:'₩', BRL:'R$', MXN:'$',
+  ZAR:'R', THB:'฿', TWD:'NT$', IDR:'Rp', MYR:'RM', PHP:'₱',
+};
+
+function _haeo_curSymbol(code) {
+  if (!code) return '$';
+  return _HAEO_CUR_MAP[code.toUpperCase()] || code;
+}
 
 // ── Default sensor entity IDs ────────────────────────────────────────────────
 // Power sensors: provided by HAEO optimizer — same for all installs
@@ -344,11 +358,11 @@ function _haeo_classifyFuture(solarKw, loadKw, battKw, gridKw, evKw, deferLoadKw
     optionalLoadsConfig.forEach((config, idx) => {
       if (config.enabled && optionalLoadsKw[idx] > T) {
         const displayInfo = _haeo_getOptionalLoadDisplay(config);
-        activeOptional.push(displayInfo.emoji);
+        activeOptional.push(displayInfo.emoji + ' ' + displayInfo.name);
       }
     });
     if (activeOptional.length > 0) {
-      optionalLoadsLabel = ' + ' + activeOptional.join(' ');
+      optionalLoadsLabel = ' + ' + activeOptional.join(' + ');
     }
   }
   
@@ -1083,7 +1097,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
           '<input type="checkbox" id="optload-enable-' + i + '" class="optload-enable" style="cursor:pointer;width:18px;height:18px;">' +
           '<select id="optload-emoji-' + i + '" style="padding:4px;font-size:16px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;width:100%;">' +
           '<option value="🔌">🔌</option>' +
-          '<option value="🌡️">🌡️</option>' +
+          '<option value="🌡️">  ️</option>' +
           '<option value="🚿">🚿</option>' +
           '<option value="👚">👚</option>' +
           '<option value="🧺">🧺</option>' +
@@ -1779,6 +1793,14 @@ class HaeoEventsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    
+    // Auto-detect currency from HA config if not overridden in card config
+    if (!this._config.currency_symbol && hass.config && hass.config.currency) {
+      _HAEO_CUR = _haeo_curSymbol(hass.config.currency);
+    } else if (this._config.currency_symbol) {
+      _HAEO_CUR = this._config.currency_symbol;
+    }
+    
     if (!this.shadowRoot.getElementById('tb-future')) {
       try {
         const html = _haeo_buildHTML(this._columnSettings, this._deferableLoadsConfig);
