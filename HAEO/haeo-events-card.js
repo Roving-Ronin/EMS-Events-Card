@@ -1157,8 +1157,8 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
           '<input type="checkbox" id="optload-enable-' + i + '" class="optload-enable" style="cursor:pointer;width:18px;height:18px;">' +
           '<select id="optload-emoji-' + i + '" style="padding:4px;font-size:16px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;width:100%;">' +
           '<option value="🔌">🔌</option>' +
-          '<option value="🌡️">  ️</option>' +
-          '<option value="🚿">🚿</option>' +
+          '<option value="🌡️">🌡️</option>' +
+                '<option value="🚿">🚿</option>' +
           '<option value="👚">👚</option>' +
           '<option value="🧺">🧺</option>' +
           '<option value="🍽️">🍽️</option>' +
