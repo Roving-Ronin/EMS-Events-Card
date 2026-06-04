@@ -2,7 +2,7 @@
 
 A custom Home Assistant Lovelace card for [EMHASS](https://emhass.readthedocs.io/) (Energy Management for Home Assistant) that displays MPC optimizer forecasts and historical energy events in a rich, colour-coded table.
 
-Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me](https://sigenergy.annable.me/emhass/), with three-tier sensor fallback so it also works with standard EMHASS installations.
+Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me](https://sigenergy.annable.me/emhass/), with three-tier sensor fallback so it also works with standard EMHASS installations and in the settings modal you can define your EMHASS and Inverter/Battery sensors if they are different.
 
 ---
 
@@ -72,114 +72,11 @@ That's it for a standard Sigenergy + EMHASS MPC install. The card auto-detects s
 ---
 
 ## Sensor Configuration
-
-The card resolves each sensor through three tiers in priority order:
-
-| Priority | Source | Description |
-|---|---|---|
-| 1 | Card YAML config | Explicit overrides you provide in the card config |
-| 2 | MPC / Sigenergy defaults | `sensor.mpc_*` and `sensor.sigen_plant_*` sensors |
-| 3 | Standard EMHASS defaults | `sensor.p_batt_forecast`, `sensor.unit_load_cost` etc. |
-
-### Default sensor mapping (Tier 2 — MPC/Sigenergy)
-
-#### Future Decisions tab
-
-| Role | Default sensor | Attribute | Value key |
-|---|---|---|---|
-| Battery power forecast | `sensor.mpc_batt_power` | `battery_scheduled_power` | `mpc_batt_power` |
-| Battery SoC forecast | `sensor.mpc_batt_soc` | `battery_scheduled_soc` | `mpc_batt_soc` |
-| Grid power forecast | `sensor.mpc_grid_power` | `forecasts` | `mpc_grid_power` |
-| PV power forecast | `sensor.mpc_pv_power` | `forecasts` | `mpc_pv_power` |
-| Load power forecast | `sensor.mpc_load_power` | `forecasts` | `mpc_load_power` |
-| Inverter power | `sensor.mpc_inverter_power` | `forecasts` | `mpc_inverter_power` |
-| Buy price (future) | `sensor.mpc_general_price` | `unit_load_cost_forecasts` | `mpc_general_price` |
-| Sell price (future) | `sensor.mpc_feed_in_price` | `unit_prod_price_forecasts` | `mpc_feed_in_price` |
-| Net cost (state only) | `sensor.mpc_cost_fun` | — | — |
-
-#### Past Events tab — prices
-
-| Role | Default sensor | Notes |
-|---|---|---|
-| Buy price (past) | `sensor.amber_express_home_general_price` | Use live spot market sensor for dense history |
-| Sell price (past) | `sensor.amber_express_home_feed_in_price` | Use live spot market sensor for dense history |
-
-> **Why separate past price sensors?** EMHASS MPC price sensors (`mpc_general_price` etc.) only record a new HA state when the value changes, giving sparse history. Live spot market sensors like Amber update every 5 minutes and provide dense history suitable for accurate past cost calculations.
-
-#### Past Events tab — BESS mode (actual inverter data)
-
-| Role | Default sensor | Sign convention |
-|---|---|---|
-| Battery power | `sensor.sigen_plant_battery_power` | +ve = charging, -ve = discharging |
-| Grid power | `sensor.sigen_plant_grid_active_power` | +ve = import, -ve = export |
-| PV power | `sensor.sigen_plant_pv_power` | Always +ve |
-| Load power | `sensor.sigen_plant_consumed_power` | Always +ve |
-| Battery SoC | `sensor.sigen_plant_battery_state_of_charge` | 0–100% |
-
-> **Note:** BESS sensor sign convention for battery is **opposite** to MPC sensors. The card handles this automatically — discharge always displays as `-kW` red and charge as `+kW` green regardless of mode.
-
-#### Past Events tab — energy (kWh delta columns)
-
-| Role | Default sensor | Notes |
-|---|---|---|
-| Load energy | `sensor.sigen_plant_total_load_consumption` | **Must be lifetime/total** |
-| Solar energy | `sensor.sigen_plant_total_pv_generation` | **Must be lifetime/total** |
-| Grid import energy | `sensor.sigen_plant_total_imported_energy` | **Must be lifetime/total** |
-| Grid export energy | `sensor.sigen_plant_total_exported_energy` | **Must be lifetime/total** |
-| Battery charge energy | `sensor.sigen_plant_total_charged_energy_of_the_ess` | **Must be lifetime/total** |
-| Battery discharge energy | `sensor.sigen_plant_total_discharged_energy_of_the_ess` | **Must be lifetime/total** |
-
-> ⚠️ **Energy sensors MUST be lifetime/total accumulating sensors that never reset.** Daily or monthly sensors cause gaps at midnight or month-end boundaries. This applies to all inverter brands — always use the lifetime total variant.
-
----
-
-### Full YAML override example
-
-```yaml
-type: custom:emhass-events-card
-grid_options:
-  columns: full
-  rows: auto
-
-# Future Decisions tab — MPC forecast sensors
-p_batt_forecast:   sensor.mpc_batt_power
-p_grid_forecast:   sensor.mpc_grid_power
-p_pv_forecast:     sensor.mpc_pv_power
-p_load_forecast:   sensor.mpc_load_power
-p_inverter:        sensor.mpc_inverter_power
-soc_forecast:      sensor.mpc_batt_soc
-buy_price:         sensor.mpc_general_price
-sell_price:        sensor.mpc_feed_in_price
-net_cost:          sensor.mpc_cost_fun
-
-# Past Events tab — actual price sensors (dense history required)
-# Override with your own tariff sensors if not using Amber
-past_buy_price:    sensor.amber_general_price
-past_sell_price:   sensor.amber_feed_in_price
-
-# Past Events tab — BESS actual inverter sensors (🕐 BESS Data mode)
-# Battery sign convention: +ve=charging, -ve=discharging (opposite to MPC sensors)
-bess_batt_power:   sensor.sigen_plant_battery_power
-bess_grid_power:   sensor.sigen_plant_grid_active_power
-bess_pv_power:     sensor.sigen_plant_pv_power
-bess_load_power:   sensor.sigen_plant_consumed_power
-bess_soc:          sensor.sigen_plant_battery_state_of_charge
-
-# Past Events tab — energy sensors for kWh delta columns
-# MUST be lifetime/total sensors — never daily or monthly (causes midnight gaps)
-energy_load:           sensor.sigen_plant_total_load_consumption
-energy_solar:          sensor.sigen_plant_total_pv_generation
-energy_grid_import:    sensor.sigen_plant_total_imported_energy
-energy_grid_export:    sensor.sigen_plant_total_exported_energy
-energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess
-energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess
-```
-
 ---
 
 ## Recorder Configuration
 
-For the **Past Events tab** to work, sensors must be recorded by HA. Add the following to your `recorder.yaml`:
+For the **Past Events tab** to work, sensors must be recorded by HA. Add the following (or your inverter / power provider pricing sensors details to your `recorder.yaml`:
 
 ```yaml
 recorder:
