@@ -2,7 +2,7 @@
 
 A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser (HAEO)** integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's actual historical sensor readings in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
 
-**Current version:** `v3.2.1`  (To Do: Make EV columns auto hide for non-EV users)
+**Current version:** `v3.2.1`
 
 ---
 
@@ -16,23 +16,22 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 ---
 
----
-
 ## Features
 
 - **Future Decisions tab** — shows the HAEO optimizer's forecast for the next several days, reading directly from the `forecast` attributes on your HAEO sensors. Includes:
   - Event classification (Solar → Home, Battery → Home, Grid charging, Force Export, etc.)
-  - Buy and Sell price per slot
+  - Buy and Sell price per slot (configurable decimal precision: 2-5 places)
   - Load, PV, Grid and Battery kW and kWh columns
   - SoC % with colour warnings at low levels
-  - Cost/Profit per slot and daily totals — calculated from per-slot deltas of `sensor.grid_net_cost`
+  - 💰 Cost/Profit per slot and daily totals — calculated from per-slot deltas of `sensor.grid_net_cost`
+  - 📊 FINANCES bar: Daily Buy/Sell prices, Daily Net (cost/credit), Imported/Exported energy totals
   - Status bar: SoC now, Morning/Peak SoC, current buy/sell prices, colour-coded grid import/export pill badges with 12h times
   - Smart auto-refresh timed to HA's 5-minute update boundary
 
 - **Past Events tab** — reads actual inverter sensor history from the HA recorder, aligned to 5-minute slots. Uses real inverter power measurements (not HAEO planned values) for accurate event classification. Includes:
   - Event classification from actual inverter power readings
   - kWh delta columns from `total_increasing` energy sensors, with fallback estimation when sensor data is unavailable
-  - Daily kWh totals (Load, PV, Grid, Battery) and daily Cost/Profit
+  - Daily kWh totals (Load, PV, Grid, Battery) and daily 💰 Cost/Profit
   - Range selector: Today / Yesterday / Last 24h / 48h / 72h / 96h / 7 days
   - Auto-switches to Last 24h if Today has no data yet
 
@@ -41,7 +40,20 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
   - Battery: charging from solar = green, charging from grid = amber, discharging = red
   - Values below display threshold (±100W grid/battery, 50W PV) show as `—` in default text colour
 
-- **Two sensor groups** — Future tab uses HAEO optimizer sensors (forecast attributes); Past tab uses inverter power sensors (actual measurements). Both groups are fully configurable via card YAML.
+- **Settings Modal** — intuitive configuration interface accessible via the ⚙️ icon:
+  - **Loads tab** — configure which loads to monitor (optional loads with custom toggles)
+  - **Optional Loads tab** — enable/disable and name optional load entities
+  - **Entities & Options tab** — configure all sensors, weather entity, curtailment switch, and display options (no YAML required)
+  - **Colours tabs** — customize row background and text colours for each event type
+  - **Backup tab** — export/import settings as JSON
+
+- **Display Options** (in Entities & Options tab):
+  - Buy/Sell price decimal places: 2, 3, 4 (default), or 5
+  - Weather entity (for future weather display)
+  - Curtailment switch entity
+  - Daily Grid Import/Export sensor configuration
+
+- **Two sensor groups** — Future tab uses HAEO optimizer sensors (forecast attributes); Past tab uses inverter power sensors (actual measurements). Both groups are fully configurable via the Settings modal.
 
 - **Auto unit detection** — reads `unit_of_measurement` from live sensor state and normalises to kW / kWh automatically (supports W, kW, MW, Wh, kWh, MWh, GWh)
 
@@ -91,86 +103,138 @@ grid_options:
   columns: full
 ```
 
----
-
-## Sensor Configuration
-
-The card uses three groups of sensors, split by tab and purpose.
-
-### Future Tab — HAEO Optimizer Sensors
-
-These are provided by the HAEO integration and are the same for all installs. The card reads their `forecast` attributes for the Future Decisions tab, and their recorded history for SoC and price columns in the Past Events tab. **No configuration is needed** unless you have renamed them.
-
-| Config key | Default entity | Notes |
-|---|---|---|
-| `entity_haeo_battery` | `sensor.battery_active_power` | kW, positive=discharge, negative=charge |
-| `entity_haeo_grid` | `sensor.grid_active_power` | kW, positive=import, negative=export |
-| `entity_haeo_load` | `sensor.load_power` | kW, always positive |
-| `entity_haeo_solar` | `sensor.solar_power` | kW, always positive |
-| `entity_haeo_soc` | `sensor.battery_state_of_charge` | % |
-| `entity_haeo_buy_price` | `number.grid_import_price` | $/kWh |
-| `entity_haeo_sell_price` | `number.grid_export_price` | $/kWh |
-| `entity_haeo_grid_net_cost` | `sensor.grid_net_cost` | Cumulative $ total — card computes per-slot deltas |
-
-### Past Tab — Inverter Power Sensors
-
-These provide the actual measured power values used for event classification and kW display in the Past Events tab. Defaults are for the [Sigenergy Local Modbus](https://github.com/TypQxQ/Sigenergy-Local-Modbus) integration. Override these for other inverter integrations.
-
-| Config key | Default entity | Sign convention |
-|---|---|---|
-| `entity_past_battery_power` | `sensor.sigen_plant_battery_power` | negative=discharge, positive=charge |
-| `entity_past_load_power` | `sensor.sigen_plant_total_load_power` | always positive |
-| `entity_past_solar_power` | `sensor.sigen_plant_pv_power` | always positive |
-| `entity_past_grid_power` | `sensor.sigen_plant_grid_active_power` | positive=import, negative=export |
-
-### Past Tab — Inverter Energy Sensors
-
-These provide the kWh delta columns in the Past Events tab. Defaults are for the [Sigenergy Local Modbus](https://github.com/TypQxQ/Sigenergy-Local-Modbus) integration.
-
-> **Important:** Use **lifetime/total** sensors wherever possible. Daily or monthly sensors reset at midnight or month-end, causing gaps (shown as `—`) when the Past Events range spans a reset boundary. The battery sensors below are daily-reset — lifetime variants are preferred if your integration provides them.
-
-| Config key | Default entity | Notes |
-|---|---|---|
-| `entity_past_load_energy` | `sensor.sigen_plant_total_load_consumption` | Lifetime total |
-| `entity_past_solar_energy` | `sensor.sigen_plant_total_pv_generation` | Lifetime total |
-| `entity_past_grid_import_energy` | `sensor.sigen_plant_total_imported_energy` | Lifetime total |
-| `entity_past_grid_export_energy` | `sensor.sigen_plant_total_exported_energy` | Lifetime total |
-| `entity_past_battery_charge_energy` | `sensor.sigen_plant_daily_battery_charge_energy` | Daily reset — gaps at midnight |
-| `entity_past_battery_discharge_energy` | `sensor.sigen_plant_daily_battery_discharge_energy` | Daily reset — gaps at midnight |
+All sensor configuration can be done via the Settings modal (⚙️ icon). No YAML sensor configuration is required.
 
 ---
 
-## Full Configuration Example
+## Configuration via Settings Modal
 
-```yaml
-type: custom:haeo-events-card
-grid_options:
-  columns: full
+Click the **⚙️** icon in the top-right of the card to open the Settings modal. All sensor entities, display options, and colour customization are configurable without editing YAML.
 
-# ── FUTURE tab: HAEO optimizer sensors (only needed if you have renamed them) ──
-# entity_haeo_battery:       sensor.battery_active_power
-# entity_haeo_grid:          sensor.grid_active_power
-# entity_haeo_load:          sensor.load_power
-# entity_haeo_solar:         sensor.solar_power
-# entity_haeo_soc:           sensor.battery_state_of_charge
-# entity_haeo_buy_price:     number.grid_import_price
-# entity_haeo_sell_price:    number.grid_export_price
-# entity_haeo_grid_net_cost: sensor.grid_net_cost
+### Loads Tab
 
-# ── PAST tab: inverter power sensors (override for non-Sigenergy inverters) ──
-entity_past_battery_power: sensor.my_inverter_battery_power
-entity_past_load_power:    sensor.my_inverter_load_power
-entity_past_solar_power:   sensor.my_inverter_pv_power
-entity_past_grid_power:    sensor.my_inverter_grid_power
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Loads.png)
 
-# ── PAST tab: inverter energy sensors (override for non-Sigenergy inverters) ──
-entity_past_load_energy:              sensor.my_inverter_total_load_consumption
-entity_past_solar_energy:             sensor.my_inverter_total_pv_generation
-entity_past_grid_import_energy:       sensor.my_inverter_total_imported_energy
-entity_past_grid_export_energy:       sensor.my_inverter_total_exported_energy
-entity_past_battery_charge_energy:    sensor.my_inverter_total_battery_charge
-entity_past_battery_discharge_energy: sensor.my_inverter_total_battery_discharge
-```
+Configure **sensor entities** in one place:
+
+**HAEO Sensors (Future tab — forecast data):**
+- Battery Active Power (kW)
+- Grid Active Power (kW)
+- Load Power (kW)
+- Solar Power (kW)
+- Battery SoC (%)
+- Grid Import Price ($/kWh)
+- Grid Export Price ($/kWh)
+- Grid Net Cost (cumulative $)
+
+**Inverter Power Sensors (Past tab — actual measurements):**
+- Battery Power (kW)
+- Load Power (kW)
+- Solar Power (kW)
+- Grid Power (kW)
+
+**Inverter Energy Sensors (Past tab — kWh history):**
+- Load Energy (Lifetime total kWh)
+- Solar Energy (Lifetime total kWh)
+- Grid Import Energy (Lifetime total kWh)
+- Grid Export Energy (Lifetime total kWh)
+- Battery Charge Energy (Daily kWh)
+- Battery Discharge Energy (Daily kWh)
+
+**Daily Grid Sensors (Finances bar):**
+- Daily Grid Import Energy (today's total import in kWh)
+- Daily Grid Export Energy (today's total export in kWh)
+
+Configure which **deferrable loads** to monitor and display in the card:
+- Enable/disable EV and EV2 columns for one or two EV car deferred load monitoring
+- **Deferred Load Entity** — single toggle switch controlling when a load can be deferred
+- Enable/disable columns for deferred load monitoring
+- Each enabled load gets its own **kW/kWh column pair** in the table
+- Deferred loads show only when the optimizer decides to defer them (when threshold exceeded)
+
+Use this tab for loads that can be shifted in time (e.g., EV charging, water heater, pool pump) — the optimizer will defer them to windows when solar generation is high or tariffs are low. Use this if you only have a single defferable load or groups all of your deferrable loads into a single group, if want to individually track deferrable loads, use the 'Optional Loads' feature.
+
+### Optional Loads Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Optional-Loads.png)
+
+Enable/disable and name **individual optional load entities**. Each enabled load gets its own **kW/kWh column pair** in the table.
+
+- Add/enable optional loads by entity ID
+- Give each a display name (e.g., "Hot Water", "Pool Pump", "Car Charger")
+- Optional loads show in the table whenever they're active
+- Supports multiple optional loads — each with independent monitoring
+
+If you configure these loads in HAEO as loads that can be curtailed, the optimizer will factor them into its scheduling decisions. Use this tab to **monitor those loads visually in the card** and track their contribution to the daily energy and cost calculations. Separate from the base load and deferred loads, allowing you to see their individual impact on the forecast and actual energy usage.
+
+### Entities & Options Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Entities.png)
+
+Configure **sensor entities** and **display options** in one place:
+
+**Miscellaneous:**
+- **Weather Entity** — for future weather display (optional)
+- **Curtailment Switch** — solar curtailment tracking (optional)
+
+**💰 Price Display Options:**
+- **Buy/Sell Decimal Places** — controls precision for tariff prices: 2, 3, 4 (default), or 5 decimal places
+- Applies to Buy/Sell columns in both Future and Past tabs, and the FINANCES bar
+
+All fields have sensible defaults for the **Sigenergy Local Modbus** integration. Override any field to support other inverter integrations. Changes save automatically to browser localStorage.
+
+### Colours - Self Consumption Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-SelfConsumption.png)
+
+Customize row background and text colours for **self-consumption events** (solar covering home, battery discharging, no grid):
+
+- **Row Background Colour** — full-row background when self-consumption occurs
+- **Event Text Colour** — colour of the event label text
+- Use light green or teal tones to visually distinguish profitable/neutral periods
+
+Examples: 🌞 Solar → Home, 🔋 Battery → Home, Solar + Battery scenarios.
+
+### Colours - Profit Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-Profit.png)
+
+Customize row background and text colours for **profit events** (grid export at peak tariff):
+
+- **Row Background Colour** — full-row background when exporting to grid
+- **Event Text Colour** — colour of the event label text
+- Use dark green or bright green to visually highlight earning periods
+
+Examples: Forced battery discharge to grid, solar export scenarios, EV discharge to grid.
+
+### Colours - Cost Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-Cost.png)
+
+Customize row background and text colours for **cost events** (grid import at any tariff, forced battery charge):
+
+- **Row Background Colour** — full-row background when importing from grid
+- **Event Text Colour** — colour of the event label text
+- Use red, orange, or yellow tones to visually highlight cost periods
+
+Examples: Grid import, forced battery charge from grid, grid import + load scenarios.
+
+### Backup Tab
+
+![Energy Manager - Future Decisions](HAEO-Card-Settings-Backup.png)
+
+**Export** your card settings as JSON for backup or sharing:
+- Click "Export Settings" to download a `.json` file with all your configuration
+- Share the file with others or save for safekeeping
+
+**Import** previously saved settings:
+- Click "Import Settings" and select a `.json` file
+- All configuration is restored (sensor entities, colours, display options, load settings)
+
+Useful for:
+- Backing up your configuration before making changes
+- Sharing optimal settings with other Home Assistant users
+- Restoring settings after clearing browser data/localStorage
 
 ---
 
@@ -180,16 +244,26 @@ entity_past_battery_discharge_energy: sensor.my_inverter_total_battery_discharge
 |---|---|
 | Time | Slot start time |
 | Event | Classified activity label |
-| Buy $/kWh | Grid import price for this slot |
-| Sell $/kWh | Grid export price for this slot |
+| Buy 💲/kWh | Grid import price for this slot (decimal places configurable: 2-5) |
+| Sell 💲/kWh | Grid export price for this slot (decimal places configurable: 2-5) |
 | Load kW / kWh | Home consumption — always positive |
 | PV kW / kWh | Solar generation — `—` below 50W |
 | Grid kW / kWh | Positive = import (red), Negative = export (green) — `—` below 100W |
 | Battery kW / kWh | Negative = discharging (red), Positive = charging (green/amber) — `—` below 100W |
 | SoC % | Battery state of charge |
-| Cost/Profit | Net grid cost (`-$` = expense, `$` = earning) — `—` when no grid activity |
+| 💰 Cost/Profit | Net grid cost (`-$` = expense, `$` = earning) — `—` when no grid activity |
 
 Day header rows show daily kWh totals for each column and the net cost/profit for the day.
+
+---
+
+## FINANCES Bar
+
+Located at the top of the Future Decisions tab, the **FINANCES bar** provides a daily summary:
+
+- **Buy / Sell** — current tariff prices (precision: 2-5 decimal places, configurable)
+- **Daily Net** — net cost (red) or credit (green) for the day
+- **Imported / Exported** — daily grid energy totals in kWh (optional: shows cost/credit if available from actual tariff data)
 
 ---
 
@@ -214,35 +288,115 @@ Events are classified from actual inverter sensor readings (not HAEO planned val
 | 🟩 Dark green | Forced export to grid — profit earned |
 | 🌸 Light red | Mixed sources including grid import |
 
-### Full Event List
+### Full Event List (36 Total Events)
+
+**Solar Self-Consumption (Solar covering home, battery charging, or grid export):**
 
 | Event | Description |
 |---|---|
-| 🌞 Solar → 🏠 Home | Self Consumption - Solar |
-| 🌞 Solar → 🏠 Home + 🔋 Battery | Self Consumption - Charge Battery |
-| 🌞 Solar → 🏠 Home + ⚡ Grid | Profit - Grid Export (Solar) |
-| 🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid | Profit - Grid Export + Charge Battery |
-| 🌞 Solar + 🔋 Battery → 🏠 Home | Self Consumption - No Grid |
-| 🌞 Solar + ⚡ Grid → 🏠 Home | Cost - Solar + Grid Import |
-| 🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force) | Cost - Solar + Grid Import + Charge Battery |
-| 🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force) | Profit - Grid Export (Forced) |
-| 🔋 Battery → 🏠 Home | Self Consumption - Battery |
-| 🔋 Battery → 🏠 Home + ⚡ Grid (Force) | Profit - Grid Export (Forced) |
-| 🔋 Battery + ⚡ Grid → 🏠 Home | Cost - Battery + Grid Import |
-| ⚡ Grid → 🏠 Home | Cost - Grid Import (Battery Idle \| No Solar) |
-| ⚡ Grid → 🏠 Home + 🔋 Battery (Force) | Cost - Grid Import (Forced Battery Charge) |
+| 🌞 Solar → 🏠 Base Load | Solar supplying home load only. Battery idle, no grid. Optimal self-consumption. |
+| 🌞 Solar → 🏠 Base Load + 🔋 Battery | Solar supplying home and charging battery. No grid activity. |
+| 🌞 Solar + 🔋 Battery → 🏠 Base Load | Solar and battery together supplying home. Battery discharging to supplement. |
+| 🌞 Solar → 🏠 Base Load + ⚡ Grid | Solar supplying home with surplus exported to grid. Battery idle. |
+| 🌞 Solar → 🏠 Base Load + 🔋 Battery + ⚡ Grid | Solar supplying home, charging battery, and exporting surplus to grid. |
+| 🌞 Solar + 🔋 Battery → 🏠 Base Load + ⚡ Grid | Solar and battery supplying home with remaining power exported. |
+| 🌞 Solar → 🏠 Base Load + ⚡ Grid + 🔋 Battery (Force) | Solar covering home, charging battery, and exporting at scheduled time. |
+| 🌞 Solar + ⚡ Grid → 🏠 Base Load | Solar with grid supplement. Solar alone insufficient. |
+| 🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Base Load | Solar, battery, and grid together covering home load. High demand scenario. |
+
+**Solar + EV Scenarios:**
+
+| Event | Description |
+|---|---|
+| 🌞 Solar → 🏠 Base Load + 🚗 EV | Solar supplying home and charging EV. Pure solar-to-load and solar-to-EV. |
+| 🌞 Solar + 🔋 Battery → 🏠 Base Load + 🚗 EV | Solar and battery supplying home and EV. No grid. |
+| 🌞 Solar + ⚡ Grid → 🏠 Base Load + 🚗 EV | Solar and grid together covering home and EV charging. |
+| 🌞 Solar → 🏠 Base Load + 🚗 EV + 🔋 Battery (Force) | Solar supplying home, charging EV and battery at low tariff. |
+| 🌞 Solar + ⚡ Grid → 🏠 Base Load + 🚗 EV + 🔋 Battery (Force) | Solar with grid supplement covering home, EV, and force-charging battery. |
+| 🌞 Solar + 🔋 Battery → 🏠 Base Load + 🚗 EV (Charge) | Solar and battery covering home and charging EV. No grid. |
+| 🌞 Solar + 🔋 Battery → Loads (No Grid) | Solar and battery supplying all loads with no grid. Pure self-consumption. |
+| 🌞 Solar + ⚡ Grid → 🏠 Base Load + 🚗 EV | Solar and grid covering home load while charging EV. |
+
+**Grid Import (Cost - Forced Battery/EV Charge):**
+
+| Event | Description |
+|---|---|
+| ⚡ Grid → 🏠 Base Load | Grid supplying home only. Battery idle. Off-peak tariff or no solar. |
+| ⚡ Grid → 🏠 Base Load + 🔋 Battery (Force) | Grid supplying home and force-charging battery at low tariff rate. |
+| ⚡ Grid → 🏠 Base Load + 🚗 EV (Force) | Grid supplying home and charging EV at low tariff rate. |
+| ⚡ Grid → 🏠 Base Load + 🔋 Battery + 🚗 EV (Force) | Grid supplying home, charging battery, and EV all at low tariff. |
+| 🌞 Solar + ⚡ Grid → 🏠 Base Load + 🔋 Battery (Force) | Solar with grid supplement covering home while force-charging battery. |
+| ⚡ Grid → 🏠 Base Load + 🚗 EV + 🔋 Battery (Force) | Grid covering home and force-charging both EV and battery at low tariff. |
+
+**Grid Export (Profit - Forced Battery/EV Discharge):**
+
+| Event | Description |
+|---|---|
+| 🔋 Battery → 🏠 Base Load + ⚡ Grid (Force) | Battery discharging to cover home and force-export to grid at peak tariff. |
+| 🌞 Solar + 🔋 Battery → 🏠 Base Load + ⚡ Grid (Force) | Solar and battery covering home with forced battery export at peak tariff. |
+| 🔋 Battery + 🚗 EV → ⚡ Grid (Force) | Battery and EV both discharging to grid at high tariff. EV as flexible storage. |
+| 🌞 Solar + 🔋 Battery + 🚗 EV → ⚡ Grid | Solar, battery, and EV all exporting to grid simultaneously at peak tariff. |
+
+**Battery Scenarios (No Solar, No Grid):**
+
+| Event | Description |
+|---|---|
+| 🔋 Battery → 🏠 Base Load | Battery powering home only. No solar, no grid. Battery will deplete. |
+| 🔋 Battery + ⚡ Grid → 🏠 Base Load | Battery discharging but grid supplement needed for high load. |
+| 🔋 Battery → 🚗 EV + 🏠 Base Load | Battery covering both home and EV charging. No solar or grid. |
+| 🔋 Battery → 🚗 EV (Charging) | Battery charging EV only. Pure battery-to-vehicle transfer. |
+
+**EV Scenarios:**
+
+| Event | Description |
+|---|---|
+| 🚗 EV → 🏠 Base Load | EV discharging to cover home load (V2H/V2L). No battery or grid. |
+| 🚗 EV + ⚡ Grid → 🏠 Base Load | EV discharging plus grid covering home load. Both needed. |
+| 🔋 Battery + 🚗 EV → 🏠 Base Load | Battery and EV both discharging to cover home. No solar or grid. |
+| 🌞 Solar + 🔋 Battery + 🚗 EV → 🏠 Base Load | Solar, battery, and EV together supplying home. All sources optimized. |
 
 ---
 
 ## Notes
 
-- **Auto-refresh** — the card refreshes at 1 minute past each 5-minute HA update boundary (`:01`, `:06`, `:11`... past the hour) and catches up automatically if the browser tab was hidden
+- **Auto-refresh** — the card watches the optimizer's battery sensor (`last_changed` timestamp) and refreshes automatically when the sensor state updates. This ensures the Future Decisions tab reflects the latest optimizer forecast
 - **Cost/Profit (Future tab)** — `sensor.grid_net_cost` is a cumulative running total; the card computes per-slot deltas (`value[i] - value[i-1]`) for accurate per-row and daily totals. Only shown when grid flow exceeds 0.05 kW
 - **Cost/Profit (Past tab)** — calculated from grid kW × buy/sell price × slot duration; only shown when grid flow exceeds 0.10 kW
-- **Display thresholds** — Grid and Battery kW/kWh values below ±100W show as `—`; PV below 50W shows as `—`. This suppresses inverter sensor noise without affecting event classification thresholds
+- **Display thresholds** — Grid and Battery kW/kWh values below the configured threshold show as `—`. Thresholds are configurable in Settings → Loads tab:
+  - **Load:** default 0W (always shows)
+  - **Grid:** default ±100W (configurable, suppresses inverter noise)
+  - **Battery:** default ±100W (configurable, suppresses inverter noise)
+  - **Deferred Load:** default 50W (configurable)
+  - **Optional Loads:** default 10W (configurable per load)
+  
+  These thresholds suppress sensor noise without affecting event classification logic
 - **Unit detection** — `unit_of_measurement` is read from each sensor's live state and values are normalised automatically. Supported units: W / kW / MW (power) and Wh / kWh / MWh / GWh (energy). A browser console warning is logged if a power value exceeds 500 kW after conversion, which may indicate a misconfigured sensor
 - **Past Events accuracy** — the Past tab reads inverter sensor history recorded by HA. Classification accuracy depends on how frequently your inverter sensors update and whether HA's recorder captures each 5-minute slot. Values shown are real measurements, not HAEO's planned decisions
 - **Dashboard type** — designed for the HA **Sections** dashboard with `grid_options: columns: full`
+- **Settings persistence** — all Settings modal changes are automatically saved to browser localStorage under `haeo-events-card-` keys and persist across browser sessions and HA restarts
+- **Currency auto-detection** — the card automatically detects your HA currency setting and displays prices with the correct symbol. Can be overridden via YAML `currency_symbol` setting
+
+---
+
+## Troubleshooting
+
+### Card not loading?
+- If you also have the Genergy integration loaded, it also contains a version of this card. To update it to the latest version and use that instance and avoid needing to register the javascript in 'Dashboard --> Resources', simply copy the latest version of the card to: /homeassistant/custom_components/genergy_dashboard/frontend
+
+### Settings not saving?
+- Check that your browser allows localStorage (not in private/incognito mode)
+- Hard-refresh the page (`Ctrl+Shift+R` / `Cmd+Shift+R`)
+- Open browser DevTools (F12) and check the Console tab for errors
+
+### Prices showing wrong decimal places?
+- Open Settings → Entities & Options → Price Display
+- Verify the "Buy/Sell Decimals" dropdown is set correctly
+- Hard-refresh the page
+
+### Sensors not found in Settings?
+- Verify the entity IDs exist in your HA instance (Settings → Devices & Services → Entities)
+- Check that the entity is not disabled
+- Verify the entity's `unit_of_measurement` is set correctly (W/kW for power, Wh/kWh for energy)
 
 ---
 
