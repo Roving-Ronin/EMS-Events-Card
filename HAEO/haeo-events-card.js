@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.2.0';
+const _HAEO_VERSION = 'v3.2.1';
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -749,41 +749,41 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
     '<col style="width:auto; min-width:120px;">',   // Event - flex to fill remaining space
     '<col style="width:68px;">',                    // Buy $
     '<col style="width:68px;">',                    // Sell $
-    '<col style="width:44px;">',                    // Base Load kW
+    '<col style="width:56px;">',                    // Base Load kW
     '<col style="width:46px;">',                    // Base Load kWh
   ];
   
   // Add Def. Loads toggle columns and optional load columns (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
-    cols.push('<col style="width:44px;">');        // Def. Loads kW (toggle)
+    cols.push('<col style="width:56px;">');        // Def. Loads kW (toggle)
     cols.push('<col style="width:46px;">');        // Def. Loads kWh
     deferLoadsConfig.forEach(config => {
-      cols.push('<col style="width:44px;">');        // Optional Load kW
+      cols.push('<col style="width:56px;">');        // Optional Load kW
       cols.push('<col style="width:46px;">');        // Optional Load kWh
     });
   }
   
   // Add enabled optional loads columns (after Def. Loads, before Solar)
   enabledOptionalLoads.forEach(load => {
-    cols.push('<col style="width:44px;">');        // Optional Load kW
+    cols.push('<col style="width:56px;">');        // Optional Load kW
     cols.push('<col style="width:46px;">');        // Optional Load kWh
   });
   
-  cols.push('<col style="width:44px;">');                    // Solar kW
+  cols.push('<col style="width:56px;">');                    // Solar kW
   cols.push('<col style="width:46px;">');                    // Solar kWh
-  cols.push('<col style="width:44px;">');                    // Grid kW
+  cols.push('<col style="width:56px;">');                    // Grid kW
   cols.push('<col style="width:46px;">');                    // Grid kWh
-  cols.push('<col style="width:44px;">');                    // Batt kW
+  cols.push('<col style="width:56px;">');                    // Batt kW
   cols.push('<col style="width:46px;">');                    // Batt kWh
   cols.push('<col style="width:46px;">');                    // Batt SoC
   
   if (colSettings.ev !== false) {
-    cols.push('<col style="width:44px;">');        // EV kW
+    cols.push('<col style="width:56px;">');        // EV kW
     cols.push('<col style="width:46px;">');        // EV kWh
     cols.push('<col style="width:46px;">');        // EV SoC
   }
   if (colSettings.ev2 !== false) {
-    cols.push('<col style="width:44px;">');        // EV2 kW
+    cols.push('<col style="width:56px;">');        // EV2 kW
     cols.push('<col style="width:46px;">');        // EV2 kWh
     cols.push('<col style="width:46px;">');        // EV2 SoC
   }
