@@ -1,4 +1,5 @@
 {
   "name": "Energy Management Systems - Events Card",
-  "render_readme": true
+  "render_readme": true,
+  "filename": "cards.js"
 }
