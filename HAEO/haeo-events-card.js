@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.2.1';
+const _HAEO_VERSION = 'v3.2.2';
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -799,21 +799,21 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
     ? '<span style="font-size:2.0em;">🔎</span> BESS Past Events' 
     : '<span style="font-size:2.0em;">🔮</span> HAEO Forecast Decisions';
   let topHeaders = [
-    '<th rowspan="2" style="text-align:left;vertical-align:bottom;background-color:#1a1a1a;">Time</th>',
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;background-color:#1a1a1a;">' + eventHeader + '</th>',
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:#1a1a1a;">Buy<br>💲/kWh</th>',
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;background-color:#1a1a1a;">Sell<br>💲/kWh</th>',
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🏠 Base Load</th>',
+    '<th rowspan="2" style="text-align:left;vertical-align:bottom;background-color:var(--secondary-background-color,#1a1a1a);">Time</th>',
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;background-color:var(--secondary-background-color,#1a1a1a);">' + eventHeader + '</th>',
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:var(--secondary-background-color,#1a1a1a);">Buy<br>💲/kWh</th>',
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;background-color:var(--secondary-background-color,#1a1a1a);">Sell<br>💲/kWh</th>',
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🏠 Base Load</th>',
   ];
   
   // Add Def. Loads header and optional load headers (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
-    topHeaders.push('<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">⏰ Def. Loads</th>');
+    topHeaders.push('<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">⏰ Def. Loads</th>');
     deferLoadsConfig.forEach(config => {
       // Find preset to get abbreviation
       const preset = _HAEO_DEFERRABLE_PRESETS.find(p => p.name === config.name);
       const displayLabel = preset ? `${preset.emoji} ${preset.abbr}` : `${config.emoji} ${config.name}`;
-      topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">${displayLabel}</th>`);
+      topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${displayLabel}</th>`);
     });
   }
   
@@ -821,66 +821,66 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
   enabledOptionalLoads.forEach(load => {
     const displayInfo = _haeo_getOptionalLoadDisplay(load);
     const headerLabel = displayInfo.emoji + ' ' + displayInfo.abbr;
-    topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">${headerLabel}</th>`);
+    topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${headerLabel}</th>`);
   });
   
   topHeaders.push(
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🌞 Solar</th>',
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">⚡ Grid</th>',
-    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🔋 Battery</th>'
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🌞 Solar</th>',
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">⚡ Grid</th>',
+    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🔋 Battery</th>'
   );
   
   if (colSettings.ev !== false) {
-    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🚗 EV</th>');
+    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🚗 EV</th>');
   }
   if (colSettings.ev2 !== false) {
-    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:#1a1a1a;">🚙 EV2</th>');
+    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🚙 EV2</th>');
   }
   
-  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:#1a1a1a;">💰 Cost/<br>Profit</th>');
+  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:var(--secondary-background-color,#1a1a1a);">💰 Cost/<br>Profit</th>');
   
   let botHeaders = [
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>',
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
   ];
   
   // Add Def. Loads and optional load bottom headers (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
     botHeaders.push(
-      '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
-      '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>'
+      '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+      '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>'
     );
     deferLoadsConfig.forEach(config => {
-      botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>');
-      botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>');
+      botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+      botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
     });
   }
   
   // Add enabled optional loads bottom headers (after Def. Loads, before Solar)
   enabledOptionalLoads.forEach(load => {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
   });
   
   botHeaders.push(
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>',
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>',
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>',
-    '<th class="bgi" style="text-align:right;background-color:#1a1a1a;">SoC %</th>'
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>'
   );
   
   if (colSettings.ev !== false) {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">SoC %</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
   }
   if (colSettings.ev2 !== false) {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:#1a1a1a;">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">kWh</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:#1a1a1a;">SoC %</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
   }
   
   return '<thead><tr>' + topHeaders.join('') + '</tr><tr>' + botHeaders.join('') + '</tr></thead>';
@@ -2675,17 +2675,17 @@ class HaeoEventsCard extends HTMLElement {
     const deferLoadSensorExists = this._evSensorExists('haeo_deferrable_load');
 
     // ── Status bar ──
-    const nowSoc  = parseFloat(this._hass?.states[this._eid('haeo_soc')]?.state)       || null;
-    const nowBuy  = parseFloat(this._hass?.states[this._eid('haeo_buy_price')]?.state)  || null;
-    const nowSell = parseFloat(this._hass?.states[this._eid('haeo_sell_price')]?.state) || null;
-    const exportLimit = parseFloat(this._hass?.states[this._eid('haeo_export_limit')]?.state) || null;
-    const importLimit = parseFloat(this._hass?.states[this._eid('haeo_import_limit')]?.state) || null;
-    const battChargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_charge_limit')]?.state) || null;
-    const battDischargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_discharge_limit')]?.state) || null;
+    const nowSoc  = parseFloat(this._hass?.states[this._eid('haeo_soc')]?.state) ?? null;
+    const nowBuy  = parseFloat(this._hass?.states[this._eid('haeo_buy_price')]?.state) ?? null;
+    const nowSell = parseFloat(this._hass?.states[this._eid('haeo_sell_price')]?.state) ?? null;
+    const exportLimit = parseFloat(this._hass?.states[this._eid('haeo_export_limit')]?.state) ?? null;
+    const importLimit = parseFloat(this._hass?.states[this._eid('haeo_import_limit')]?.state) ?? null;
+    const battChargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_charge_limit')]?.state) ?? null;
+    const battDischargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_discharge_limit')]?.state) ?? null;
 
     // Current activity: use live sensors, fallback to forecast if unavailable
-    const liveGridKw = parseFloat(this._hass?.states[this._eid('haeo_grid')]?.state) || null;
-    const liveBattKw = parseFloat(this._hass?.states[this._eid('haeo_battery')]?.state) || null;
+    const liveGridKw = parseFloat(this._hass?.states[this._eid('haeo_grid')]?.state) ?? null;
+    const liveBattKw = parseFloat(this._hass?.states[this._eid('haeo_battery')]?.state) ?? null;
     const currentGridKw = liveGridKw != null ? liveGridKw : gridMap.get(nowTs) || 0;
     const currentBattKw = liveBattKw != null ? liveBattKw : battMap.get(nowTs) || 0;
     const isGridImporting = currentGridKw > 0.05;  // 50W threshold
