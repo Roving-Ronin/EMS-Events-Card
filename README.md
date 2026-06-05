@@ -93,9 +93,9 @@ See each card's README for full configuration options and required sensors.
 
 ## Individual Card Documentation
 
-- 📄 [EM Events Card README](./EnergyManager/README.md)
-- 📄 [HAEO Events Card README](./HAEO/README.md)
-- 📄 [EMHASS Events Card README](./EMHASS/README.md)
+- 📄 [EM Events Card README](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md)
+- 📄 [HAEO Events Card README](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md)
+- 📄 [EMHASS Events Card README](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md)
 
 ---
 
