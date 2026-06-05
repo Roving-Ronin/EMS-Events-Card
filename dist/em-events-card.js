@@ -1,15 +1,18 @@
-// EM Events Card — FIXED Morning SoC + CLEANED legacy code
+// EM Events Card — STATE-WATCH + MULTI-PROVIDER (Globird/Amber/Local Volts/Flow Power)
 // Combines Future Decisions (timeline) and Past Events (history) in one card
+// Supports: Amber Electric, Local Volts, Globird, Flow Power
 // Requires: sensor.energy_manager_plan + inverter sensors
+// Watches: automation.update_energy_manager_decision_sensor for updates
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.7.11';
+const _EMEC_VERSION = 'v2.8.4';
 
 let _EMEC_CUR = '$';
 
 const _EMEC_SENSORS = [
   'sensor.energy_manager_decision',
+  'automation.update_energy_manager_decision_sensor',
   'sensor.inverter_pv_power',
   'sensor.inverter_load_power',
   'sensor.inverter_import_power',
@@ -21,7 +24,7 @@ const _EMEC_SENSORS = [
   'sensor.nodered_sellprice',
   'sensor.monthly_imported_energy',
   'sensor.monthly_exported_energy',
-  'sensor.monthly_pv_generation',
+  'sensor.monthly_solar_generation',
   'sensor.monthly_battery_charge',
   'sensor.monthly_battery_discharge',
   'sensor.daily_consumed_energy',
@@ -29,54 +32,12 @@ const _EMEC_SENSORS = [
 ];
 
 const _EMEC_COLOURS = {
-  solar_green: { bg: '#ccffcc', txt: '#333333', cost: '#333333' },
-  solar:       { bg: '#ffffcc', txt: '#333333', cost: '#333333' },
-  teal:        { bg: '#ccfff5', txt: '#333333', cost: '#333333' },
-  pink:        { bg: '#ffe0e0', txt: '#333333', cost: '#cc3333' },
-  red:         { bg: 'rgba(180,50,50,0.35)', txt: '#ffffff', cost: '#ffaaaa' },
-  green:       { bg: 'rgba(30,150,80,0.55)',  txt: '#ffffff', cost: '#90ffb0' },
+  green:  { bg: '#66ff66', txt: '#333333', cost: '#004400' },
+  yellow: { bg: '#ffff80', txt: '#333333', cost: '#333333' },
+  teal:   { bg: '#99ffff', txt: '#333333', cost: '#333333' },
+  pink:   { bg: '#ffe0e0', txt: '#333333', cost: '#cc3333' },
 };
 
-const _EMEC_DESCRIPTIONS = {
-  '🌞 Solar → 🏠 Home (Self Consumption)': 
-    'Solar covering home demand, maximizing self-consumption and avoiding grid import.',
-  
-  '🌞 Solar → 🏠 Home + 🔋 Battery': 
-    'Solar covering home demand while charging battery, maximizing self-consumption and storing excess for later use.',
-  
-  '🌞 Solar → 🏠 Home + ⚡ Grid': 
-    'Solar covering home demand and exporting surplus to grid, due to high export tariff rate.',
-  
-  '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid': 
-    'Solar covering home demand, charging battery, and exporting surplus to grid simultaneously, due to high export tariff rate.',
-  
-  '🌞 Solar + 🔋 Battery → 🏠 Home': 
-    'Solar and battery together covering home demand, maximizing self-consumption and reducing grid dependence.',
-  
-  '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)': 
-    'Solar and battery together covering home and exporting surplus to grid, forced due to high export tariff rate.',
-  
-  '🌞 Solar + ⚡ Grid → 🏠 Home': 
-    'Solar and grid together covering home demand when solar alone is insufficient.',
-  
-  '🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)': 
-    'Solar and grid together covering home and force-charging battery, due to low import tariff rate.',
-  
-  '🔋 Battery → 🏠 Home (Self Consumption)': 
-    'Battery discharging to cover home load, during peak tariff period to reduce grid import costs.',
-  
-  '🔋 Battery → 🏠 Home + ⚡ Grid (Force)': 
-    'Battery discharging to cover home load and exporting surplus to grid, forced due to high export tariff rate.',
-  
-  '🔋 Battery + ⚡ Grid → 🏠 Home': 
-    'Battery and grid together covering home demand when battery alone is insufficient, during peak tariff period.',
-  
-  '⚡ Grid → 🏠 Home': 
-    'Grid covering home demand when solar and battery are unavailable or depleted.',
-  
-  '⚡ Grid → 🏠 Home + 🔋 Battery (Force)': 
-    'Grid supplying home load and force-charging battery, due to low import tariff rate. Battery will discharge during peak tariff periods for cost savings.',
-};
 
 const _EMEC_COLGROUP =
   '<colgroup>' +
@@ -84,67 +45,67 @@ const _EMEC_COLGROUP =
   '<col style="width:auto; min-width:154px;">' +
   '<col style="width:68px;">' +
   '<col style="width:68px;">' +
-  '<col style="width:44px;">' +
-  '<col style="width:46px;">' +
-  '<col style="width:44px;">' +
-  '<col style="width:46px;">' +
-  '<col style="width:44px;">' +
-  '<col style="width:46px;">' +
-  '<col style="width:44px;">' +
-  '<col style="width:46px;">' +
-  '<col style="width:46px;">' +
+  '<col style="width:54px;">' +
+  '<col style="width:56px;">' +
+  '<col style="width:54px;">' +
+  '<col style="width:56px;">' +
+  '<col style="width:54px;">' +
+  '<col style="width:56px;">' +
+  '<col style="width:54px;">' +
+  '<col style="width:56px;">' +
+  '<col style="width:56px;">' +
   '<col style="width:72px;">' +
   '</colgroup>';
 
-function _emec_classifyFuture(mode, pvKw, impKw, expKw, battCKw, battDKw, curtail, soc) {
-  const T = 0.1;
+function _emec_classifyFuture(mode, solarKw, impKw, expKw, battCKw, battDKw, curtail, soc, gridThreshold) {
+  const T = gridThreshold;
   if (mode === 'FORCED_EXPORT') {
-    if (pvKw > T && expKw > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced export: solar and battery to home and grid', color: 'pink' };
-    return                            { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced export: battery to home and grid', color: 'solar' };
+    if (solarKw > T && expKw > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced export: solar and battery to home and grid', color: 'pink' };
+    return                            { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced export: battery to home and grid', color: 'yellow' };
   }
   if (mode === 'FORCED_DISCHARGE') {
-    if (pvKw > T && expKw > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: solar and battery to home and grid', color: 'pink' };
-    return                            { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: battery to home and grid', color: 'solar' };
+    if (solarKw > T && expKw > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: solar and battery to home and grid', color: 'pink' };
+    return                            { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: battery to home and grid', color: 'yellow' };
   }
   if (mode === 'FORCED_CHARGE') {
-    if (impKw > T)               return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', note: 'Forced grid charging — cheap rate window', color: 'red' };
-    if (battCKw > T && pvKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery', color: 'solar_green' };
-    return                              { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — battery full', color: 'solar_green' };
+    if (impKw > T)               return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', note: 'Forced grid charging — cheap rate window', color: 'pink' };
+    if (battCKw > T && solarKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery', color: 'green' };
+    return                              { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — battery full', color: 'green' };
   }
   if (mode === 'SELF_CONSUMPTION') {
-    if (pvKw > T && expKw > T && battCKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid', note: 'Solar covering home, charging battery and exporting', color: 'solar_green' };
-    if (pvKw > T && expKw > T)               return { label: '🌞 Solar → 🏠 Home + ⚡ Grid', note: 'Solar covering home and exporting surplus', color: 'solar_green' };
-    if (pvKw > T && curtail === 100 && battCKw > T && soc < 99) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery — exports blocked', color: 'solar_green' };
-    if (pvKw > T && curtail === 100 && soc >= 99 && battCKw < T) return { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — battery full, exports blocked', color: 'solar_green' };
-    if (pvKw > T && curtail === 100 && soc >= 99 && battCKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home with trickle charge — exports blocked', color: 'solar_green' };
-    if (pvKw > T && battCKw > T && impKw < T && expKw < T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery — no grid', color: 'solar_green' };
-    if (pvKw > T && battDKw > T && impKw < T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home', note: 'Solar and battery together covering home', color: 'teal' };
-    if (pvKw > T && impKw < T && expKw < T && battCKw < T && battDKw < T) return { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — no battery, no grid', color: 'solar_green' };
+    if (solarKw > T && expKw > T && battCKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid', note: 'Solar covering home, charging battery and exporting', color: 'green' };
+    if (solarKw > T && expKw > T)               return { label: '🌞 Solar → 🏠 Home + ⚡ Grid', note: 'Solar covering home and exporting surplus', color: 'green' };
+    if (solarKw > T && curtail === 100 && battCKw > T && soc < 99) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery — exports blocked', color: 'green' };
+    if (solarKw > T && curtail === 100 && soc >= 99 && battCKw < T) return { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — battery full, exports blocked', color: 'green' };
+    if (solarKw > T && curtail === 100 && soc >= 99 && battCKw > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home with trickle charge — exports blocked', color: 'green' };
+    if (solarKw > T && battCKw > T && impKw < T && expKw < T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', note: 'Solar covering home and charging battery — no grid', color: 'green' };
+    if (solarKw > T && battDKw > T && impKw < T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home', note: 'Solar and battery together covering home', color: 'teal' };
+    if (solarKw > T && impKw < T && expKw < T && battCKw < T && battDKw < T) return { label: '🌞 Solar → 🏠 Home (Self Consumption)', note: 'Solar covering home — no battery, no grid', color: 'green' };
     if (battDKw > T && impKw > T) return { label: '🔋 Battery + ⚡ Grid → 🏠 Home', note: 'Battery discharging but grid also needed', color: 'pink' };
-    if (battDKw > T && expKw > T) return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: battery to home and grid', color: 'solar' };
+    if (battDKw > T && expKw > T) return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', note: 'Forced discharge: battery to home and grid', color: 'yellow' };
     if (battDKw > T)              return { label: '🔋 Battery → 🏠 Home (Self Consumption)', note: 'Battery powering home — no solar, no grid', color: 'teal' };
-    if (battCKw > T && impKw > T) return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', note: 'Grid charging battery and covering home', color: 'red' };
-    if (impKw > T)                return { label: '⚡ Grid → 🏠 Home', note: 'Grid covering home — battery idle', color: 'red' };
+    if (battCKw > T && impKw > T) return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', note: 'Grid charging battery and covering home', color: 'pink' };
+    if (impKw > T)                return { label: '⚡ Grid → 🏠 Home', note: 'Grid covering home — battery idle', color: 'pink' };
     return null;
   }
   return null;
 }
 
-function _emec_classifyPast(solar, gridImp, gridExp, battC, battD) {
-  const T = 0.2;
+function _emec_classifyPast(solar, gridImp, gridExp, battC, battD, gridThreshold) {
+  const T = gridThreshold;
   if (solar > T && gridExp > T && battD > T) return { label: '🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'pink' };
-  if (solar > T && gridExp > T && battC > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid', color: 'solar_green' };
-  if (solar > T && gridExp > T)              return { label: '🌞 Solar → 🏠 Home + ⚡ Grid', color: 'solar_green' };
-  if (battD > T && gridExp > T)              return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'solar' };
+  if (solar > T && gridExp > T && battC > T) return { label: '🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid', color: 'green' };
+  if (solar > T && gridExp > T)              return { label: '🌞 Solar → 🏠 Home + ⚡ Grid', color: 'green' };
+  if (battD > T && gridExp > T)              return { label: '🔋 Battery → 🏠 Home + ⚡ Grid (Force)', color: 'yellow' };
   if (solar > T && gridImp > T && battC > T) return { label: '🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)', color: 'pink' };
   if (solar > T && gridImp > T)              return { label: '🌞 Solar + ⚡ Grid → 🏠 Home', color: 'pink' };
-  if (solar > T && battC > T)                return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', color: 'solar_green' };
+  if (solar > T && battC > T)                return { label: '🌞 Solar → 🏠 Home + 🔋 Battery', color: 'green' };
   if (solar > T && battD > T)                return { label: '🌞 Solar + 🔋 Battery → 🏠 Home', color: 'teal' };
-  if (solar > T)                             return { label: '🌞 Solar → 🏠 Home (Self Consumption)', color: 'solar_green' };
+  if (solar > T)                             return { label: '🌞 Solar → 🏠 Home (Self Consumption)', color: 'green' };
   if (battD > T && gridImp > T)             return { label: '🔋 Battery + ⚡ Grid → 🏠 Home', color: 'pink' };
   if (battD > T)                             return { label: '🔋 Battery → 🏠 Home (Self Consumption)', color: 'teal' };
-  if (gridImp > T && battC > T)             return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', color: 'red' };
-  if (gridImp > T)                           return { label: '⚡ Grid → 🏠 Home', color: 'red' };
+  if (gridImp > T && battC > T)             return { label: '⚡ Grid → 🏠 Home + 🔋 Battery (Force)', color: 'pink' };
+  if (gridImp > T)                           return { label: '⚡ Grid → 🏠 Home', color: 'pink' };
   return { label: '—', color: '' };
 }
 
@@ -268,6 +229,7 @@ function _emec_buildLegend() {
     '<button id="view-legend-btn" style="background:#000099;color:#fff;border:none;cursor:pointer;padding:4px 12px;border-radius:12px;font-weight:bold;font-size:11px;">View Legend</button>' +
     '<span style="display:flex;align-items:center;gap:10px;margin-left:auto;">' +
     '<span class="pill" style="background:#555;font-size:10px;" id="provider-pill">⚡ ...</span>' +
+    '<button id="settings-btn" style="background:none;border:none;cursor:pointer;color:var(--primary-text-color);font-size:14px;padding:0;title=Settings;" title="Settings">⚙️ Settings</button>' +
     '<span style="color:var(--secondary-text-color);font-size:10px;font-weight:normal;">' + _EMEC_VERSION + '</span>' +
     '</span>' +
     '</div>' +
@@ -328,7 +290,7 @@ const _EMEC_STYLE = [
   '.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--divider-color,#444); margin-bottom: 10px; align-items: stretch; }',
   '.tab { padding: 6px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--secondary-text-color); border-bottom: 3px solid transparent; margin-bottom: -2px; }',
   '.tab.active { color: #2196F3; border-bottom-color: #2196F3; background: rgba(33,150,243,0.07); }',
-  '.sbar { display: flex; gap: 14px; align-items: center; padding: 4px 0 8px 0; font-size: 12px; flex-wrap: wrap; width: 100%; border-bottom: 2px solid #888; margin-bottom: 0; }',
+  '.sbar { display: flex; gap: 14px; align-items: center; padding: 4px 0 8px 0; font-size: 12px; flex-wrap: wrap; width: 100%; margin-bottom: 0; }',
   '.pill { padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 11px; color: #fff; }',
   '.stxt { color: var(--secondary-text-color); font-size: 11px; }',
   '.wrap { overflow-y: auto; width: 100%; }',
@@ -348,11 +310,13 @@ function _emec_buildHTML() {
   return '<style>' + _EMEC_STYLE + '</style>' +
     '<ha-card><div class="card">' +
     '<div class="tabs">' +
+    '<div style="display:flex;gap:0;align-items:stretch;">' +
     '<div class="tab active" id="tab-future">📅 Future Decisions</div>' +
     '<div class="tab" id="tab-past">📋 Past Events</div>' +
-    '<span style="margin-left:auto;display:flex;gap:6px;align-items:center;align-self:center;padding-right:4px;">' +
-    '<span id="tab-alerts" style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;"></span>' +
-    '<span id="range-past-wrap" style="display:none;">' +
+    '</div>' +
+    '<div id="em-decision-badge" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--secondary-text-color);padding-right:12px;">' +
+    '</div>' +
+    '<span id="range-past-wrap" style="display:none;padding-right:12px;">' +
     '<select id="range-past" style="font-size:11px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;padding:2px 6px;cursor:pointer;">' +
     '<option value="today">Today</option>' +
     '<option value="yesterday">Yesterday</option>' +
@@ -362,22 +326,23 @@ function _emec_buildHTML() {
     '<option value="96">Last 96h</option>' +
     '<option value="168">Last 7 days</option>' +
     '</select></span>' +
-    '</span>' +
     '</div>' +
     '<div class="pane active" id="pane-future">' +
+    '<div id="tab-alerts" class="sbar" style="border-bottom: none;"></div>' +
     '<div class="sbar" id="sbar-future">⏳ Loading...</div>' +
+    '<div class="sbar" id="finances-bar-future" style="border-bottom: 2px solid #888;">⏳ Loading...</div>' +
     '<table class="dt dt-head" style="margin-bottom:0;">' +
     _EMEC_COLGROUP +
     '<thead>' +
     '<tr>' +
     '<th rowspan="2" style="text-align:left;vertical-align:bottom;">Time</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;">Event</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>$/kWh</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>$/kWh</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Load</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">PV</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Grid</th>' +
-    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Battery</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;"><span style="font-size:2.0em;">🔮</span> Planned Future Decisions</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>💲/kWh</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>💲/kWh</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🏠 Base Load</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">☀️ Solar</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">⚡ Grid</th>' +
+    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🔋 Battery</th>' +
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Cost/<br>Profit</th>' +
     '</tr>' +
     '<tr>' +
@@ -402,19 +367,20 @@ function _emec_buildHTML() {
     '<div class="sbar">' +
     '<strong style="color:var(--primary-text-color);">Past Events</strong>' +
     '<span class="stxt" id="st-past">Loading...</span>' +
+    '<span style="margin:0 auto;font-size:inherit;color:#ff3333;font-weight:600;">📝 Note: Shows recorded sensor values for your inverter/battery system, not Energy Manager decisions</span>' +
     '</div>' +
-    '<table class="dt dt-head" style="margin-bottom:0;">' +
+    '<table class="dt dt-head" style="margin-bottom:0;border-top:2px solid #888;">' +
     _EMEC_COLGROUP +
     '<thead>' +
     '<tr>' +
     '<th rowspan="2" style="text-align:left;vertical-align:bottom;">Time</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;">Event</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>$/kWh</th>' +
-    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>$/kWh</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Load</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">PV</th>' +
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Grid</th>' +
-    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">Battery</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;"><span style="font-size:2.0em;">🔎</span> Historical Past Events</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Buy<br>💲/kWh</th>' +
+    '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>💲/kWh</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🏠 Base Load</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">☀️ Solar</th>' +
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">⚡ Grid</th>' +
+    '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🔋 Battery</th>' +
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Cost/<br>Profit</th>' +
     '</tr>' +
     '<tr>' +
@@ -436,6 +402,246 @@ function _emec_buildHTML() {
     '</table></div>' +
     '</div>' +
     _emec_buildLegend() +
+    '</div>' +
+    // Settings Modal
+    '<div id="settings-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1001;justify-content:center;align-items:center;padding:20px;">' +
+    '<div style="background:var(--card-background-color,#1c1c1c);border-radius:8px;padding:20px;max-width:800px;width:90%;max-height:80vh;overflow-y:auto;color:var(--primary-text-color);box-shadow:0 4px 20px rgba(0,0,0,0.5);display:flex;flex-direction:column;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--divider-color);padding-bottom:12px;">' +
+    '<h2 style="margin:0;font-size:16px;">Card Settings</h2>' +
+    '<button id="close-settings-btn" style="background:none;border:none;color:var(--primary-text-color);font-size:24px;cursor:pointer;padding:0;width:32px;height:32px;">✕</button>' +
+    '</div>' +
+    '<div style="display:flex;border-bottom:1px solid var(--divider-color);gap:4px;margin-bottom:16px;">' +
+    '<button class="settings-tab-btn active" data-tab="display-thresholds" style="flex:1;padding:12px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--primary-text-color);cursor:pointer;font-weight:600;font-size:13px;">Display Thresholds</button>' +
+    '<button class="settings-tab-btn" data-tab="colours" style="flex:1;padding:12px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;">Colours</button>' +
+    '<button class="settings-tab-btn" data-tab="backup" style="flex:1;padding:12px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;">Backup</button>' +
+    '</div>' +
+    '<div style="flex:1;overflow-y:auto;margin-bottom:16px;">' +
+    // Display Thresholds Tab
+    '<div id="tab-display-thresholds" class="settings-tab-content active" style="display:block;">' +
+    '<div style="margin-bottom:16px;">' +
+    '<p style="margin:0 0 12px 0;color:var(--secondary-text-color);font-size:12px;">Configure power thresholds for each column type. Energy thresholds (kWh) are calculated automatically.</p>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;font-weight:bold;font-size:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:2px solid var(--divider-color);">' +
+    '<div>Column Type</div>' +
+    '<div style="text-align:center;">Filter (W)</div>' +
+    '<div style="text-align:center;">Calculated kWh</div>' +
+    '</div>' +
+    // Load row
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
+    '<label style="font-weight:600;font-size:13px;">🏠 Base Load</label>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="number" id="settings-load-threshold" min="0" step="1" value="5" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 5 W</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
+    '<div style="text-align:center;"><strong>5min:</strong><br><span id="load-kwh-5min">0.00042</span></div>' +
+    '<div style="text-align:center;"><strong>30min:</strong><br><span id="load-kwh-30min">0.0025</span></div>' +
+    '</div>' +
+    '</div>' +
+    // PV row
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
+    '<label style="font-weight:600;font-size:13px;">☀️ Solar</label>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="number" id="settings-solar-threshold" min="0" step="1" value="5" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 5 W</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
+    '<div style="text-align:center;"><strong>5min:</strong><br><span id="solar-kwh-5min">0.00042</span></div>' +
+    '<div style="text-align:center;"><strong>30min:</strong><br><span id="solar-kwh-30min">0.0025</span></div>' +
+    '</div>' +
+    '</div>' +
+    // Grid row
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
+    '<label style="font-weight:600;font-size:13px;">⚡ Grid</label>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="number" id="settings-grid-threshold" min="0" step="1" value="10" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 10 W</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
+    '<div style="text-align:center;"><strong>5min:</strong><br><span id="grid-kwh-5min">0.00083</span></div>' +
+    '<div style="text-align:center;"><strong>30min:</strong><br><span id="grid-kwh-30min">0.005</span></div>' +
+    '</div>' +
+    '</div>' +
+    // Battery row
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
+    '<label style="font-weight:600;font-size:13px;">🔋 Battery</label>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="number" id="settings-battery-threshold" min="0" step="1" value="10" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 10 W</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
+    '<div style="text-align:center;"><strong>5min:</strong><br><span id="battery-kwh-5min">0.00083</span></div>' +
+    '<div style="text-align:center;"><strong>30min:</strong><br><span id="battery-kwh-30min">0.005</span></div>' +
+    '</div>' +
+    '</div>' +
+    // Decimal Places row
+    '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
+    '<label style="font-weight:600;font-size:13px;">💲 Price Decimals</label>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<select id="settings-price-decimals" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;">' +
+    '<option value="2">2 places</option>' +
+    '<option value="3" selected>3 places</option>' +
+    '<option value="4">4 places</option>' +
+    '<option value="5">5 places</option>' +
+    '</select>' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 3</div>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--primary-text-color);text-align:center;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">Example: 0.352</div>' +
+    '</div>' +
+    '</div>' +
+    // Other empty tabs
+    '<div id="tab-colours" class="settings-tab-content" style="display:none;">' +
+    '<div style="font-size:12px;margin-bottom:12px;color:var(--secondary-text-color);">Customize event colors — Solar events (left, 8 types) | Battery/Grid events (right, 5 types):</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-height:600px;overflow-y:auto;padding:12px;">' +
+    
+    // LEFT COLUMN: Solar Events (8 types)
+    '<div>' +
+    '<div style="font-size:13px;font-weight:bold;color:var(--primary-text-color);margin-bottom:12px;">Solar Events</div>' +
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;font-size:11px;font-weight:bold;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);z-index:1;"><div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Text</div><div style="text-align:center;">Cost</div></div>' +
+    
+    // Solar Event 1: Solar → Home (green)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(102,255,102,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 2: Solar → Home + Battery (green)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(102,255,102,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar → Home + Battery</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 3: Solar → Home + Battery + Grid (green)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(102,255,102,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar → Home + Battery + Grid</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 4: Solar → Home + Grid (green)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(102,255,102,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar → Home + Grid</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-green-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 5: Solar + Battery → Home (teal)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(153,255,255,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar + Battery → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 6: Solar + Battery → Home + Grid (Force) (yellow)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(255,255,128,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar + Battery → Home + Grid (Force)</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 7: Solar + Grid → Home (pink)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(255,224,224,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar + Grid → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Solar Event 8: Solar + Grid → Home + Battery (Force) (pink)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;background:rgba(255,224,224,0.1);">' +
+    '<div style="font-size:11px;">🌞 Solar + Grid → Home + Battery (Force)</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    '</div>' +
+    
+    // RIGHT COLUMN: Battery/Grid Events (5 types)
+    '<div>' +
+    '<div style="font-size:13px;font-weight:bold;color:var(--primary-text-color);margin-bottom:12px;">Battery / Grid Events</div>' +
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;font-size:11px;font-weight:bold;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);z-index:1;"><div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Text</div><div style="text-align:center;">Cost</div></div>' +
+    
+    // Battery/Grid Event 1: Battery → Home (teal)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(153,255,255,0.1);">' +
+    '<div style="font-size:11px;">🔋 Battery → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-teal-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Battery/Grid Event 2: Battery → Home + Grid (Force) (yellow)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(255,255,128,0.1);">' +
+    '<div style="font-size:11px;">🔋 Battery → Home + Grid (Force)</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-yellow-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Battery/Grid Event 3: Battery + Grid → Home (pink)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(255,224,224,0.1);">' +
+    '<div style="font-size:11px;">🔋 Battery + Grid → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Battery/Grid Event 4: Grid → Home (pink)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;border-bottom:1px solid var(--divider-color);background:rgba(255,224,224,0.1);">' +
+    '<div style="font-size:11px;">⚡ Grid → Home</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    
+    // Battery/Grid Event 5: Grid → Home + Battery (Force) (pink)
+    '<div style="display:grid;grid-template-columns:240px 45px 45px 45px;gap:8px;align-items:center;padding:8px;background:rgba(255,224,224,0.1);">' +
+    '<div style="font-size:11px;">⚡ Grid → Home + Battery (Force)</div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-bg" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-txt" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '<div style="text-align:center;"><input type="color" id="color-pink-cost" class="color-picker" style="width:35px;height:24px;cursor:pointer;border:none;border-radius:2px;"></div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:flex-start;margin-top:12px;border-top:1px solid var(--divider-color);padding-top:12px;">' +
+    '<button id="reset-colors-btn" style="background:#0099ff;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
+    '</div>' +
+    '</div>' +
+    
+    // BACKUP TAB
+    '<div id="tab-backup" class="settings-tab-content" style="display:none;">' +
+    '<div style="padding:20px;display:flex;flex-direction:column;gap:20px;">' +
+    '<div style="border:1px solid var(--divider-color);border-radius:4px;padding:16px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+    '<span style="font-size:18px;">⬇️</span>' +
+    '<div style="font-weight:bold;font-size:13px;color:var(--primary-text-color);">Export Settings</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px;">Download all card settings to a JSON file (thresholds, colors). Share with others or backup your configuration.</div>' +
+    '<button id="export-settings-btn" style="width:100%;padding:12px 16px;background:#0099ff;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">⬇️ Download Backup</button>' +
+    '</div>' +
+    '<div style="border:1px solid var(--divider-color);border-radius:4px;padding:16px;">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+    '<span style="font-size:18px;">⬆️</span>' +
+    '<div style="font-weight:bold;font-size:13px;color:var(--primary-text-color);">Import Settings</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--secondary-text-color);margin-bottom:12px;">Restore settings from a previously exported JSON file. This will replace all current settings.</div>' +
+    '<button id="import-settings-btn" style="width:100%;padding:12px 16px;background:#0099ff;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">⬆️ Select Backup File</button>' +
+    '<input type="file" id="import-settings-file" accept=".json" style="display:none;">' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:space-between;border-top:1px solid var(--divider-color);padding-top:12px;">' +
+    '<button id="settings-reset-btn" style="background:#666;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
+    '<button id="settings-apply-btn" style="background:#0099ff;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Apply</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
     '</div></ha-card>';
 }
 
@@ -450,14 +656,48 @@ class EmEventsCard extends HTMLElement {
     this._lastRenderTs = 0;
     this._pastState    = 'idle';
     this._pastLoadTs   = 0;
+    this._lastUpdateTime = null;
+    this._lastAutomationState = null;  // ✅ NEW: Track previous automation state
+    this._updateTimerInterval = null;
+    this._colorSettings = JSON.parse(JSON.stringify(_EMEC_COLOURS));  // Deep copy defaults
   }
 
   setConfig(config) {
     this._config = config || {};
     _EMEC_CUR = this._config.currency_symbol || '$';
+    
+    // Load color settings from localStorage if available
+    try {
+      const savedColors = localStorage.getItem('em-events-card-colors');
+      if (savedColors) {
+        const loaded = JSON.parse(savedColors);
+        
+        // Validate structure: all required colors with bg, txt, cost
+        let isValid = true;
+        for (const [key, colorObj] of Object.entries(_EMEC_COLOURS)) {
+          if (!loaded[key] || 
+              typeof loaded[key] !== 'object' ||
+              !('bg' in loaded[key]) ||
+              !('txt' in loaded[key]) ||
+              !('cost' in loaded[key])) {
+            isValid = false;
+            break;
+          }
+        }
+        
+        if (isValid) {
+          this._colorSettings = loaded;
+        }
+      }
+    } catch (e) {
+      // localStorage unavailable or corrupted, use defaults
+    }
+    
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _emec_buildHTML();
+      this._initializeSettings();
       this._wireRange();
+      this._populateColorPickers();  // Initialize color pickers
       this._pastState  = 'idle';
       this._lastPlanTs = null;
       requestAnimationFrame(() => this._setWrapHeight());
@@ -492,9 +732,12 @@ class EmEventsCard extends HTMLElement {
   }
 
   _scheduleRefresh() {
+    // This now serves as a FALLBACK timer for when automation doesn't trigger
+    // Primary updates come from automation state changes via _watchAutomationState()
     if (this._refreshTimer) clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(() => {
       if (document.visibilityState !== 'hidden' && this._hass) {
+        console.log('⏲️ [Fallback Timer] Boundary refresh triggered');
         this._doRefresh();
       }
       this._scheduleRefresh();
@@ -540,6 +783,9 @@ class EmEventsCard extends HTMLElement {
     const provPill = this.shadowRoot.getElementById('provider-pill');
     if (provPill) provPill.textContent = '⚡ ' + providerState;
 
+    // Watch for automation state changes
+    this._watchAutomationState();
+
     const planState = hass.states['sensor.energy_manager_plan'];
     const planTs    = planState?.last_changed;
     if (planTs !== this._lastPlanTs) {
@@ -553,6 +799,81 @@ class EmEventsCard extends HTMLElement {
     } else if (this._pastState === 'loading' && this._pastLoadTs && (Date.now() - this._pastLoadTs) > 30000) {
       this._pastState = 'idle';
     }
+  }
+
+  _watchAutomationState() {
+    if (!this._hass) return;
+    
+    const automationEntity = 'automation.update_energy_manager_decision_sensor';
+    const automationState = this._hass.states[automationEntity];
+    
+    if (automationState?.attributes?.last_triggered) {
+      const newTime = new Date(automationState.attributes.last_triggered);
+      
+      // Only update if this is a NEW trigger (not the same timestamp)
+      if (!this._lastUpdateTime || this._lastUpdateTime.getTime() !== newTime.getTime()) {
+        this._lastUpdateTime = newTime;
+        
+        // ✅ Update badge with new trigger time
+        this._updateLastUpdatedBadge();
+        
+        // ✅ Keep "time ago" display fresh (updates every second)
+        this._startUpdateTimer();
+        
+        // ✅ CRITICAL: Immediately refresh card data instead of waiting for time boundary
+        // This is the key difference - automation trigger drives the refresh, not the timer
+        if (document.visibilityState === 'visible') {
+          console.log('🔄 [EM Decision] Automation triggered at', newTime.toLocaleTimeString(), '- refreshing card');
+          this._doRefresh();
+        } else {
+          console.log('🔄 [EM Decision] Automation triggered but tab hidden - will refresh on visibility');
+        }
+      }
+    }
+  }
+
+  _updateLastUpdatedBadge() {
+    if (!this._lastUpdateTime) return;
+    
+    const now = new Date();
+    const diffMs = now - this._lastUpdateTime;
+    
+    let timeStr = '';
+    if (diffMs < 0) {
+      timeStr = 'just now';
+    } else {
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const remainingSecs = diffSecs % 60;
+      
+      // Format: XmYs (minutes and seconds) or just Xs (if under 1 minute)
+      if (diffMins === 0) {
+        timeStr = diffSecs + 's';  // Just seconds: "45s"
+      } else if (diffMins < 60) {
+        timeStr = diffMins + 'm ' + remainingSecs + 's';  // Minutes and seconds: "2m 15s"
+      } else {
+        const diffHours = Math.floor(diffMins / 60);
+        const hrs_remaining_mins = diffMins % 60;
+        timeStr = diffHours + 'h ' + hrs_remaining_mins + 'm';  // Hours and minutes: "1h 25m"
+      }
+    }
+    
+    // Get actual decision time in HH:MM format
+    const decisionTime = this._lastUpdateTime.toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
+    
+    // Update EM Decision badge in header row (far right)
+    const emDecisionBadge = this.shadowRoot.getElementById('em-decision-badge');
+    if (emDecisionBadge && timeStr) {
+      emDecisionBadge.innerHTML = '🔄 EM Decision: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + timeStr + ' (' + decisionTime + ')</span>';
+    }
+  }
+
+  _startUpdateTimer() {
+    // Update the "time ago" display every second to keep it fresh
+    if (this._updateTimerInterval) clearInterval(this._updateTimerInterval);
+    this._updateTimerInterval = setInterval(() => {
+      this._updateLastUpdatedBadge();
+    }, 1000);
   }
 
   _switchTab(tab) {
@@ -609,6 +930,95 @@ class EmEventsCard extends HTMLElement {
       modal._wired = true;
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
     }
+    
+    // Settings modal listeners
+    const settingsBtn = this.shadowRoot.getElementById('settings-btn');
+    const closeSettingsBtn = this.shadowRoot.getElementById('close-settings-btn');
+    const settingsModal = this.shadowRoot.getElementById('settings-modal');
+    const applySettingsBtn = this.shadowRoot.getElementById('settings-apply-btn');
+    const resetSettingsBtn = this.shadowRoot.getElementById('settings-reset-btn');
+    const settingsTabs = this.shadowRoot.querySelectorAll('.settings-tab-btn');
+    const thresholdInputs = this.shadowRoot.querySelectorAll('[id^="settings-"][id*="-threshold"]');
+    
+    if (settingsBtn && !settingsBtn._wired) {
+      settingsBtn._wired = true;
+      settingsBtn.addEventListener('click', () => this._openSettingsModal());
+    }
+    if (closeSettingsBtn && !closeSettingsBtn._wired) {
+      closeSettingsBtn._wired = true;
+      closeSettingsBtn.addEventListener('click', () => this._closeSettingsModal());
+    }
+    if (settingsModal && !settingsModal._wired) {
+      settingsModal._wired = true;
+      settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) this._closeSettingsModal(); });
+    }
+    if (applySettingsBtn && !applySettingsBtn._wired) {
+      applySettingsBtn._wired = true;
+      applySettingsBtn.addEventListener('click', () => this._applySettings());
+    }
+    if (resetSettingsBtn && !resetSettingsBtn._wired) {
+      resetSettingsBtn._wired = true;
+      resetSettingsBtn.addEventListener('click', () => this._resetSettings());
+    }
+    
+    // Wire export/import buttons
+    const exportBtn = this.shadowRoot.getElementById('export-settings-btn');
+    const importBtn = this.shadowRoot.getElementById('import-settings-btn');
+    const importFileInput = this.shadowRoot.getElementById('import-settings-file');
+    
+    if (exportBtn && !exportBtn._wired) {
+      exportBtn._wired = true;
+      exportBtn.addEventListener('click', () => this._exportSettings());
+    }
+    
+    if (importBtn && !importBtn._wired) {
+      importBtn._wired = true;
+      importBtn.addEventListener('click', () => {
+        importFileInput.click();
+      });
+    }
+    
+    if (importFileInput && !importFileInput._wired) {
+      importFileInput._wired = true;
+      importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          this._importSettings(file);
+        }
+      });
+    }
+    
+    thresholdInputs.forEach((input) => {
+      if (!input._wired) {
+        input._wired = true;
+        input.addEventListener('input', () => this._updateKwhDisplays());
+      }
+    });
+
+    settingsTabs.forEach((tab) => {
+      if (!tab._wired) {
+        tab._wired = true;
+        tab.addEventListener('click', () => {
+          const tabName = tab.dataset.tab;
+          // Update active tab button
+          settingsTabs.forEach(t => {
+            t.classList.remove('active');
+            t.style.borderBottomColor = 'transparent';
+            t.style.color = 'var(--secondary-text-color)';
+          });
+          tab.classList.add('active');
+          tab.style.borderBottomColor = '#0099ff';
+          tab.style.color = 'var(--primary-text-color)';
+          
+          // Update active tab content
+          const contents = this.shadowRoot.querySelectorAll('.settings-tab-content');
+          contents.forEach(c => c.style.display = 'none');
+          const activeContent = this.shadowRoot.getElementById(`tab-${tabName}`);
+          if (activeContent) activeContent.style.display = 'block';
+        });
+      }
+    });
+    
     filters.forEach((f) => {
       if (!f._wired) {
         f._wired = true;
@@ -624,11 +1034,52 @@ class EmEventsCard extends HTMLElement {
     });
   }
 
-  _buildSbar(timeline, bs, summary, provider, nowTs) {
+  _getExportLimitDisp(gridLimitStr) {
+    // Format a value as kW or W depending on magnitude
+    const formatUnit = (kw) => {
+      if (kw < 1) {
+        return (kw * 1000).toFixed(0) + ' W';
+      }
+      return kw.toFixed(1) + ' kW';
+    };
+    
+    // Parse grid limit
+    if (!gridLimitStr) return null;
+    const gridKw = parseFloat(gridLimitStr);
+    const gridFormatted = formatUnit(gridKw);
+    
+    // Get Globird EM limit if available
+    const superStart = this._hass?.states['input_datetime.globird_super_start']?.state;
+    const superEnd = this._hass?.states['input_datetime.globird_super_end']?.state;
+    const superMaxPct = parseFloat(this._hass?.states['input_number.globird_super_max_export_kw_percentage']?.state || 100);
+    const otherMaxPct = parseFloat(this._hass?.states['input_number.globird_other_max_export_kw_percentage']?.state || 100);
+    const badWeatherMax = parseFloat(this._hass?.states['input_number.globird_bad_weather_max_export']?.state || 100);
+    const inverterMax = parseFloat(this._hass?.states['input_number.inverter_export_power_hardlimit']?.state);
+    
+    // If Globird sensors not available, just show grid limit
+    if (!inverterMax || !superStart || !superEnd) {
+      return gridFormatted;
+    }
+    
+    // Check if current time is in Super Export window
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    const superStartTime = superStart.slice(0, 5);
+    const superEndTime = superEnd.slice(0, 5);
+    
+    const inSuperWindow = currentTime >= superStartTime && currentTime < superEndTime;
+    const effectiveMaxPct = inSuperWindow ? superMaxPct : otherMaxPct;
+    
+    // Calculate EM limit
+    let emLimit = inverterMax * (effectiveMaxPct / 100) * (badWeatherMax / 100);
+    const emFormatted = formatUnit(emLimit);
+    
+    // Return combined Grid | EM format
+    return gridFormatted + ' (Grid) | ' + emFormatted + ' (EM)';
+  }
+
+  _buildSbar(timeline, bs, summary, provider, nowTs, decisionFocus, nowBuyP, nowSellP) {
     const fmtSbarTime = (ts) => new Date(ts).toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
-    const rawBuyNow  = parseFloat(this._hass.states['sensor.nodered_buyprice']?.state  || 0);
-    const rawSellNow = parseFloat(this._hass.states['sensor.nodered_sellprice']?.state || 0);
-    const { buyP: nowBuyP, sellP: nowSellP } = _emec_getPrices(nowTs, provider, this._hass, rawBuyNow, rawSellNow);
 
     const modeLabel  = bs?.mode || summary?.now_mode || 'UNKNOWN';
     const modeColors = { SELF_CONSUMPTION:'#28a745', FORCED_CHARGE:'#2196F3', FORCED_EXPORT:'#FF6B2C', FORCED_DISCHARGE:'#ff9800' };
@@ -636,6 +1087,19 @@ class EmEventsCard extends HTMLElement {
     const modeColor  = modeColors[modeLabel] || '#9c27b0';
     const modeIcon   = modeIcons[modeLabel]  || '🔧';
     const nowSoc     = summary?.now_soc_pct;
+    const batteryCapKwh = parseFloat(this._hass.states['sensor.inverter_battery_capacity']?.state || 0);
+
+    // Check if CURRENTLY charging: find closest forecast slot to now
+    let chargingNow = false;
+    let closestDiff = Infinity;
+    for (const row of timeline) {
+      const ts = new Date(row.ts).getTime();
+      const diff = Math.abs(ts - nowTs);
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        chargingNow = (row.inputs.pv_kw || 0) > 0.5 && (row.expected.battery_charge_kw || 0) > 0.1;
+      }
+    }
 
     // Scan timeline once for min/max forecasted SoC (direct from em_plan)
     let minSoc = null, minSocTime = '', maxSoc = null, maxSocTime = '';
@@ -659,18 +1123,27 @@ class EmEventsCard extends HTMLElement {
       }
     }
     
-    // Show the appropriate metric
-    let dawnSoc = null, dawnTime = '', dawnLabel = '';
-    if (maxSoc !== null && maxSoc > (nowSoc || 0) + 5) {
-      // Currently charging or about to charge — show peak
+    // Calculate kWh display: soc_pct * capacity_kwh / 100
+    const fmtSocKwh = (soc) => {
+      if (!soc || batteryCapKwh <= 0) return ''; // Fallback: no kWh shown if capacity unavailable
+      const kwh = (soc * batteryCapKwh) / 100;
+      return ` | ${kwh.toFixed(1)} kWh`;
+    };
+    
+    // Show the appropriate metric: Peak if charging, Minimum if not
+    let dawnSoc = null, dawnTime = '', dawnLabel = '', dawnKwh = '';
+    if (chargingNow && maxSoc !== null) {
+      // Currently charging — show peak
       dawnSoc = maxSoc;
       dawnTime = maxSocTime;
       dawnLabel = '🔋 Peak SoC:';
+      dawnKwh = fmtSocKwh(maxSoc);
     } else if (minSoc !== null && minSoc < 99) {
       // Not charging — show minimum before recovery
       dawnSoc = minSoc;
       dawnTime = minSocTime;
       dawnLabel = '🌅 Minimum SoC:';
+      dawnKwh = fmtSocKwh(minSoc);
     }
 
     const dawnColor  = dawnSoc <= 20 ? '#ff6b6b' : dawnSoc <= 35 ? '#ff9800' : '#39ff14';
@@ -694,66 +1167,174 @@ class EmEventsCard extends HTMLElement {
     const chargeLimitDisp = showChargeLimit ? fmtKwLimit(chargeLimitKw)       : null;
 
     let superExportPill = '';
+    let dynamicChargingPill = '';
+    
     if (provider === 'Globird' && this._hass) {
+      // Check for dynamic charging in current/next row OR lookahead for tomorrow
+      let foundCurrent = false;
+      
+      // First check: current/next 5 minutes
+      for (const row of timeline) {
+        const ts = new Date(row.ts).getTime();
+        if (ts >= nowTs - 5 * 60000) { // Current or future
+          const dynamicLimitW = row.setpoints?.dynamic_charge_limit_w || 0;
+          const isDynamicActive = row.setpoints?.dynamic_charge_active || false;
+          
+          if (isDynamicActive && dynamicLimitW > 0) {
+            const dynamicLimitKw = (dynamicLimitW / 1000).toFixed(1);
+            dynamicChargingPill = '<span>🔌 Dynamic Charging: <span class="pill" style="background:#2196F3;color:#fff;" title="Charging now at low import tariff rate. Limit shown prevents grid congestion">' + dynamicLimitKw + ' kW</span></span>';
+            foundCurrent = true;
+            break;
+          }
+        }
+      }
+      
+      // Second check: if not found in next 5 mins, scan full timeline for any dynamic charging (lookahead)
+      if (!foundCurrent) {
+        for (const row of timeline) {
+          const dynamicLimitW = row.setpoints?.dynamic_charge_limit_w || 0;
+          const isDynamicActive = row.setpoints?.dynamic_charge_active || false;
+          const drivers = row.drivers || [];
+          
+          if (isDynamicActive && dynamicLimitW > 0 && drivers.includes('free_import')) {
+            const dynamicLimitKw = (dynamicLimitW / 1000).toFixed(1);
+            const rowTs = new Date(row.ts);
+            const timeStr = rowTs.toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
+            dynamicChargingPill = '<span>🔌 Next: <span class="pill" style="background:#2196F3;color:#fff;" title="Cheap import tariff window coming. Battery will charge at this limit to take advantage of low rates">' + dynamicLimitKw + ' kW @ ' + timeStr + '</span></span>';
+            break;
+          }
+        }
+      }
+      
+      // Super export remaining (current period)
       const superCapKwh = parseFloat(this._hass.states['input_number.globird_super_max_export']?.state || 10);
       const dailyExported = parseFloat(this._hass.states['sensor.daily_exported_energy']?.state || 0);
       const remaining = Math.max(0, superCapKwh - dailyExported);
       if (remaining <= 0) {
-        superExportPill = '<span class="pill" style="background:#ff9800;">⚡ Super Export: Cap reached</span>';
+        superExportPill = '<span>⚡ Super Export: <span class="pill" style="background:#f44336;color:#fff;" title="Daily export bonus cap reached. No more bonus payments available today">Cap reached</span></span>';
       } else {
-        superExportPill = '<span class="pill" style="background:#4caf50;">⚡ Super Export: ' + remaining.toFixed(1) + ' kWh remaining</span>';
+        superExportPill = '<span>⚡ Super Export: <span class="pill" style="background:#555;" title="Remaining daily export quota for bonus rates. Export any surplus at premium prices before limit reached">' + remaining.toFixed(1) + ' kWh remaining</span></span>';
       }
     }
 
-    const focusCap = (bs?.focus || summary?.focus || '').replace(/\b\w/g, c => c.toUpperCase());
+    // Use decisionFocus passed from _renderFuture (already properly formatted)
+    let focusCap = decisionFocus;
+    
+    // Capitalize all words in focus text
+    if (focusCap) {
+      focusCap = focusCap.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+    }
+    
+    // Check if current timeline row has drivers - use to override focus with better context
+    let currentRowDrivers = [];
+    for (const row of timeline) {
+      const ts = new Date(row.ts).getTime();
+      if (ts >= nowTs - 5 * 60000 && ts <= nowTs + 5 * 60000) { // Within 5 mins of now
+        currentRowDrivers = row.drivers || [];
+        break;
+      }
+    }
+    
+    // Override focus based on drivers for better context
+    if (currentRowDrivers.includes('free_import')) {
+      focusCap = 'Free Imports';
+    } else if (currentRowDrivers.includes('peak_export')) {
+      focusCap = 'Peak Export Period';
+    } else if (currentRowDrivers.includes('dynamic_charging')) {
+      focusCap = 'Charging Battery';
+    }
 
     const html =
+      '<span style="color:#2196F3;font-weight:bold;margin-right:10px;">STATUS:</span>' +
       '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + modeLabel.replace(/_/g,' ') + '</span></span>' +
-      (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;">' + focusCap + '</span></span>' : '') +
-      (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '%</span></span>' : '') +
-      (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '% (' + dawnTime + ')</span></span>' : '') +
-      '<span>💲 Buy: <span class="pill" style="background:#555;">' + _emec_fmtP(nowBuyP) + '</span></span>' +
-      '<span>💲 Sell: <span class="pill" style="background:#555;">' + _emec_fmtP(nowSellP) + '</span></span>' +
-      (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;">' + exportLimitDisp + '</span></span>' : '') +
-      (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;">' + chargeLimitDisp + '</span></span>' : '') +
+      (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;" title="Primary strategy: Free Imports = cheap rate, Peak Export = high export price, Charging Battery = low import tariff">' + focusCap + '</span></span>' : '') +
+      (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '% | ' + (nowSoc / 100 * batteryCapKwh).toFixed(1) + ' kWh</span></span>' : '') +
+      (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%' + dawnKwh + ' (' + dawnTime + ')</span></span>' : '') +
+      (this._getExportLimitDisp(exportLimitDisp) ? '<span>📤 Export Limit: <span class="pill" style="background:#555;" title="Maximum export to grid. Shows EM-controlled limit + Grid Operator limits combined">' + this._getExportLimitDisp(exportLimitDisp) + '</span></span>' : '') +
+      (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;" title="Maximum charge rate allowed. Prevents overcharging battery during fast-charge windows">' + chargeLimitDisp + '</span></span>' : '') +
+      dynamicChargingPill +
       superExportPill;
+    
+    return html;
+  }
 
+  _buildFinancialsBar(nowBuyP, nowSellP) {
+    // Build finances bar with BUY, SELL, and daily financial badges
+    const importFormatted = this._hass?.states['sensor.import_formatted']?.state || 'N/A';
+    const exportFormatted = this._hass?.states['sensor.export_formatted']?.state || 'N/A';
+    const netFormatted = this._hass?.states['sensor.net_formatted']?.state || 'N/A';
+    const dailyImportedEnergy = this._hass?.states['sensor.daily_imported_energy']?.state || 'N/A';
+    const dailyExportedEnergy = this._hass?.states['sensor.daily_exported_energy']?.state || 'N/A';
+    
+    // Determine net background color based on value
+    let netBgColor = '#555'; // Default grey
+    if (netFormatted !== 'N/A') {
+      const netValue = parseFloat(netFormatted.replace('$', '').replace('-', ''));
+      if (netFormatted.includes('-')) {
+        netBgColor = '#ff5252'; // Red for negative (cost)
+      } else if (netValue > 0) {
+        netBgColor = '#00FF00'; // Green for positive (credit) - same as buy badge
+      } else if (netValue === 0) {
+        netBgColor = '#FFEB3B'; // Yellow for zero
+      }
+    }
+    
+    const html =
+      '<span style="color:#FF9800;font-weight:bold;margin-right:10px;">FINANCES:</span>' +
+      '<span>💲 Buy: <span class="pill" style="background:' + (nowBuyP <= 0.00 ? '#00FF00;color:#000;' : '#555;') + '">' + this._fmtPrice(nowBuyP) + '</span></span>' +
+      '<span>💲 Sell: <span class="pill" style="background:' + (nowSellP <= 0.00 ? '#ff5252;color:#000;' : '#555;') + '">' + this._fmtPrice(nowSellP) + '</span></span>' +
+      '<span>💰 Net: <span class="pill" style="background:' + netBgColor + ';color:#000;" title="Today\'s net cost. Positive (green) = credit owed to you. Negative (red) = cost to you">' + netFormatted + '</span></span>' +
+      '<span>📥 Imported: <span class="pill" style="background:#555;">' + importFormatted + ' | ' + dailyImportedEnergy + ' kWh</span></span>' +
+      '<span>📤 Exported: <span class="pill" style="background:#555;">' + exportFormatted + ' | ' + dailyExportedEnergy + ' kWh</span></span>';
+    
     return html;
   }
 
   _buildDayHeaderRow(day, dailyCosts, dailyKwh, todayStr, displayLabel) {
     const dayTotal = dailyCosts[day] || 0;
-    const dk       = dailyKwh[day]  || { load:0, pv:0, grid:0, batt:0 };
+    const dk       = dailyKwh[day]  || { load:0, pv:0, gridImp:0, gridExp:0, battChg:0, battDis:0 };
     const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
     const dayLabel = displayLabel 
       ? '📅 ' + displayLabel 
       : (day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }));
     const dayCostLabel = dayTotal <= 0 ? _EMEC_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _EMEC_CUR + dayTotal.toFixed(2);
-    const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) : '—';
-    const fmtGrid = (v) => {
-      if (Math.abs(v) <= 0.001) return '—';
-      const col = v < 0 ? '#4caf50' : '#f44336';
-      return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-    };
-    const fmtBatt = (v) => {
-      if (Math.abs(v) <= 0.001) return '—';
-      const col = v < 0 ? '#f44336' : '#4caf50';
-      return '<span style="color:' + col + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(2) + '</span>';
-    };
-    return '<tr class="dr">' +
-      '<td colspan="2">' + dayLabel + '</td>' +
+    const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
+    const fmtGridImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtGridExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
+    const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+    
+    const row1 = '<tr class="dr" style="border-bottom: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+      '<td colspan="2" style="vertical-align:middle;">' + dayLabel + '</td>' +
       '<td class="bgl" colspan="2"></td>' +
       '<td class="bgl"></td>' +
-      '<td class="bgi" style="text-align:right;">' + fmtKd(dk.load) + '</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.load) + '</td>' +
       '<td class="bgl"></td>' +
-      '<td class="bgi" style="text-align:right;">' + fmtKd(dk.pv) + '</td>' +
-      '<td class="bgl"></td>' +
-      '<td class="bgi" style="text-align:right;">' + fmtGrid(dk.grid) + '</td>' +
-      '<td class="bgl"></td>' +
-      '<td class="bgi" style="text-align:right;">' + fmtBatt(dk.batt) + '</td>' +
-      '<td class="bgl"></td>' +
-      '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLabel + '</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtKd(dk.pv) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Import</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridImp(dk.gridImp) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattChg(dk.battChg) + '</td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="text-align:right;color:' + dayColor + ';font-weight:bold;vertical-align:middle;">' + dayCostLabel + '</td>' +
       '</tr>';
+    
+    const row2 = '<tr class="dr" style="border-top: 1px solid var(--divider-color,#444);vertical-align:middle;height:auto;">' +
+      '<td colspan="2" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" colspan="2"></td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="vertical-align:middle;"></td>' +
+      '<td class="bgl"></td>' +
+      '<td class="bgi" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Export</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtGridExp(dk.gridExp) + '</td>' +
+      '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
+      '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattDis(dk.battDis) + '</td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '<td class="bgl" style="vertical-align:middle;"></td>' +
+      '</tr>';
+    
+    return row1 + row2;
   }
 
   _buildDayHeaderRowPast(day, pastDailyCosts, pastDailyKwh, displayLabel) {
@@ -805,7 +1386,7 @@ class EmEventsCard extends HTMLElement {
     const ts = new Date(row.ts).getTime();
     const timeStr = new Date(ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false });
 
-    const pvKw    = row.inputs.pv_kw      || 0;
+    const solarKw    = row.inputs.pv_kw      || 0;
     const loadKw  = row.inputs.load_kw    || 0;
     const soc     = row.inputs.soc_pct_start || 0;
     const rowStepH = (row.interval_minutes || meta?.step_minutes || 30) / 60;
@@ -815,11 +1396,13 @@ class EmEventsCard extends HTMLElement {
     const battCKw = row.expected.battery_charge_kw   || 0;
     const battDKw = row.expected.battery_discharge_kw|| 0;
     const curtail = row.setpoints?.curtail_pct || 0;
-    const gridKw  = expKw > 0.1 ? -expKw : impKw > 0.1 ? impKw : 0;
-    const battKw  = battCKw > 0.1 ? battCKw : battDKw > 0.1 ? -battDKw : 0;
+    const gridThreshold = (this._settings?.gridThreshold || 10) / 1000; // Convert W to kW
+    const batteryThreshold = (this._settings?.batteryThreshold || 10) / 1000; // Convert W to kW
+    const gridKw  = expKw > gridThreshold ? -expKw : impKw > gridThreshold ? impKw : 0;
+    const battKw  = battCKw > batteryThreshold ? battCKw : battDKw > batteryThreshold ? -battDKw : 0;
 
     let capHit = false;
-    if (provider === 'Globird' && inSuper && expKw > 0.1 && this._hass) {
+    if (provider === 'Globird' && inSuper && expKw > gridThreshold && this._hass) {
       const superCapKwh = parseFloat(this._hass.states['input_number.globird_super_max_export']?.state || 10);
       const slotExpKwh = expKw * rowStepH;
       const dailyExpedNow = parseFloat(this._hass.states['sensor.daily_exported_energy']?.state || 0);
@@ -836,10 +1419,10 @@ class EmEventsCard extends HTMLElement {
 
     const cost    = ((impKw * buyP) - (expKw * sellP)) * rowStepH;
 
-    const cls = _emec_classifyFuture(row.mode, pvKw, impKw, expKw, battCKw, battDKw, curtail, soc);
+    const cls = _emec_classifyFuture(row.mode, solarKw, impKw, expKw, battCKw, battDKw, curtail, soc, gridThreshold);
     if (!cls) return null;
 
-    const c       = _EMEC_COLOURS[cls.color] || { bg:'transparent', txt:'var(--primary-text-color)', cost:'var(--primary-text-color)' };
+    const c       = this._colorSettings[cls.color] || _EMEC_COLOURS[cls.color] || { bg:'transparent', txt:'var(--primary-text-color)', cost:'var(--primary-text-color)' };
     const gridCol = gridKw < 0 ? '#4caf50' : gridKw > 0 ? '#f44336' : c.txt;
     const battCol = battKw < 0 ? '#f44336' : battKw > 0 ? '#4caf50' : c.txt;
     const socCol  = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
@@ -847,26 +1430,41 @@ class EmEventsCard extends HTMLElement {
     const costCol = costFmt.col || (cost > 0.0001 ? c.cost : c.txt);
 
     const fLoadKwh  = loadKw  * rowStepH;
-    const fPvKwh    = pvKw    * rowStepH;
+    const fSolarKwh    = solarKw    * rowStepH;
     const fGridKwh  = gridKw  * rowStepH;
     const fBattKwh  = battKw  * rowStepH;
 
-    const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(2) + '</span>';
-    const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(2) + '</span>';
-    const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(2) + '</span>';
-    const fmtGKwh = (v) => Math.abs(v) < 0.001 ? '—' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
-    const fmtBKwh = (v) => Math.abs(v) < 0.001 ? '—' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
-    const sellDisp = _emec_fmtP(sellP) + (capHit ? ' ⚠' : '');
+    // Calculate kWh thresholds based on interval and column-specific kW thresholds
+    const loadThresholdKw = (this._settings?.loadThreshold || 5) / 1000;
+    const solarThresholdKw = (this._settings?.solarThreshold || 5) / 1000;
+    const gridThresholdKw = (this._settings?.gridThreshold || 10) / 1000;
+    const battThresholdKw = (this._settings?.batteryThreshold || 10) / 1000;
+    
+    const loadKwhThreshold = loadThresholdKw * rowStepH;
+    const solarKwhThreshold = solarThresholdKw * rowStepH;
+    const gridKwhThreshold = gridThresholdKw * rowStepH;
+    const battKwhThreshold = battThresholdKw * rowStepH;
+
+    const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+    const fmtLKw = (v) => Math.abs(v) < loadThresholdKw ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+    const fmtSolarKw = (v) => Math.abs(v) < solarThresholdKw ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+    const fmtGKw = (v) => Math.abs(v) < gridThresholdKw ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+    const fmtBKw = (v) => Math.abs(v) < battThresholdKw ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
+    const fmtLKwh = (v) => Math.abs(v) < loadKwhThreshold ? '—' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+    const fmtSolarKwh = (v) => Math.abs(v) < solarKwhThreshold ? '—' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+    const fmtGKwh = (v) => Math.abs(v) < gridKwhThreshold ? '—' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+    const fmtBKwh = (v) => Math.abs(v) < battKwhThreshold ? '—' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
+    const sellDisp = this._fmtPrice(sellP) + (capHit ? ' ⚠' : '');
 
     return '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
       '<td>' + timeStr + '</td>' +
-      '<td><span title="' + (_EMEC_DESCRIPTIONS[cls.label] || cls.note || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
-      '<td class="bgl">' + _emec_fmtP(buyP)  + '</td>' +
+      '<td><span title="' + (cls.note || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
+      '<td class="bgl">' + this._fmtPrice(buyP)  + '</td>' +
       '<td class="bgi" style="opacity:1;font-size:12px;">' + sellDisp + '</td>' +
-      '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
-      '<td class="bgi">' + (Math.abs(fLoadKwh) > 0.001 ? fLoadKwh.toFixed(3) : '—') + '</td>' +
-      '<td class="bgl">' + fmtKw(pvKw) + '</td>' +
-      '<td class="bgi">' + (Math.abs(fPvKwh) > 0.001 ? fPvKwh.toFixed(3) : '—') + '</td>' +
+      '<td class="bgl">' + fmtLKw(loadKw) + '</td>' +
+      '<td class="bgi">' + fmtLKwh(fLoadKwh) + '</td>' +
+      '<td class="bgl">' + fmtSolarKw(solarKw) + '</td>' +
+      '<td class="bgi">' + fmtSolarKwh(fSolarKwh) + '</td>' +
       '<td class="bgl">' + fmtGKw(gridKw) + '</td>' +
       '<td class="bgi">' + fmtGKwh(fGridKwh) + '</td>' +
       '<td class="bgl">' + fmtBKw(battKw) + '</td>' +
@@ -894,46 +1492,35 @@ class EmEventsCard extends HTMLElement {
     const summary  = plan?.summary;
     const provider = this._hass?.states['input_select.electricity_provider']?.state || 'Amber Electric';
 
+    // Extract Focus from blocks_summary first (Amber/LocalVolts/FlowPower), fallback to decision sensor for Globird
+    let decisionFocus = '';
+    if (bs?.focus) {
+      // Amber/LocalVolts/FlowPower have focus in blocks_summary
+      decisionFocus = bs.focus;
+    } else {
+      // Globird fallback: extract from sensor.energy_manager_decision state (HTML format)
+      const decisionEntity = this._hass?.states['sensor.energy_manager_decision'];
+      if (decisionEntity?.state) {
+        // Parse HTML state: <li>Reason: Curtailed</li> or <li>Reason:Curtailed</li>
+        let reasonMatch = decisionEntity.state.match(/<li>Reason:\s*([^<]+)<\/li>/i);
+        if (!reasonMatch) {
+          // Try without space after colon
+          reasonMatch = decisionEntity.state.match(/<li>Reason:([^<]+)<\/li>/i);
+        }
+        if (reasonMatch && reasonMatch[1]) {
+          decisionFocus = reasonMatch[1].trim();
+        }
+      }
+    }
+
     const isGlobird = provider === 'Globird';
     let timeline, meta, stepH;
 
-    if (isGlobird) {
-      const rawBlocks = attr.blocks || [];
-      meta = plan?.meta || { step_minutes: 30 };
-      stepH = 0.5;
-      timeline = rawBlocks.map(b => {
-        const exportKw  = (b.export_w  || 0) / 1000;
-        const chargeKw  = (b.charge_w  || 0) / 1000;
-        const solarKw   = (b.solar_kwh || 0) * 2;
-        const loadKw    = (b.load_kwh  || 0) * 2;
-        return {
-          ts:   b.start_local,
-          interval_minutes: meta?.step_minutes || 30,
-          mode: b.action === 'charge' ? 'FORCED_CHARGE' :
-                b.action === 'export' ? 'FORCED_EXPORT'  : 'SELF_CONSUMPTION',
-          band: b.band,
-          inputs: {
-            pv_kw:          solarKw,
-            load_kw:        loadKw,
-            soc_pct_start:  b.soc_estimate_pct || 0,
-            buy_price:      b.buy_price  || 0,
-            sell_price:     b.sell_price || 0,
-          },
-          setpoints: { curtail_pct: 0, force_charge_kw: chargeKw, force_export_kw: exportKw },
-          expected: {
-            grid_import_kw:       b.action === 'charge' && chargeKw > solarKw ? chargeKw - solarKw : 0,
-            grid_export_kw:       exportKw > 0 ? exportKw : 0,
-            battery_charge_kw:    chargeKw,
-            battery_discharge_kw: exportKw > 0 ? exportKw : 0,
-            soc_pct_end:          b.soc_estimate_pct || 0,
-          },
-        };
-      });
-    } else {
-      timeline = plan?.timeline || [];
-      meta     = plan?.meta || {};
-      stepH    = (meta.step_minutes || 30) / 60;
-    }
+    // Unified parsing: all providers (Globbird, Amber, LocalVolts, FlowPower) use the same format
+    timeline = plan?.timeline || [];
+    meta     = plan?.meta || {};
+    stepH    = (meta.fine_step_minutes || meta.step_minutes || 30) / 60;
+
 
     if (!timeline.length) {
       tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ No timeline data found</td></tr>';
@@ -945,7 +1532,7 @@ class EmEventsCard extends HTMLElement {
 
     const dailyCosts = {};
     const dailyKwh   = {};
-    let curDay = '', curTotal = 0, curKwh = { load:0, pv:0, grid:0, batt:0 };
+    let curDay = '', curTotal = 0, curKwh = { load:0, pv:0, gridImp:0, gridExp:0, battChg:0, battDis:0 };
 
     for (const row of timeline) {
       const ts      = new Date(row.ts).getTime();
@@ -953,29 +1540,39 @@ class EmEventsCard extends HTMLElement {
       const day     = new Date(ts).toLocaleDateString('en-CA');
       const rowStepH = (row.interval_minutes || meta?.step_minutes || 30) / 60;
       const { buyP, sellP } = _emec_getPrices(ts, provider, this._hass, row.inputs.buy_price || 0, row.inputs.sell_price || 0);
-      const net = ((row.expected.grid_import_kw || 0) * buyP -
-                   (row.expected.grid_export_kw || 0) * sellP) * rowStepH;
       const rImpKw  = row.expected.grid_import_kw       || 0;
       const rExpKw  = row.expected.grid_export_kw       || 0;
       const rBattC  = row.expected.battery_charge_kw    || 0;
       const rBattD  = row.expected.battery_discharge_kw || 0;
-      const rGridKw = rExpKw > 0.1 ? -rExpKw : rImpKw > 0.1 ? rImpKw : 0;
-      const rBattKw = rBattC > 0.1 ? rBattC  : rBattD  > 0.1 ? -rBattD : 0;
+      const net = (rImpKw * buyP - rExpKw * sellP) * rowStepH;
       if (day !== curDay) {
         if (curDay) { dailyCosts[curDay] = Math.round(curTotal * 10000) / 10000; dailyKwh[curDay] = { ...curKwh }; }
         curDay = day; curTotal = net;
-        curKwh = { load: (row.inputs.load_kw||0)*rowStepH, pv: (row.inputs.pv_kw||0)*rowStepH, grid: rGridKw*rowStepH, batt: rBattKw*rowStepH };
+        curKwh = { load: (row.inputs.load_kw||0)*rowStepH, pv: (row.inputs.pv_kw||0)*rowStepH, gridImp: rImpKw*rowStepH, gridExp: rExpKw*rowStepH, battChg: rBattC*rowStepH, battDis: rBattD*rowStepH };
       } else {
         curTotal += net;
-        curKwh.load += (row.inputs.load_kw||0) * rowStepH;
-        curKwh.pv   += (row.inputs.pv_kw||0)   * rowStepH;
-        curKwh.grid += rGridKw * rowStepH;
-        curKwh.batt += rBattKw * rowStepH;
+        curKwh.load   += (row.inputs.load_kw||0) * rowStepH;
+        curKwh.pv     += (row.inputs.pv_kw||0)   * rowStepH;
+        curKwh.gridImp += rImpKw * rowStepH;
+        curKwh.gridExp += rExpKw * rowStepH;
+        curKwh.battChg += rBattC * rowStepH;
+        curKwh.battDis += rBattD * rowStepH;
       }
     }
     if (curDay) { dailyCosts[curDay] = Math.round(curTotal * 10000) / 10000; dailyKwh[curDay] = { ...curKwh }; }
 
-    sbar.innerHTML = this._buildSbar(timeline, bs, summary, provider, nowTs);
+    // Calculate current prices
+    const rawBuyNow  = parseFloat(this._hass.states['sensor.nodered_buyprice']?.state  || 0);
+    const rawSellNow = parseFloat(this._hass.states['sensor.nodered_sellprice']?.state || 0);
+    const { buyP: nowBuyP, sellP: nowSellP } = _emec_getPrices(nowTs, provider, this._hass, rawBuyNow, rawSellNow);
+
+    sbar.innerHTML = this._buildSbar(timeline, bs, summary, provider, nowTs, decisionFocus, nowBuyP, nowSellP);
+    
+    // Populate financials bar
+    const financialsBar = this.shadowRoot.getElementById('finances-bar-future');
+    if (financialsBar) {
+      financialsBar.innerHTML = this._buildFinancialsBar(nowBuyP, nowSellP);
+    }
 
     const tabAlerts = this.shadowRoot.getElementById('tab-alerts');
     const activePane = this.shadowRoot.querySelector('.pane.active');
@@ -1027,11 +1624,47 @@ class EmEventsCard extends HTMLElement {
       const feCol = forceExportSellP > 0 ? '#28a745' : '#ff9800';
       const fiCol = forceImportBuyP  < 0 ? '#28a745' : '#f44336';
 
+      // Calculate current/next curtailment percentage for alert badge
+      let currentCurtail = 0;
+      for (const row of timeline) {
+        const ts = new Date(row.ts).getTime();
+        if (ts >= nowTs) {
+          currentCurtail = row.setpoints?.curtail_pct || 0;
+          break;
+        }
+      }
+
+      // Determine curtailment pill background color (new thresholds: green=1-24%, yellow=25-49%, amber=50-74%, red=75-100%)
+      let curtailPillBg = '#555'; // default grey for 0%
+      if (currentCurtail > 0 && currentCurtail <= 24) {
+        curtailPillBg = '#4caf50'; // green
+      } else if (currentCurtail > 24 && currentCurtail <= 49) {
+        curtailPillBg = '#ffeb3b'; // yellow
+      } else if (currentCurtail > 49 && currentCurtail <= 74) {
+        curtailPillBg = '#ff9800'; // amber
+      } else if (currentCurtail > 74) {
+        curtailPillBg = '#f44336'; // red
+      }
+
+      const curtailPill = currentCurtail > 0 ? '<span class="pill" style="background:' + curtailPillBg + ';color:#fff;" title="Solar production being limited. % shows how much of peak power is allowed. 0-25% = slight limit, 75%+ = severe curtailment">⚠️ Curtail On: ' + currentCurtail.toFixed(0) + '%</span>' : '';
+      const weatherPill = bs?.weather_restrict ? '<span class="pill" style="background:#00bcd4;color:#fff;">⛈️ Export: Weather Restricted</span>' : '';
+      const demandPill = bs?.demand_now ? '<span class="pill" style="background:#ff5722;color:#fff;">💲 Peak Period</span>' : '';
+      
+      // Dynamic Reserve badge (only shows if active)
+      const dynReserve = plan?.debug?.dynamic_reserve;
+      const dynamicReservePill = (dynReserve?.active) ? 
+        '<span class="pill" style="background:#c72c48;color:#fff;" title="Battery discharge is constrained by dynamic reserve. Floor: ' + dynReserve.reserve_pct.toFixed(1) + '%">🗜️ Dynamic Reserve: On</span>' : '';
+
       tabAlerts.innerHTML =
-        (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">📤 Forced Export from ' + forceExportTime + '</span>' : '') +
-        (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚡ Forced Import from ' + forceImportTime + '</span>' : '') +
-        (gridExportTime  ? '<span class="pill" style="background:#28a745;">⚡ Grid Export from ' + gridExportTime + '</span>' : '') +
-        (gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import from ' + gridImportTime + '</span>' : '');
+        '<span style="color:#ff5722;font-weight:bold;margin-right:10px;">ALERTS:</span>' +
+        weatherPill +
+        curtailPill +
+        dynamicReservePill +
+        demandPill +
+        (forceExportTime ? '<span class="pill" style="background:' + feCol + ';">⚠️ Forced Export: ' + forceExportTime + '</span>' : '') +
+        (!forceExportTime && gridExportTime  ? '<span class="pill" style="background:#28a745;">⚠️ Grid Export: ' + gridExportTime + '</span>' : '') +
+        (forceImportTime ? '<span class="pill" style="background:' + fiCol + ';">⚠️ Forced Import: ' + forceImportTime + '</span>' : '') +
+        (!forceImportTime && gridImportTime  ? '<span class="pill" style="background:#e65100;">⚠️ Grid Import: ' + gridImportTime + '</span>' : '');
     } else if (tabAlerts) {
       tabAlerts.innerHTML = '';
     }
@@ -1178,8 +1811,10 @@ class EmEventsCard extends HTMLElement {
         const loadKw    = (parseFloat(_emec_getAt(lookup['sensor.inverter_load_power'],   ts)) || 0) / 1000;
         const battCKw   = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_charging_power'],    ts)) || 0) / 1000;
         const battDKw   = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_discharging_power'], ts)) || 0) / 1000;
-        const gridKw    = gridExpKw > 0.2 ? -gridExpKw : gridImpKw > 0.2 ? gridImpKw : 0;
-        const battKw    = battCKw   > 0.2 ? battCKw    : battDKw   > 0.2 ? -battDKw  : 0;
+        const gridThreshold = (this._settings?.gridThreshold || 10) / 1000; // Convert W to kW
+        const batteryThreshold = (this._settings?.batteryThreshold || 10) / 1000; // Convert W to kW
+        const gridKw    = gridExpKw > gridThreshold ? -gridExpKw : gridImpKw > gridThreshold ? gridImpKw : 0;
+        const battKw    = battCKw   > batteryThreshold ? battCKw    : battDKw   > batteryThreshold ? -battDKw  : 0;
         const rawBuyP   = parseFloat(_emec_getAt(lookup['sensor.nodered_buyprice'],  ts)) || 0;
         const rawSellP  = parseFloat(_emec_getAt(lookup['sensor.nodered_sellprice'], ts)) || 0;
         let { buyP, sellP, inSuper, stdSellP, otherSellP, mins, stdStart, stdEnd } = _emec_getPrices(ts, provider, this._hass, rawBuyP, rawSellP);
@@ -1200,8 +1835,8 @@ class EmEventsCard extends HTMLElement {
         const soc     = parseFloat(_emec_getAt(lookup['sensor.inverter_battery_level'],            ts)) || 0;
         if (soc === 0 && battCKw === 0 && battDKw === 0 && loadKw === 0) continue;
 
-        const cls     = _emec_classifyPast(solarKw, gridImpKw, gridExpKw, battCKw, battDKw);
-        const c       = _EMEC_COLOURS[cls.color] || { bg:'#ffffcc', txt:'#888888' };
+        const cls     = _emec_classifyPast(solarKw, gridImpKw, gridExpKw, battCKw, battDKw, gridThreshold);
+        const c       = this._colorSettings[cls.color] || _EMEC_COLOURS[cls.color] || { bg:'transparent', txt:'var(--primary-text-color)', cost:'var(--primary-text-color)' };
         const gridCol = gridKw < 0 ? '#4caf50' : gridKw > 0 ? '#f44336' : c.txt;
         const battCol = battKw < 0 ? '#f44336' : battKw > 0 ? '#4caf50' : c.txt;
         const socCol  = soc <= 20 ? '#f44336'  : soc >= 75 ? '#4caf50'  : c.txt;
@@ -1223,18 +1858,18 @@ class EmEventsCard extends HTMLElement {
         const eGrid = gridKw * stepHP;
         const eBatt = battKw * stepHP;
 
-        const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(2) + '</span>';
-        const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(2) + '</span>';
-        const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(2) + '</span>';
+        const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+        const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+        const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
         const fmtKwh = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
         const fmtGKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + gridCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
         const fmtBKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + battCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td><span title="' + (_EMEC_DESCRIPTIONS[cls.label] || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
-          '<td class="bgl">' + _emec_fmtP(buyP)    + '</td>' +
-          '<td class="bgi" style="opacity:1;font-size:12px;">' + _emec_fmtP(sellP) + (capHit ? ' ⚠' : '') + '</td>' +
+          '<td><span title="">' + cls.label + '</span></td>' +
+          '<td class="bgl">' + this._fmtPrice(buyP)    + '</td>' +
+          '<td class="bgi" style="opacity:1;font-size:12px;">' + this._fmtPrice(sellP) + (capHit ? ' ⚠' : '') + '</td>' +
           '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
           '<td class="bgi">' + fmtKwh(eLoad) + '</td>' +
           '<td class="bgl">' + fmtKw(solarKw) + '</td>' +
@@ -1275,18 +1910,54 @@ class EmEventsCard extends HTMLElement {
   _populateLegendModal() {
     const container = this.shadowRoot.getElementById('legend-items');
     if (!container) return;
-    const items = [];
-    for (const [label, desc] of Object.entries(_EMEC_DESCRIPTIONS)) {
-      items.push({ label, desc });
-    }
-    items.sort((a, b) => a.label.localeCompare(b.label));
-    let html = '';
-    for (const item of items) {
-      html += '<div style="padding:8px;margin:4px 0;background:rgba(33,150,243,0.1);border-radius:4px;border-left:3px solid #2196F3;">' +
-        '<div style="font-weight:bold;margin-bottom:4px;">' + item.label + '</div>' +
-        '<div style="color:var(--secondary-text-color);font-size:9px;">' + item.desc + '</div>' +
+    
+    const gridThreshold = (this._settings?.gridThreshold || 10) / 1000;
+    const T = gridThreshold;
+    
+    // Generate all possible event classifications
+    const events = new Map();
+    
+    // Solar scenarios
+    const solarEvents = [
+      _emec_classifyFuture('SELF_CONSUMPTION', 5, 0, 0, 0.5, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 5, 0, 2, 3, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 5, 0, 3, 2, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 5, 0, 2, 1.5, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 5, 2, 0, 0, 0, 0, 50, gridThreshold),
+    ];
+    
+    // Battery scenarios
+    const batteryEvents = [
+      _emec_classifyFuture('SELF_CONSUMPTION', 0, 0, 0, 0, 3, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 0, 0, 2, 0, 2, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 0, 0, 2, 0, 2, 0, 50, gridThreshold),
+      _emec_classifyFuture('SELF_CONSUMPTION', 0, 2, 0, 0, 0, 0, 50, gridThreshold),
+    ];
+    
+    // Forced charge/export
+    const forcedEvents = [
+      _emec_classifyFuture('FORCED_CHARGE', 0, 3, 0, 2, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('FORCED_CHARGE', 5, 0, 0, 2, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('FORCED_EXPORT', 5, 0, 3, 0, 0, 0, 50, gridThreshold),
+      _emec_classifyFuture('FORCED_EXPORT', 0, 0, 3, 0, 2, 0, 50, gridThreshold),
+    ];
+    
+    // Collect unique events
+    const allEvents = [...solarEvents, ...batteryEvents, ...forcedEvents].filter(e => e && !events.has(e.label));
+    allEvents.forEach(e => events.set(e.label, e));
+    
+    // Sort by label
+    const sorted = Array.from(events.values()).sort((a, b) => a.label.localeCompare(b.label));
+    
+    // Build HTML
+    let html = '<div style="font-size:12px;">';
+    for (const event of sorted) {
+      html += '<div style="padding:8px;margin:4px 0;background:rgba(200,200,200,0.1);border-radius:4px;border-left:3px solid #555;">' +
+        '<div style="font-weight:bold;color:var(--primary-text-color);margin-bottom:2px;">' + event.label + '</div>' +
+        '<div style="color:var(--secondary-text-color);font-size:11px;">' + event.note + '</div>' +
         '</div>';
     }
+    html += '</div>';
     container.innerHTML = html;
   }
 
@@ -1315,7 +1986,305 @@ class EmEventsCard extends HTMLElement {
     });
   }
 
+  _fmtPrice(v) {
+    const decimals = this._settings?.priceDecimals || 3;
+    return (v < 0 ? '-' : '') + _EMEC_CUR + Math.abs(v).toFixed(decimals);
+  }
+
   getCardSize() { return 12; }
+
+  // ── Settings Modal Functions ──────────────────────────────────────────────
+  
+  _initializeSettings() {
+    // Load settings from localStorage
+    const savedSettings = localStorage.getItem('em_events_card_settings');
+    if (savedSettings) {
+      this._settings = JSON.parse(savedSettings);
+    } else {
+      this._settings = {
+        loadThreshold: 5,
+        solarThreshold: 5,
+        gridThreshold: 10,
+        batteryThreshold: 10,
+        priceDecimals: 3
+      };
+      this._saveSettings();
+    }
+  }
+
+  _saveSettings() {
+    localStorage.setItem('em_events_card_settings', JSON.stringify(this._settings));
+  }
+
+  _populateColorPickers() {
+    // Step 1: Set all color picker values from _colorSettings
+    const colorPickers = this.shadowRoot.querySelectorAll('.color-picker');
+    
+    colorPickers.forEach(picker => {
+      // Extract color name from id: "color-green-bg" → "green", "bg"
+      const parts = picker.id.match(/color-(.+?)-(bg|txt|cost)$/);
+      if (!parts || picker.disabled) return;  // Skip disabled pickers
+      
+      const colorName = parts[1];  // "green", "yellow", "teal", "pink"
+      const colorKey = parts[2];   // "bg", "txt", "cost"
+      
+      const colorValue = this._colorSettings[colorName]?.[colorKey];
+      if (colorValue) {
+        picker.value = colorValue;
+      }
+    });
+    
+    // Step 2: Wire event handlers (mark as wired to avoid double-binding)
+    colorPickers.forEach(picker => {
+      if (picker._wired || picker.disabled) return;  // Skip if already wired or disabled
+      picker._wired = true;
+      
+      const parts = picker.id.match(/color-(.+?)-(bg|txt|cost)$/);
+      if (!parts) return;
+      
+      const colorName = parts[1];
+      const colorKey = parts[2];
+      
+      picker.addEventListener('change', (e) => {
+        const newValue = e.target.value;
+        
+        // Update in memory
+        if (!this._colorSettings[colorName]) {
+          this._colorSettings[colorName] = { bg: '#fff', txt: '#000', cost: '#000' };
+        }
+        this._colorSettings[colorName][colorKey] = newValue;
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('em-events-card-colors', JSON.stringify(this._colorSettings));
+        } catch (err) {
+          console.error('Failed to save color settings:', err);
+        }
+        
+        // Rebuild tables immediately
+        if (this._activeTab === 'future') {
+          this._renderFuture();
+        } else {
+          this._renderPast();
+        }
+      });
+    });
+    
+    // Step 3: Wire reset button
+    const resetBtn = this.shadowRoot.getElementById('reset-colors-btn');
+    if (resetBtn && !resetBtn._wired) {
+      resetBtn._wired = true;
+      resetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Reset colors to defaults
+        this._colorSettings = JSON.parse(JSON.stringify(_EMEC_COLOURS));
+        
+        // Update all picker values
+        const pickers = this.shadowRoot.querySelectorAll('.color-picker:not([disabled])');
+        pickers.forEach(picker => {
+          const parts = picker.id.match(/color-(.+?)-(bg|txt|cost)$/);
+          if (!parts) return;
+          
+          const colorName = parts[1];
+          const colorKey = parts[2];
+          
+          if (this._colorSettings[colorName]) {
+            picker.value = this._colorSettings[colorName][colorKey];
+          }
+        });
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('em-events-card-colors', JSON.stringify(this._colorSettings));
+        } catch (err) {
+          console.error('Failed to save color settings:', err);
+        }
+        
+        // Rebuild tables
+        if (this._activeTab === 'future') {
+          this._renderFuture();
+        } else {
+          this._renderPast();
+        }
+      });
+    }
+  }
+
+  _exportSettings() {
+    // Collect all settings to export
+    const allSettings = {
+      version: _EMEC_VERSION,
+      exportDate: new Date().toISOString(),
+      thresholds: this._settings,
+      colors: this._colorSettings
+    };
+    
+    // Convert to JSON string with indentation
+    const json = JSON.stringify(allSettings, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create download link and trigger
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `em-events-card-backup-${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}.json`;
+    a.click();
+    
+    // Cleanup
+    URL.revokeObjectURL(url);
+  }
+
+  _importSettings(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        // Validate backup format
+        if (!data.thresholds || !data.colors) {
+          alert('Invalid backup file format. Please use a file exported from Energy Manager Events Card.');
+          return;
+        }
+        
+        // Apply threshold settings
+        if (data.thresholds) {
+          this._settings = {
+            loadThreshold: data.thresholds.loadThreshold || 5,
+            solarThreshold: data.thresholds.solarThreshold || 5,
+            gridThreshold: data.thresholds.gridThreshold || 10,
+            batteryThreshold: data.thresholds.batteryThreshold || 10,
+            priceDecimals: data.thresholds.priceDecimals || 3
+          };
+        }
+        
+        // Apply color settings
+        if (data.colors) {
+          this._colorSettings = data.colors;
+        }
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('em_events_card_settings', JSON.stringify(this._settings));
+          localStorage.setItem('em-events-card-colors', JSON.stringify(this._colorSettings));
+        } catch (err) {
+          console.error('Failed to save imported settings:', err);
+        }
+        
+        alert('Settings imported successfully! Reloading...');
+        window.location.reload();
+      } catch (error) {
+        alert('Error reading backup file: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+
+  _loadThresholdInputs() {
+    const inputs = {
+      load: this.shadowRoot.getElementById('settings-load-threshold'),
+      pv: this.shadowRoot.getElementById('settings-solar-threshold'),
+      grid: this.shadowRoot.getElementById('settings-grid-threshold'),
+      battery: this.shadowRoot.getElementById('settings-battery-threshold'),
+      decimals: this.shadowRoot.getElementById('settings-price-decimals')
+    };
+    
+    if (inputs.load) inputs.load.value = this._settings?.loadThreshold || 5;
+    if (inputs.pv) inputs.pv.value = this._settings?.solarThreshold || 5;
+    if (inputs.grid) inputs.grid.value = this._settings?.gridThreshold || 10;
+    if (inputs.battery) inputs.battery.value = this._settings?.batteryThreshold || 10;
+    if (inputs.decimals) inputs.decimals.value = this._settings?.priceDecimals || 3;
+    
+    this._updateKwhDisplays();
+  }
+
+  _updateKwhDisplays() {
+    const types = [
+      { key: 'load', prefix: 'load' },
+      { key: 'pv', prefix: 'pv' },
+      { key: 'grid', prefix: 'grid' },
+      { key: 'battery', prefix: 'battery' }
+    ];
+    
+    types.forEach(type => {
+      const input = this.shadowRoot.getElementById(`settings-${type.key}-threshold`);
+      const wValue = parseFloat(input?.value) || (type.key === 'load' || type.key === 'pv' ? 5 : 10);
+      
+      // Calculate kWh for 5min and 30min intervals
+      const kw = wValue / 1000;
+      const kwh5min = kw * (5 / 60);
+      const kwh30min = kw * (30 / 60);
+      
+      // Update display
+      const span5min = this.shadowRoot.getElementById(`${type.prefix}-kwh-5min`);
+      const span30min = this.shadowRoot.getElementById(`${type.prefix}-kwh-30min`);
+      if (span5min) span5min.textContent = kwh5min.toFixed(5);
+      if (span30min) span30min.textContent = kwh30min.toFixed(5);
+    });
+  }
+
+  _openSettingsModal() {
+    const modal = this.shadowRoot.getElementById('settings-modal');
+    if (!modal) return;
+    
+    this._initializeSettings();
+    this._loadThresholdInputs();
+    modal.style.display = 'flex';
+  }
+
+  _closeSettingsModal() {
+    const modal = this.shadowRoot.getElementById('settings-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  _applySettings() {
+    const load = parseFloat(this.shadowRoot.getElementById('settings-load-threshold')?.value) || 5;
+    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 5;
+    const grid = parseFloat(this.shadowRoot.getElementById('settings-grid-threshold')?.value) || 10;
+    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 10;
+    const decimals = parseInt(this.shadowRoot.getElementById('settings-price-decimals')?.value) || 3;
+    
+    // Validate
+    if (load < 0 || pv < 0 || grid < 0 || battery < 0) {
+      alert('Thresholds cannot be negative');
+      return;
+    }
+    
+    // Save to settings
+    this._settings = {
+      loadThreshold: load,
+      solarThreshold: pv,
+      gridThreshold: grid,
+      batteryThreshold: battery,
+      priceDecimals: decimals
+    };
+    this._saveSettings();
+    
+    // Close modal and refresh display
+    this._closeSettingsModal();
+    
+    // Refresh the active tab with new thresholds
+    if (this._activeTab === 'future') {
+      this._renderFuture();
+    } else {
+      this._loadPast();
+    }
+  }
+
+  _resetSettings() {
+    // Reset to defaults
+    this._settings = {
+      loadThreshold: 5,
+      solarThreshold: 5,
+      gridThreshold: 10,
+      batteryThreshold: 10,
+      priceDecimals: 3
+    };
+    this._saveSettings();
+    this._loadThresholdInputs();
+  }
+
 }
 
 if (!customElements.get('em-events-card')) {
