@@ -1,6 +1,6 @@
 {
-  "name": "Energy Management Systems - Events Card",
-  "content_in_root": true,
+  "name": "Energy Management Systems - Events Cards",
+  "type": "plugin",
   "filename": "cards.js",
   "render_readme": true
 }
