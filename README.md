@@ -8,29 +8,30 @@
 ![license](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-lightgrey?style=flat-square)
 
 ___
-
-A collection of custom Home Assistant Lovelace cards for energy management and optimisation systems. All three cards share a consistent two-tab layout (Future Decisions + Past Events), column structure, colour conventions and auto-refresh behaviour.
-
-
 > **Install once via HACS — all three cards are registered as dashboard resources automatically.**
+> 
+A collection of custom Home Assistant Lovelace cards for energy management and optimisation systems. All three cards share a consistent two-tab layout (Future Decisions + Past Events), column structure, colour conventions and auto-refresh behaviour. Depending upon the sensors and specific data available from each of the EMS, the card differs slightly between each of the different versions. The example screenshots below are usually based off the HAEO version.
+
 
 ### Future Decisions
 
-![Energy Manager - Future Decisions](/EnergyManager/EM-Card-Future.jpg)
+![HAEO - Future Decisions](/HAEO/HAEO-Card-Future-Decisions.png)
 
 ### Past Events
 
-![Energy Manager - Past Events](/EnergyManager/EM-Card-Past-Events.jpg)
+![Energy Manager - Past Events](/HAEO/HAEO-Card-Past-Events.png)
 
 ---
 
 ## Cards
 
+For more detailed views and information for each specific card, please refer to their read.me files (below):
+
 | Card | Type | For | Version |
 |------|------|-----|---------|
-| [EM Events Card](./EnergyManager/) | `custom:em-events-card` | [Energy Manager](https://energymanager.com.au/usersc/join.php?ref=FE8J34EN)  | v2.7.11 |
-| [HAEO Events Card](./HAEO/) | `custom:haeo-events-card` | HAEO [Home Assistant Energy Optimiser](https://haeo.io/) | v3.2.2 |
-| [EMHASS Events Card](./EMHASS/) | `custom:emhass-events-card` | EMHASS [Energy Management for Home Assistant](https://emhass.readthedocs.io/en/latest/) | v2.6.6 |
+| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/" target="_blank">EM Events Card</a> | `custom:em-events-card` | <a href="https://energymanager.com.au/usersc/join.php?ref=FE8J34EN" target="_blank">Energy Manager</a> | v2.7.11 |
+| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/" target="_blank">HAEO Events Card</a> | `custom:haeo-events-card` | HAEO <a href="https://haeo.io/" target="_blank">Home Assistant Energy Optimiser</a> | v3.2.2 |
+| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/" target="_blank">EMHASS Events Card</a> | `custom:emhass-events-card` | EMHASS <a href="https://emhass.readthedocs.io/en/latest/" target="_blank">Energy Management for Home Assistant</a> | v2.6.6 |
 
 ---
 
@@ -88,14 +89,6 @@ grid_options:
 ```
 
 See each card's README for full configuration options and required sensors.
-
----
-
-## Individual Card Documentation
-
-- 📄 <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md" target="_blank">EM Events Card README</a>
-- 📄 <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md" target="_blank">HAEO Events Card README</a>
-- 📄 <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md" target="_blank">EMHASS Events Card README</a>
 
 ---
 
