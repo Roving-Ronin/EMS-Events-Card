@@ -29,7 +29,7 @@ For more detailed views and information for each specific card, please refer to 
 
 | Card | Type | For | Version |
 |------|------|-----|---------|
-| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/" target="_blank">EM Events Card</a> | `custom:em-events-card` | <a href="https://energymanager.com.au/usersc/join.php?ref=FE8J34EN" target="_blank">Energy Manager</a> | v2.7.11 |
+| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/" target="_blank">EM Events Card</a> | `custom:em-events-card` | <a href="https://energymanager.com.au/usersc/join.php?ref=FE8J34EN" target="_blank">Energy Manager</a> | v2.8.4 |
 | <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/" target="_blank">HAEO Events Card</a> | `custom:haeo-events-card` | HAEO <a href="https://haeo.io/" target="_blank">Home Assistant Energy Optimiser</a> | v3.2.2 |
 | <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/" target="_blank">EMHASS Events Card</a> | `custom:emhass-events-card` | EMHASS <a href="https://emhass.readthedocs.io/en/latest/" target="_blank">Energy Management for Home Assistant</a> | v2.6.6 |
 
