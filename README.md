@@ -1,5 +1,5 @@
 # Energy Management Systems — Events Card
-___
+
 
 ![release](https://img.shields.io/github/v/release/Roving-Ronin/EMS-Events-Card?style=flat-square&color=green)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)
@@ -7,8 +7,7 @@ ___
 ![commit activity](https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square)
 ![license](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-lightgrey?style=flat-square)
 
-Credits: Based off the initial version of an EMHASS card by Matt xxx ( Discord ID: matt099351 )
-
+___
 
 A collection of custom Home Assistant Lovelace cards for energy management and optimisation systems. All three cards share a consistent two-tab layout (Future Decisions + Past Events), column structure, colour conventions and auto-refresh behaviour.
 
@@ -92,7 +91,7 @@ See each card's README for full configuration options and required sensors.
 
 ---
 
-## Card Documentation
+## Individual Card Documentation
 
 - 📄 [EM Events Card README](./EnergyManager/README.md)
 - 📄 [HAEO Events Card README](./HAEO/README.md)
@@ -103,6 +102,12 @@ See each card's README for full configuration options and required sensors.
 ## Versioning
 
 Each card is versioned independently using `v[major].[minor].[patch]`. The version is displayed in the card's legend footer. Release tags follow the format `v[em].[haeo].[emhass]` (e.g. `v2.4.8-2.1.5-2.0.9`).
+
+---
+
+## Credits: 
+
+Based off the initial version of an EMHASS card by Matt xxx ( Discord ID: matt099351 )
 
 ---
 
