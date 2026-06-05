@@ -1,5 +1,5 @@
 {
-  "name": "Energy Management Systems - Events Cards",
-  "filename": "hacsfiles/EMS-Events-Card.js",
-  "render_readme": true
+  "name": "Energy Management Systems - Events Card",
+  "render_readme": true,
+  "filename": "cards.js"
 }

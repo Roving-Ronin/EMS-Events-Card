@@ -41,11 +41,18 @@ All three card types will be available immediately — add whichever you need to
 ---
 
 ## Manual Installation
+1. Download the latest files from the `dist/` folder in this repository. Ensure you download `cards.js` as well as the individual card files (`em-events-card.js`, `emhass-events-card.js`, `haeo-events-card.js`).
+2. In your Home Assistant `config` directory, navigate to the `www/` folder (create it if it doesn't exist).
+3. Create a new folder inside `www/` called `ems-events-card`.
+4. Copy all the `.js` files you downloaded from the `dist/` folder into `config/www/ems-events-card/`.
+5. In Home Assistant, go to **Settings** > **Dashboards**.
+6. Click the three dots in the top right corner and select **Resources**.
+7. Click **Add Resource** in the bottom right corner.
+8. Configure the resource with the following details:
+   - **URL:** `/local/ems-events-card/cards.js`
+   - **Resource Type:** `JavaScript Module`
+9. Click **Create** and then refresh your browser.
 
-1. Download `cards.js`, `em-events-card.js`, `haeo-events-card.js` and `emhass-events-card.js` from the [latest release](https://github.com/Roving-Ronin/ems-events-cards/releases/latest)
-2. Copy all four files to `/config/www/` on your HA server
-3. Go to **Settings → Dashboards → Resources** and add `/local/cards.js` as a **JavaScript module**
-4. Hard-refresh your browser
 
 ---
 
