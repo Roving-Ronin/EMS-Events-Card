@@ -1,4 +1,4 @@
-// EMHASS Events Card v2.6.6
+// EMHASS Events Card v2.6.7
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // MODIFICATIONS: 
 //   - SoC % moved under Battery column (3 sub-cols: kW/kWh/SoC%)
@@ -15,14 +15,37 @@
 //   3. Standard EMHASS sensor names (lowest priority / generic fallback)
 //
 // Card YAML example with all overrides:
-//
 //   type: custom:emhass-events-card
 //   grid_options:
 //     columns: full
 //     rows: auto
+//   p_batt_forecast:      sensor.mpc_batt_power
+//   p_grid_forecast:      sensor.mpc_grid_power
+//   p_pv_forecast:        sensor.mpc_pv_power
+//   p_load_forecast:      sensor.mpc_load_power
+//   p_inverter:           sensor.mpc_inverter_power
+//   soc_forecast:         sensor.mpc_batt_soc
+//   buy_price:            sensor.mpc_general_price
+//   sell_price:           sensor.mpc_feed_in_price
+//   net_cost:             sensor.mpc_cost_fun
+//   past_buy_price:       sensor.amber_general_price        # Actual buy price for Past Events tab
+//   past_sell_price:      sensor.amber_feed_in_price        # Actual sell price for Past Events tab
+//
+// BESS actual inverter sensors (Past tab — 🕐 BESS Data mode):
+// Sign convention: battery +ve=charging, -ve=discharging (opposite to MPC sensors)
+//   bess_batt_power:      sensor.sigen_plant_battery_power
+//   bess_grid_power:      sensor.sigen_plant_grid_active_power
+//   bess_pv_power:        sensor.sigen_plant_pv_power
+//   bess_load_power:      sensor.sigen_plant_consumed_power
+//   bess_soc:             sensor.sigen_plant_battery_state_of_charge
+//   energy_load:           sensor.sigen_plant_total_load_consumption         # MUST be lifetime/total — daily sensors reset at midnight causing gaps
+//   energy_solar:          sensor.sigen_plant_total_pv_generation              # MUST be lifetime/total
+//   energy_grid_import:    sensor.sigen_plant_total_imported_energy            # MUST be lifetime/total
+//   energy_grid_export:    sensor.sigen_plant_total_exported_energy            # MUST be lifetime/total
+//   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
+//   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.6.6';
-
+const _EMHASS_VERSION = 'v2.6.7';
 let _EMHASS_CUR = '$'; // Currency symbol — set from config.currency_symbol or HA config
 
 // Map ISO 4217 currency codes to symbols
@@ -52,6 +75,8 @@ const _EMHASS_MPC = {
   buy_price:             'sensor.mpc_general_price',
   sell_price:            'sensor.mpc_feed_in_price',
   net_cost:              'sensor.mpc_cost_fun',
+  optim_status:          'sensor.mpc_optim_status',
+  emhass_automation:     'automation.emhass_generate_energy_plan',
   energy_capacity:       'sensor.sigen_plant_rated_energy_capacity', // kWh — for SoC pill kWh display
   past_buy_price:        'sensor.amber_express_home_general_price',
   past_sell_price:       'sensor.amber_express_home_feed_in_price',
@@ -85,6 +110,8 @@ const _EMHASS_STD = {
   buy_price:             'sensor.unit_load_cost',
   sell_price:            'sensor.unit_prod_price',
   net_cost:              'sensor.total_cost_fun_value',
+  optim_status:          'sensor.mpc_optim_status',
+  emhass_automation:     'automation.emhass_run_mpc_optimizer',
   energy_capacity:       null, // Not available in standard EMHASS — configure via card YAML
   past_buy_price:        'sensor.unit_load_cost',
   past_sell_price:       'sensor.unit_prod_price',
@@ -1501,10 +1528,18 @@ class EmhassEventsCard extends HTMLElement {
       const socTxtCol  = nowSoc  != null ? (nowSoc  <= 20 ? '#ff5252' : nowSoc  >= 75 ? '#69f0ae' : '#fff') : '#fff';
       const dawnTxtCol = dawnSoc != null ? (dawnSoc <= 20 ? '#ff5252' : dawnSoc <= 35 ? '#ffb74d' : '#69f0ae') : '#fff';
 
-      // Mode — from EMHASS Mode column (cls.mode of current forecast row)
-      // Focus — from classifier label of current forecast row
-      let modeLabel = '', modeCol = '#555';
+      // Mode — from sensor.mpc_optim_status (proper key resolution)
+      const optimEid    = this._eid('optim_status');
+      const optimStatus = optimEid ? (this._hass?.states[optimEid]?.state || null) : null;
+
+      // Focus — from classifier on current forecast row
+      let modeLabel = optimStatus || '', modeCol = '#555';
       let focusLabel = '', focusCol = '#555';
+      if (modeLabel) {
+        modeCol = modeLabel === 'Optimal'     ? '#2e7d32'
+                : modeLabel === 'Infeasible'  ? '#c62828'
+                : '#555';
+      }
       for (const row of primaryFc) {
         const ts = new Date(row.date).getTime();
         if (isNaN(ts) || ts < nowTs) continue;
@@ -1512,23 +1547,25 @@ class EmhassEventsCard extends HTMLElement {
         const gW  = _emhass_clamp(gridMap.get(ts) || 0);
         const pW  = _emhass_clamp(pvMap.get(ts)   || 0);
         const lW  = _emhass_clamp(loadMap.get(ts) || 0);
-        const cls = _emhass_classifyFuture(pW, lW, bW, gW);
-        // Mode from classifier
-        modeLabel = cls.mode || '';
-        modeCol   = modeLabel.includes('Charging')    ? '#1565c0'
-                  : modeLabel.includes('Discharging')  ? '#e65100'
-                  : modeLabel.includes('Self')         ? '#558b2f'
-                  : modeLabel.includes('Standby')      ? '#555'
-                  : '#2e7d32';
-        // Focus derived from current event classification
-        if      (bW < -150 && gW > 150 && pW < 150) { focusLabel = 'Charging Battery 🔋';      focusCol = '#1565c0'; }
-        else if (bW > 150  && gW < -150)             { focusLabel = 'Discharging to Grid ⚡';   focusCol = '#e65100'; }
-        else if (pW > 150  && gW < -150)             { focusLabel = 'Solar Export ☀️';          focusCol = '#2e7d32'; }
-        else if (pW > 150  && bW < -150)             { focusLabel = 'Solar Self-Use 🌞';        focusCol = '#558b2f'; }
-        else if (pW > 150)                           { focusLabel = 'Solar Self-Use 🌞';        focusCol = '#558b2f'; }
-        else if (bW > 150)                           { focusLabel = 'Battery Discharge 🔋';     focusCol = '#00695c'; }
-        else if (gW > 150)                           { focusLabel = 'Grid Import ⚡';           focusCol = '#c62828'; }
-        else                                         { focusLabel = 'Standby 💤';              focusCol = '#555'; }
+        // If no optim_status sensor, fall back to classifier mode
+        if (!modeLabel) {
+          const cls = _emhass_classifyFuture(pW, lW, bW, gW);
+          modeLabel = cls.mode || '';
+          modeCol   = modeLabel.includes('Charging')   ? '#1565c0'
+                    : modeLabel.includes('Discharging') ? '#e65100'
+                    : modeLabel.includes('Self')        ? '#558b2f'
+                    : modeLabel.includes('Standby')     ? '#555'
+                    : '#2e7d32';
+        }
+        // Focus always derived from current power values
+        if      (bW < -150 && gW > 150 && pW < 150) { focusLabel = 'Charging Battery 🔋';    focusCol = '#1565c0'; }
+        else if (bW > 150  && gW < -150)             { focusLabel = 'Discharging to Grid ⚡'; focusCol = '#e65100'; }
+        else if (pW > 150  && gW < -150)             { focusLabel = 'Solar Export ☀️';        focusCol = '#2e7d32'; }
+        else if (pW > 150  && bW < -150)             { focusLabel = 'Solar Self-Use 🌞';      focusCol = '#558b2f'; }
+        else if (pW > 150)                           { focusLabel = 'Solar Self-Use 🌞';      focusCol = '#558b2f'; }
+        else if (bW > 150)                           { focusLabel = 'Battery Discharge 🔋';   focusCol = '#00695c'; }
+        else if (gW > 150)                           { focusLabel = 'Grid Import ⚡';         focusCol = '#c62828'; }
+        else                                         { focusLabel = 'Standby 💤';            focusCol = '#555'; }
         break;
       }
 
@@ -1578,10 +1615,13 @@ class EmhassEventsCard extends HTMLElement {
     }
 
     // ── Updated badge in tab bar — HAEO-style elapsed + time ───────────────────
-    // Use last_changed of the primary MPC sensor as the plan publish timestamp
+    // Use automation.last_triggered if available, else fall back to p_load_forecast.last_changed
     const updBadge = this.shadowRoot.getElementById('upd-badge');
     if (updBadge) {
-      const lastChanged = this._hass?.states[this._eid('p_load_forecast')]?.last_changed;
+      const autoEid     = this._eid('emhass_automation');
+      const autoState   = autoEid ? this._hass?.states[autoEid] : null;
+      const lastChanged = autoState?.attributes?.last_triggered
+        || this._hass?.states[this._eid('p_load_forecast')]?.last_changed;
       if (lastChanged) {
         const lastRun = new Date(lastChanged);
         const now     = new Date();
