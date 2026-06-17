@@ -4,6 +4,30 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
+## [v3.2.69] — 2026-06-17
+
+> **Note:** This entry consolidates all changes between v3.1.0 and v3.2.69. The intermediate point releases in this range were not individually logged, so the items below are summarised against the v3.1.0 baseline rather than attributed to specific intermediate version numbers.
+
+### Added
+- **Mode & Focus status pills** — status bar now derives and displays a 📌 Mode badge (SELF CONSUMPTION / MAXIMISE PROFIT / MINIMISE COST, colour-coded green/orange/blue) and a matching 🎯 Focus description from the current slot's classification, via new `_haeo_getModeAndFocus()` helper
+- **🔄 HAEO Updated badge** — new freshness indicator centred in the tab bar, showing how long ago the optimizer last ran. Reads `last_run` from `sensor.optimizer_status` and renders relative time (e.g. `3m ago`, `1h 12m ago`, or `just now` for clock-skew cases)
+- **Power limit pills** — four new conditional status bar badges: 📤 Export Limit, ⚡ Import Limit, 🔋 ESS Charge Limit, 🔋 ESS Disch. Limit. Each only renders when its corresponding `number.*` entity is configured AND the relevant grid/battery flow is currently active
+- **Four new optional limit sensor defaults** — `haeo_export_limit` (`number.grid_export_limit`), `haeo_import_limit` (`number.grid_import_limit`), `haeo_batt_charge_limit` (`number.battery_max_charge_power`), `haeo_batt_discharge_limit` (`number.battery_max_discharge_power`)
+- **Battery capacity kWh display** — when `number.battery_capacity` is available, SoC badges (now, Morning/Peak) optionally show the kWh equivalent alongside the percentage
+- **Independent kW/kWh decimal precision settings** — new `kwDecimals` and `kwhDecimals` display options (1–4 places, default 3), separate from the existing `priceDecimals` (Buy/Sell) setting. Configurable in Settings → Entities & Options
+- **Weather Affected alert pill** — 🌧️ pill in the ALERTS row when the configured weather entity reports `rainy`, `pouring`, `cloudy`, `fog`, or `partly_cloudy`
+- **Curtail On alert pill** — ⚠️ pill in the ALERTS row when the configured curtailment switch entity is `on`
+
+### Changed
+- **Event classification scheme restructured** — the 36-label ad hoc classification system has been replaced with a structured key-based system (`_HAEO_COLOURS` and `_HAEO_EVENT_LABELS` now keyed by identifiers such as `pv_to_baseload_battery`, `grid_to_loads_only`, `battery_to_loads_grid_force`, etc.), bringing the total to 35 distinct classification keys. Several prior event labels were merged, renamed, or had their "Base Load" wording generalised to "Loads" as part of this restructure. Colours and descriptions are now resolved independently via key rather than exact label-string matching alone
+- **Settings modal "Loads" tab renamed to "Base Sensors"** — same tab content and position (first tab), name change only
+- **ALERTS row priority order extended** — now Weather Affected → Curtail On → Grid Import → Grid Export → Force Charge → Force Discharge (previously Grid Import → Grid Export → Force Charge → Force Discharge only)
+
+### Fixed
+- Various event classification edge cases addressed as part of the key-based restructure (see "Changed" above); a legacy colour-key fallback table (`self_consumption`, `profit`, `battery`, `cost`, `forced_export`, `loss`, `gain`) was retained in `_HAEO_COLOURS` to avoid breaking any custom colour overrides saved under the old scheme
+
+---
+
 ## [v3.1.0] — 2026-06-02
 
 ### Added
