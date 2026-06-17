@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.8.4';
+const _EMEC_VERSION = 'v2.8.8';
 
 let _EMEC_CUR = '$';
 
@@ -346,15 +346,15 @@ function _emec_buildHTML() {
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Cost/<br>Profit</th>' +
     '</tr>' +
     '<tr>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th class="bgi" style="text-align:right;">SoC %</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th class="bgi" style="text-align:center;">SoC %</th>' +
     '</tr>' +
     '</thead>' +
     '</table>' +
@@ -384,15 +384,15 @@ function _emec_buildHTML() {
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;">Cost/<br>Profit</th>' +
     '</tr>' +
     '<tr>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;">kW</th>' +
-    '<th class="bgi" style="text-align:right;">kWh</th>' +
-    '<th class="bgi" style="text-align:right;">SoC %</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;">kW</th>' +
+    '<th class="bgi" style="text-align:center;">kWh</th>' +
+    '<th class="bgi" style="text-align:center;">SoC %</th>' +
     '</tr>' +
     '</thead>' +
     '</table>' +
@@ -991,7 +991,17 @@ class EmEventsCard extends HTMLElement {
     thresholdInputs.forEach((input) => {
       if (!input._wired) {
         input._wired = true;
-        input.addEventListener('input', () => this._updateKwhDisplays());
+        input.addEventListener('input', () => {
+          this._autoSaveSettings();
+          this._updateKwhDisplays();
+          
+          // Refresh active tab with new thresholds (like colours do)
+          if (this._activeTab === 'future') {
+            this._renderFuture();
+          } else {
+            this._loadPast();
+          }
+        });
       }
     });
 
@@ -2236,6 +2246,29 @@ class EmEventsCard extends HTMLElement {
   _closeSettingsModal() {
     const modal = this.shadowRoot.getElementById('settings-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  _autoSaveSettings() {
+    const load = parseFloat(this.shadowRoot.getElementById('settings-load-threshold')?.value) || 5;
+    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 5;
+    const grid = parseFloat(this.shadowRoot.getElementById('settings-grid-threshold')?.value) || 10;
+    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 10;
+    const decimals = parseInt(this.shadowRoot.getElementById('settings-price-decimals')?.value) || 3;
+    
+    // Validate
+    if (load < 0 || pv < 0 || grid < 0 || battery < 0) {
+      return; // Silently reject invalid values
+    }
+    
+    // Auto-save to settings
+    this._settings = {
+      loadThreshold: load,
+      solarThreshold: pv,
+      gridThreshold: grid,
+      batteryThreshold: battery,
+      priceDecimals: decimals
+    };
+    this._saveSettings();
   }
 
   _applySettings() {
