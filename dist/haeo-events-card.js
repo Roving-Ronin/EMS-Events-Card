@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.2.2';
+const _HAEO_VERSION = 'v3.2.69';
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -161,14 +161,15 @@ const _HAEO_EVENT_LABELS = {
 
 // ── Deferrable Loads Presets ───────────────────────────────────────────────
 const _HAEO_DEFERRABLE_PRESETS = [
-  { name: 'Air Conditioner', displayName: 'Air Conditioner (HVAC)', abbr: 'HVAC', emoji: '🌡️', defaultSensor: 'sensor.hvac_power' },
-  { name: 'Hot Water System', displayName: 'Hot Water System (HWS)', abbr: 'HWS', emoji: '🚿', defaultSensor: 'sensor.hot_water_power' },
-  { name: 'Clothes Dryer', displayName: 'Clothes Dryer', abbr: 'C. Dryer', emoji: '👚', defaultSensor: 'sensor.dryer_power' },
-  { name: 'Washing Machine', displayName: 'Washing Machine', abbr: 'W. Machine', emoji: '🗑️', defaultSensor: 'sensor.washing_machine_power' },
-  { name: 'Dishwasher', displayName: 'Dishwasher', abbr: 'Dishw.', emoji: '🍽️', defaultSensor: 'sensor.dishwasher_power' },
-  { name: 'IT Hardware', displayName: 'IT Hardware', abbr: 'IT H/W', emoji: '💻', defaultSensor: 'sensor.it_hardware_power' },
-  { name: 'Pool', displayName: 'Pool Heater/Pump', abbr: 'Pool', emoji: '🏊', defaultSensor: 'sensor.pool_power' },
-  { name: 'Generic Load', displayName: 'Generic Load', abbr: 'Generic', emoji: '🔌', defaultSensor: 'sensor.generic_load_power' },
+  { name: 'Circuit',          displayName: 'Circuit',                  abbr: 'Circuit',   emoji: '⚡',  defaultForecast: 'sensor.circuit_power_X_power',          defaultSensor: 'sensor.circuit_power_X_active_power',   defaultEnergy: 'sensor.circuit_power_X_energy' },
+  { name: 'Air Conditioner',  displayName: 'Air Conditioner (HVAC)',   abbr: 'HVAC',      emoji: '🌡️', defaultForecast: 'sensor.air_conditioner_power',           defaultSensor: 'sensor.air_conditioner_active_power',   defaultEnergy: 'sensor.air_conditioner_energy' },
+  { name: 'Hot Water System', displayName: 'Hot Water System (HWS)',   abbr: 'HWS',       emoji: '🚿', defaultForecast: 'sensor.hot_water_system_power',          defaultSensor: 'sensor.hot_water_system_active_power',  defaultEnergy: 'sensor.hot_water_system_energy' },
+  { name: 'Clothes Dryer',    displayName: 'Clothes Dryer',            abbr: 'C. Dryer',  emoji: '👚', defaultForecast: 'sensor.clothes_dryer_power',             defaultSensor: 'sensor.clothes_dryer_active_power',     defaultEnergy: 'sensor.clothes_dryer_energy' },
+  { name: 'Washing Machine',  displayName: 'Washing Machine',          abbr: 'W. Machine',emoji: '🧺', defaultForecast: 'sensor.washing_machine_power',           defaultSensor: 'sensor.washing_machine_active_power',   defaultEnergy: 'sensor.washing_machine_energy' },
+  { name: 'Dishwasher',       displayName: 'Dishwasher',               abbr: 'Dishw.',    emoji: '🍽️', defaultForecast: 'sensor.dishwasher_power',                defaultSensor: 'sensor.dishwasher_active_power',        defaultEnergy: 'sensor.dishwasher_energy' },
+  { name: 'IT Hardware',      displayName: 'IT Hardware',              abbr: 'IT H/W',    emoji: '💻', defaultForecast: 'sensor.it_hardware_power',               defaultSensor: 'sensor.it_hardware_active_power',       defaultEnergy: 'sensor.it_hardware_energy' },
+  { name: 'Pool',             displayName: 'Pool Heater/Pump',         abbr: 'Pool',      emoji: '🏊', defaultForecast: 'sensor.pool_power',                      defaultSensor: 'sensor.pool_active_power',              defaultEnergy: 'sensor.pool_energy' },
+  { name: 'Generic Load',     displayName: 'Generic Load',             abbr: 'Generic',   emoji: '🔌', defaultForecast: 'sensor.generic_load_power',              defaultSensor: 'sensor.generic_load_active_power',      defaultEnergy: 'sensor.generic_load_energy' },
 ];
 
 // ── Legend ────────────────────────────────────────────────────────────────────
@@ -696,14 +697,15 @@ function _haeo_getOptionalLoadDisplay(config) {
   // If preset selected, use preset abbreviation map
   if (config.loadName) {
     const presetAbbrMap = {
-      'Air Conditioner': { name: 'Air Conditioner', abbr: 'HVAC' },
+      'Circuit':          { name: 'Circuit',          abbr: 'Circuit' },
+      'Air Conditioner':  { name: 'Air Conditioner',  abbr: 'HVAC' },
       'Hot Water System': { name: 'Hot Water System', abbr: 'HWS' },
-      'Clothes Dryer': { name: 'Clothes Dryer', abbr: 'C. Dryer' },
-      'Washing Machine': { name: 'Washing Machine', abbr: 'W. Machine' },
-      'Dishwasher': { name: 'Dishwasher', abbr: 'Dishw.' },
-      'IT Hardware': { name: 'IT Hardware', abbr: 'IT H/W' },
-      'Pool': { name: 'Pool', abbr: 'Pump' },
-      'Generic Load': { name: 'Generic Load', abbr: 'Generic' }
+      'Clothes Dryer':    { name: 'Clothes Dryer',    abbr: 'C. Dryer' },
+      'Washing Machine':  { name: 'Washing Machine',  abbr: 'W. Machine' },
+      'Dishwasher':       { name: 'Dishwasher',       abbr: 'Dishw.' },
+      'IT Hardware':      { name: 'IT Hardware',      abbr: 'IT H/W' },
+      'Pool':             { name: 'Pool',              abbr: 'Pump' },
+      'Generic Load':     { name: 'Generic Load',     abbr: 'Generic' }
     };
     
     const preset = presetAbbrMap[config.loadName];
@@ -743,30 +745,39 @@ function _haeo_buildLegend() {
 // ── Shared column definitions ─────────────────────────────────────────────────
 // Time(52) | Event(auto flex) | Buy(68) | Sell(68) | Base Load kW(44) kWh(46) | Defer. Loads kW(44) kWh(46) | Solar kW(44) kWh(46) | Grid kW(44) kWh(46) | Batt kW(44) kWh(46) SoC(46) | EV kW(44) kWh(46) SoC(46) | EV2 kW(44) kWh(46) SoC(46) | Cost(72)
 // Build COLGROUP dynamically based on column settings and deferrable loads config
-function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = []) {
+function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], showKwhConfig = {}) {
   let cols = [
     '<col style="width:52px;">',                    // Time
-    '<col style="width:auto; min-width:120px;">',   // Event - flex to fill remaining space
+    '<col style="width:100%;">',                    // Event - takes all remaining space in fixed layout
     '<col style="width:68px;">',                    // Buy $
     '<col style="width:68px;">',                    // Sell $
-    '<col style="width:56px;">',                    // Base Load kW
-    '<col style="width:46px;">',                    // Base Load kWh
   ];
+
+  // Total Load cols (kW + kWh) — only if deferLoad or optional loads enabled
+  if (colSettings.deferLoad !== false || colSettings.ev !== false || colSettings.ev2 !== false || enabledOptionalLoads.length > 0) {
+    cols.push('<col style="width:56px;">');         // Total Load kW
+    cols.push('<col style="width:46px;">');         // Total Load kWh
+  }
+
+  cols.push(
+    '<col style="width:56px;">',                    // Base Load kW
+    '<col style="width:46px;">'                     // Base Load kWh
+  );
   
   // Add Def. Loads toggle columns and optional load columns (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
-    cols.push('<col style="width:56px;">');        // Def. Loads kW (toggle)
-    cols.push('<col style="width:46px;">');        // Def. Loads kWh
+    cols.push('<col style="width:56px;">');        // Def. Loads kW
+    if (showKwhConfig.deferLoad !== false) cols.push('<col style="width:46px;">');  // Def. Loads kWh
     deferLoadsConfig.forEach(config => {
-      cols.push('<col style="width:56px;">');        // Optional Load kW
-      cols.push('<col style="width:46px;">');        // Optional Load kWh
+      cols.push('<col style="width:56px;">');
+      cols.push('<col style="width:46px;">');
     });
   }
   
   // Add enabled optional loads columns (after Def. Loads, before Solar)
   enabledOptionalLoads.forEach(load => {
     cols.push('<col style="width:56px;">');        // Optional Load kW
-    cols.push('<col style="width:46px;">');        // Optional Load kWh
+    if (load.showKwh !== false) cols.push('<col style="width:46px;">');  // Optional Load kWh (conditional)
   });
   
   cols.push('<col style="width:56px;">');                    // Solar kW
@@ -778,14 +789,14 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
   cols.push('<col style="width:46px;">');                    // Batt SoC
   
   if (colSettings.ev !== false) {
-    cols.push('<col style="width:56px;">');        // EV kW
-    cols.push('<col style="width:46px;">');        // EV kWh
-    cols.push('<col style="width:46px;">');        // EV SoC
+    cols.push('<col style="width:56px;">');
+    if (showKwhConfig.ev !== false) cols.push('<col style="width:46px;">');
+    cols.push('<col style="width:46px;">');
   }
   if (colSettings.ev2 !== false) {
-    cols.push('<col style="width:56px;">');        // EV2 kW
-    cols.push('<col style="width:46px;">');        // EV2 kWh
-    cols.push('<col style="width:46px;">');        // EV2 SoC
+    cols.push('<col style="width:56px;">');
+    if (showKwhConfig.ev2 !== false) cols.push('<col style="width:46px;">');
+    cols.push('<col style="width:46px;">');
   }
   
   cols.push('<col style="width:72px;">');          // Cost/Profit
@@ -794,7 +805,7 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
 }
 
 // Build THEAD dynamically based on column settings and deferrable loads config
-function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], tabType = 'future') {
+function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], tabType = 'future', showKwhConfig = {}) {
   let eventHeader = tabType === 'past' 
     ? '<span style="font-size:2.0em;">🔎</span> BESS Past Events' 
     : '<span style="font-size:2.0em;">🔮</span> HAEO Forecast Decisions';
@@ -803,14 +814,22 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;background-color:var(--secondary-background-color,#1a1a1a);">' + eventHeader + '</th>',
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:var(--secondary-background-color,#1a1a1a);">Buy<br>💲/kWh</th>',
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;background-color:var(--secondary-background-color,#1a1a1a);">Sell<br>💲/kWh</th>',
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🏠 Base Load</th>',
   ];
+
+  // Total Load column: only show if deferLoad or any optional loads are enabled
+  const _showTotalLoad = colSettings.deferLoad !== false || colSettings.ev !== false || colSettings.ev2 !== false || enabledOptionalLoads.length > 0;
+  if (_showTotalLoad) {
+    topHeaders.push('<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🏋️ Total Load</th>');
+  }
+
+  topHeaders.push('<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🏠 Base Load</th>');
   
   // Add Def. Loads header and optional load headers (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
-    topHeaders.push('<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">⏰ Def. Loads</th>');
+    const deferColspan = showKwhConfig.deferLoad !== false ? 2 : 1;
+    const deferLabel = showKwhConfig.deferLoad !== false ? '⏰ Def. Loads' : '⏰';
+    topHeaders.push(`<th colspan="${deferColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${deferLabel}</th>`);
     deferLoadsConfig.forEach(config => {
-      // Find preset to get abbreviation
       const preset = _HAEO_DEFERRABLE_PRESETS.find(p => p.name === config.name);
       const displayLabel = preset ? `${preset.emoji} ${preset.abbr}` : `${config.emoji} ${config.name}`;
       topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${displayLabel}</th>`);
@@ -820,8 +839,9 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
   // Add enabled optional loads headers (after Def. Loads, before Solar)
   enabledOptionalLoads.forEach(load => {
     const displayInfo = _haeo_getOptionalLoadDisplay(load);
-    const headerLabel = displayInfo.emoji + ' ' + displayInfo.abbr;
-    topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${headerLabel}</th>`);
+    const optColspan = load.showKwh !== false ? 2 : 1;
+    const optLabel = load.showKwh !== false ? displayInfo.emoji + ' ' + displayInfo.abbr : displayInfo.emoji;
+    topHeaders.push(`<th colspan="${optColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${optLabel}</th>`);
   });
   
   topHeaders.push(
@@ -831,56 +851,69 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
   );
   
   if (colSettings.ev !== false) {
-    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🚗 EV</th>');
+    const evColspan = showKwhConfig.ev !== false ? 3 : 2;
+    const evLabel = showKwhConfig.ev !== false ? '🚗 EV' : '🚗';
+    topHeaders.push(`<th colspan="${evColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${evLabel}</th>`);
   }
   if (colSettings.ev2 !== false) {
-    topHeaders.push('<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">🚙 EV2</th>');
+    const ev2Colspan = showKwhConfig.ev2 !== false ? 3 : 2;
+    const ev2Label = showKwhConfig.ev2 !== false ? '🚙 EV2' : '🚙';
+    topHeaders.push(`<th colspan="${ev2Colspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${ev2Label}</th>`);
   }
   
-  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:var(--secondary-background-color,#1a1a1a);">💰 Cost/<br>Profit</th>');
+  topHeaders.push('<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 2px 0 0 #666;background-color:var(--secondary-background-color,#1a1a1a);">💰<br>Cost/<br>Profit</th>');
   
-  let botHeaders = [
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
-  ];
+  let botHeaders = [];
+
+  // Total Load sub-headers (only if deferLoad or optional loads enabled)
+  if (_showTotalLoad) {
+    botHeaders.push(
+      '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+      '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>'
+    );
+  }
+
+  // Base Load sub-headers
+  botHeaders.push(
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>'
+  );
   
   // Add Def. Loads and optional load bottom headers (only if deferLoad enabled)
   if (colSettings.deferLoad !== false) {
-    botHeaders.push(
-      '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
-      '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>'
-    );
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    if (showKwhConfig.deferLoad !== false) botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
     deferLoadsConfig.forEach(config => {
-      botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
-      botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+      botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+      botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
     });
   }
   
   // Add enabled optional loads bottom headers (after Def. Loads, before Solar)
   enabledOptionalLoads.forEach(load => {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    if (load.showKwh !== false) botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
   });
   
   botHeaders.push(
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
-    '<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
-    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
-    '<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>'
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>',
+    '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>',
+    '<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>'
   );
   
   if (colSettings.ev !== false) {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    if (showKwhConfig.ev !== false) botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+    botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
   }
   if (colSettings.ev2 !== false) {
-    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
-    botHeaders.push('<th class="bgi" style="text-align:right;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
+    botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
+    if (showKwhConfig.ev2 !== false) botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
+    botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">SoC %</th>');
   }
   
   return '<thead><tr>' + topHeaders.join('') + '</tr><tr>' + botHeaders.join('') + '</tr></thead>';
@@ -901,19 +934,20 @@ const _HAEO_STYLE = [
   '.pane { display: none; }',
   '.pane.active { display: block; }',
   '.dt-head { position: sticky; top: 0; z-index: 10; }',
+  '.dt thead { position: sticky; top: 0; z-index: 10; background-color: var(--secondary-background-color, #1a1a1a); }',
   '.dt { border-collapse: collapse; width: 100%; table-layout: fixed; background: var(--card-background-color); }',
   '.dt thead { background-color: #1a1a1a; }',
   '.dt thead tr { line-height: 1; margin: 0; padding: 0; }',
   '.dt thead th { background-color: #1a1a1a; font-weight: bold; color: var(--primary-text-color); border-bottom: 1px solid #666; }',
   '.dt thead tr:last-child th { border-bottom: 2px solid #888; }',
-  '.dt th, .dt td { padding: 5px 6px; font-size: 12px; line-height: 1.35; white-space: nowrap; text-align: right; box-sizing: border-box; border-bottom: none; }',
+  '.dt th, .dt td { padding: 5px 6px; font-size: 12px; line-height: 1.35; white-space: nowrap; text-align: center; box-sizing: border-box; border-bottom: none; }',
   '.dt th, .dt td { border-right: 1px solid #333; }',
   '.dt th:last-child, .dt td:last-child { border-right: none; }',
   '.dt tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); }',
   '.dt tbody tr:last-child { border-bottom: none; }',
   '.dr td { border-top: 2px solid var(--divider-color,#555) !important; border-bottom: 2px solid var(--divider-color,#555) !important; background: var(--secondary-background-color); }',
   '.dt td:nth-child(1) { text-align: left !important; }',
-  '.dt td:nth-child(2) { text-align: left; white-space: normal; }',
+  '.dt th:nth-child(2), .dt td:nth-child(2) { text-align: left; }',
   '.bgl { box-shadow: inset 2px 0 0 #666; }',
   '.bgi { box-shadow: inset 1px 0 0 #555; }',
   'th.bgi { background-color: #1a1a1a; }',
@@ -978,8 +1012,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div class="sbar" id="sbar-future">⏳ Loading...</div>' +
     '<div class="sbar" id="finances-bar-future" style="border-bottom:2px solid #888;font-size:12px;">⏳ Loading financials...</div>' +
     '<div class="wrap">' +
-    '<table class="dt dt-head" id="table-future-head" style="margin-bottom:0;">' + colgroup + thead_future + '</table>' +
-    '<table class="dt" id="table-future">' + colgroup +
+    '<table class="dt" id="table-future">' + colgroup + thead_future +
     '<tbody id="tb-future"><tr><td colspan="20" class="msg">⏳ Loading...</td></tr></tbody>' +
     '</table></div></div>' +
     '<div class="pane" id="pane-past">' +
@@ -989,8 +1022,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<span style="margin:0 auto;font-size:inherit;color:#f44336;font-weight:600;">📝 Note: Shows recorded sensor values for your inverter/battery system, not HAEO decisions.</span>' +
     '</div>' +
     '<div class="wrap">' +
-    '<table class="dt dt-head" id="table-past-head" style="margin-bottom:0;">' + colgroup + thead_past + '</table>' +
-    '<table class="dt" id="table-past">' + colgroup +
+    '<table class="dt" id="table-past">' + colgroup + thead_past +
     '<tbody id="tb-past"><tr><td colspan="20" class="msg">⏳ Select range to load...</td></tr></tbody>' +
     '</table></div></div>' +
     _haeo_buildLegend() +
@@ -1002,7 +1034,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<button id="settings-modal-close" class="settings-modal-close" title="Close">&times;</button>' +
     '</div>' +
     '<div style="display:flex;border-bottom:1px solid var(--divider-color);overflow-x:auto;">' +
-    '<button class="settings-tab active" data-tab="loads" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--primary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Loads</button>' +
+    '<button class="settings-tab active" data-tab="base-sensors" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--primary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Base Sensors</button>' +
     '<button class="settings-tab" data-tab="optional-loads" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Optional Loads</button>' +
     '<button class="settings-tab" data-tab="entities" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Entities & Options</button>' +
     '<button class="settings-tab" data-tab="colours-self" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Colours - Self Consumption</button>' +
@@ -1011,57 +1043,48 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<button class="settings-tab" data-tab="backup" style="flex:1;padding:14px 12px;border:none;background:transparent;color:var(--secondary-text-color);cursor:pointer;font-weight:600;font-size:13px;border-bottom:4px solid transparent;">Backup</button>' +
     '</div>' +
     '<div class="settings-modal-body" style="flex:1;overflow-y:auto;padding:16px;">' +
-    '<div class="settings-tab-content active" data-content="loads">' +
+    '<div class="settings-tab-content active" data-content="base-sensors">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
     '<div style="font-size:13px;color:var(--secondary-text-color);">Configure load columns, filter thresholds, and entity sources for forecasting and historical analysis:</div>' +
-    '<div style="display:flex;align-items:center;gap:12px;">' +
-    '<label style="font-weight:bold;">Inverter:</label>' +
-    '<select id="inverter-brand" style="padding:8px;font-size:13px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;min-width:200px;">' +
-    '<option value="sigenergy">Sigenergy</option>' +
-    '<option value="sigenergy_mqtt">Sigenergy (MQTT)</option>' +
-    '<option value="deye">Deye</option>' +
-    '<option value="fronius">Fronius</option>' +
-    '<option value="goodwe">Goodwe</option>' +
-    '<option value="huawei">Huawei</option>' +
-    '<option value="istore">iStore</option>' +
-    '<option value="sungrow">Sungrow</option>' +
-    '</select>' +
+    '<button id="auto-detect-energy-btn" style="background:#4CAF50;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:600;">🔍 Auto-Detect</button>' +
     '</div>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:13px;font-weight:bold;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--divider-color);">' +
+    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px 90px;gap:8px;align-items:center;font-size:13px;font-weight:bold;margin-bottom:8px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);">' +
     '<div style="text-align:center;">Enable</div><div style="text-align:left;">Load Name</div>' +
     '<div style="text-align:center;">Filter (W)</div>' +
     '<div style="text-align:left;">Future Decisions Entities</div>' +
     '<div style="text-align:left;">Past Events Entities (Power)</div>' +
     '<div style="text-align:left;">Past Events Entities (Energy)</div>' +
+    '<div style="text-align:center;">Invert<br>Flow</div>' +
     '</div>' +
 
     '<div style="display:grid;gap:8px;">' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
+    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px 90px;gap:8px;align-items:center;font-size:12px;">' +
     '<div></div>' +
     '<label>🏠 Base Load</label>' +
     '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
     '<input type="number" id="threshold-load" class="threshold-input" min="0" step="10" value="0" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<div style="font-size:8px;">Default - 0 W</div>' +
     '</div>' +
-    '<input type="text" id="load-forecast" placeholder="number.base_load_forecast" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="load-forecast" placeholder="sensor.base_load_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="load-historical" placeholder="sensor.sigen_plant_total_load_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="load-energy" placeholder="sensor.sigen_plant_total_load_consumption" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="display:flex;justify-content:center;align-items:center;"><input type="checkbox" id="invert-load" class="invert-toggle" style="cursor:pointer;width:18px;height:18px;accent-color:#2196F3;"></div>' +
     '</div>' +
     '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
+    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px 90px;gap:8px;align-items:center;font-size:12px;">' +
     '<div></div>' +
     '<label>🌞 Solar</label>' +
     '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
     '<input type="number" id="threshold-pv" class="threshold-input" min="0" step="10" value="50" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<div style="font-size:8px;">Default - 50 W</div>' +
     '</div>' +
-    '<input type="text" id="pv-forecast" placeholder="number.solar_forecast" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="pv-forecast" placeholder="sensor.solar_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="pv-historical" placeholder="sensor.sigen_plant_pv_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="pv-energy" placeholder="sensor.sigen_plant_total_pv_generation" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="display:flex;justify-content:center;align-items:center;"><input type="checkbox" id="invert-pv" class="invert-toggle" style="cursor:pointer;width:18px;height:18px;accent-color:#2196F3;"></div>' +
     '</div>' +
     '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
+    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px 90px;gap:8px;align-items:center;font-size:12px;">' +
     '<div></div>' +
     '<label>⚡ Grid</label>' +
     '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
@@ -1074,6 +1097,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<input type="text" id="grid-energy" placeholder="sensor.sigen_plant_total_imported_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="grid-energy-export" placeholder="sensor.sigen_plant_total_exported_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '</div>' +
+    '<div style="display:flex;justify-content:center;align-items:center;"><input type="checkbox" id="invert-grid" class="invert-toggle" style="cursor:pointer;width:18px;height:18px;accent-color:#2196F3;"></div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px;margin-left:284px;width:280px;">' +
     '<div style="display:flex;flex-direction:column;gap:2px;">' +
@@ -1086,7 +1110,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '</div>' +
     '</div>' +
     '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
+    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px 90px;gap:8px;align-items:center;font-size:12px;">' +
     '<div></div>' +
     '<label>🔋 Battery</label>' +
     '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
@@ -1099,61 +1123,80 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<input type="text" id="battery-energy" placeholder="sensor.sigen_plant_daily_battery_charge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="battery-energy-discharge" placeholder="sensor.sigen_plant_daily_battery_discharge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '</div>' +
-    '</div>' +
-    '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
-    '<input type="checkbox" id="col-ev" class="col-toggle" style="cursor:pointer;width:16px;height:16px;justify-self:center;">' +
-    '<label>🚗 EV</label>' +
-    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
-    '<input type="number" id="threshold-ev" class="threshold-input" min="0" step="10" value="100" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="font-size:8px;">Default - 100 W</div>' +
-    '</div>' +
-    '<input type="text" id="ev-forecast" placeholder="sensor.ev_active_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="ev-historical" placeholder="sensor.sigen_ac_charger_charging_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' +
-    '<input type="text" id="ev-energy" placeholder="sensor.ev_charge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="ev-energy-discharge" placeholder="sensor.ev_discharge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '</div>' +
-    '</div>' +
-    '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
-    '<input type="checkbox" id="col-ev2" class="col-toggle" style="cursor:pointer;width:16px;height:16px;justify-self:center;">' +
-    '<label>🚙 EV2</label>' +
-    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
-    '<input type="number" id="threshold-ev2" class="threshold-input" min="0" step="10" value="100" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="font-size:8px;">Default - 100 W</div>' +
-    '</div>' +
-    '<input type="text" id="ev2-forecast" placeholder="sensor.ev2_active_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="ev2-historical" placeholder="sensor.sigen_ac_charger_charging_power_2" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="display:flex;flex-direction:column;gap:4px;">' +
-    '<input type="text" id="ev2-energy" placeholder="sensor.ev2_charge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="ev2-energy-discharge" placeholder="sensor.ev2_discharge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '</div>' +
-    '</div>' +
-    '<div style="border-bottom:1px solid #444;margin:8px 0 8px 0;"></div>' +
-    '<div style="display:grid;grid-template-columns:50px 120px 90px 280px 280px 280px;gap:8px;align-items:center;font-size:12px;">' +
-    '<input type="checkbox" id="col-deferLoad" class="col-toggle" style="cursor:pointer;width:16px;height:16px;justify-self:center;">' +
-    '<label>⏰ Deferrable Loads</label>' +
-    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;">' +
-    '<input type="number" id="threshold-deferLoad" class="threshold-input" min="0" step="10" value="5" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="font-size:8px;">Default - 5 W</div>' +
-    '</div>' +
-    '<input type="text" id="deferLoad-forecast" placeholder="sensor.deferrable_loads_power_forecast" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="deferLoad-historical" placeholder="sensor.deferrable_loads_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<input type="text" id="deferLoad-energy" placeholder="sensor.deferrable_loads_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="display:flex;justify-content:center;align-items:center;"><input type="checkbox" id="invert-battery" class="invert-toggle" style="cursor:pointer;width:18px;height:18px;accent-color:#2196F3;"></div>' +
     '</div>' +
     '</div>' +
     '</div>' +
     '<div class="settings-tab-content" data-content="optional-loads">' +
-    '<div style="font-size:13px;margin-bottom:16px;color:var(--secondary-text-color);">Configure up to 10 optional loads:</div>' +
-    '<div style="display:grid;grid-template-columns:50px 60px 180px 100px 275px 275px 275px;gap:8px;align-items:center;font-size:12px;font-weight:bold;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--divider-color);">' +
-    '<div style="text-align:center;">Enable</div><div style="text-align:center;">Symbol</div><div style="text-align:left;">Load Name</div><div style="text-align:center;">Filter (W)</div><div style="text-align:left;">Future Decisions Entities</div><div style="text-align:left;">Past Events Entities (Power)</div><div style="text-align:left;">Past Events Entities (Energy)</div>' +
+    '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Fixed loads (EV, EV2, Deferrable) and up to 10 configurable optional loads:</div>' +
+
+    // ── Fixed loads header ─────────────────────────────────────────────────────
+    '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:center;font-size:12px;font-weight:bold;margin-bottom:8px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);">' +
+    '<div style="text-align:center;">Enable</div><div style="text-align:center;">Symbol</div><div style="text-align:left;">Load Name</div><div style="text-align:center;">Filter (W)</div><div style="text-align:center;font-size:11px;">Show<br>kWh</div><div style="text-align:left;">Future Decisions Entities</div><div style="text-align:left;">Past Events Entities (Power)</div><div style="text-align:left;">Past Events Entities (Energy)</div>' +
+    '</div>' +
+
+    // ── Deferrable Loads fixed row ─────────────────────────────────────────────
+    '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:center;font-size:12px;margin-bottom:4px;">' +
+    '<div style="display:flex;justify-content:center;"><input type="checkbox" id="col-deferLoad" class="col-toggle" style="cursor:pointer;width:16px;height:16px;"></div>' +
+    '<div style="text-align:center;font-size:16px;">⏰</div>' +
+    '<label style="font-weight:500;">Deferrable Loads</label>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;">' +
+    '<input type="number" id="threshold-deferLoad" class="threshold-input" min="0" step="10" value="5" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:8px;">Default - 5 W</div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:center;align-items:center;" title="Show kWh column"><input type="checkbox" id="show-kwh-deferLoad" checked style="cursor:pointer;width:18px;height:18px;accent-color:#4CAF50;"></div>' +
+    '<input type="text" id="deferLoad-forecast" placeholder="sensor.deferrable_loads_power_forecast" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="deferLoad-historical" placeholder="sensor.deferrable_loads_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="deferLoad-energy" placeholder="sensor.deferrable_loads_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '</div>' +
+
+    // ── EV fixed row ───────────────────────────────────────────────────────────
+    '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:start;font-size:12px;margin-bottom:4px;">' +
+    '<div style="display:flex;justify-content:center;padding-top:6px;"><input type="checkbox" id="col-ev" class="col-toggle" style="cursor:pointer;width:16px;height:16px;"></div>' +
+    '<div style="text-align:center;font-size:16px;padding-top:4px;">🚗</div>' +
+    '<label style="font-weight:500;padding-top:6px;">EV</label>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;">' +
+    '<input type="number" id="threshold-ev" class="threshold-input" min="0" step="10" value="100" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:8px;">Default - 100 W</div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:center;align-items:flex-start;padding-top:6px;" title="Show kWh column"><input type="checkbox" id="show-kwh-ev" checked style="cursor:pointer;width:18px;height:18px;accent-color:#4CAF50;"></div>' +
+    '<input type="text" id="ev-forecast" placeholder="sensor.ev_active_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="ev-historical" placeholder="sensor.sigen_ac_charger_charging_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="text" id="ev-energy" placeholder="sensor.sigen_plant_total_charged_energy_of_the_evac" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="ev-energy-discharge" placeholder="sensor.ev_discharge_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '</div>' +
+    '</div>' +
+
+    // ── EV2 fixed row ──────────────────────────────────────────────────────────
+    '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:start;font-size:12px;margin-bottom:4px;">' +
+    '<div style="display:flex;justify-content:center;padding-top:6px;"><input type="checkbox" id="col-ev2" class="col-toggle" style="cursor:pointer;width:16px;height:16px;"></div>' +
+    '<div style="text-align:center;font-size:16px;padding-top:4px;">🚙</div>' +
+    '<label style="font-weight:500;padding-top:6px;">EV2</label>' +
+    '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;">' +
+    '<input type="number" id="threshold-ev2" class="threshold-input" min="0" step="10" value="100" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:8px;">Default - 100 W</div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:center;align-items:flex-start;padding-top:6px;" title="Show kWh column"><input type="checkbox" id="show-kwh-ev2" checked style="cursor:pointer;width:18px;height:18px;accent-color:#4CAF50;"></div>' +
+    '<input type="text" id="ev2-forecast" placeholder="sensor.ev2_active_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="ev2-historical" placeholder="sensor.sigen_dc_charger_output_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="display:flex;flex-direction:column;gap:4px;">' +
+    '<input type="text" id="ev2-energy" placeholder="sensor.sigen_plant_total_charged_energy_of_the_evdc" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="ev2-energy-discharge" placeholder="sensor.sigen_plant_total_discharged_energy_of_the_evdc" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '</div>' +
+    '</div>' +
+
+    
+
+    // ── Optional loads column header ───────────────────────────────────────────
+    '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:center;font-size:12px;font-weight:bold;margin-bottom:16px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);">' +
+    '<div style="text-align:center;">Enable</div><div style="text-align:center;">Symbol</div><div style="text-align:left;">Load Name</div><div style="text-align:center;">Filter (W)</div><div style="text-align:center;font-size:11px;">Show<br>kWh</div><div style="text-align:left;">Future Decisions Entities</div><div style="text-align:left;">Past Events Entities (Power)</div><div style="text-align:left;">Past Events Entities (Energy)</div>' +
     '</div>' +
     '<div style="display:grid;gap:8px;">' +
     (() => {
       let html = '';
       for (let i = 0; i < 10; i++) {
-        html += '<div style="display:grid;grid-template-columns:50px 60px 180px 100px 275px 275px 275px;gap:8px;align-items:center;font-size:12px;">' +
+        html += '<div style="display:grid;grid-template-columns:50px 60px 180px 80px 40px 251px 251px 286px;gap:8px;align-items:center;font-size:12px;">' +
           '<input type="checkbox" id="optload-enable-' + i + '" class="optload-enable" style="cursor:pointer;width:18px;height:18px;">' +
           '<select id="optload-emoji-' + i + '" style="padding:4px;font-size:16px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;width:100%;">' +
           '<option value="🔌">🔌</option>' +
@@ -1180,10 +1223,11 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
           '<div style="display:flex;flex-direction:column;gap:4px;">' +
           '<select id="optload-preset-' + i + '" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;">' +
           '<option value="">-- None --</option>' +
+          '<option value="Circuit">⚡ Circuit</option>' +
           '<option value="Air Conditioner">🌡️ Air Conditioner (HVAC)</option>' +
           '<option value="Hot Water System">🚿 Hot Water System (HWS)</option>' +
           '<option value="Clothes Dryer">👚 Clothes Dryer</option>' +
-          '<option value="Washing Machine">🗑️ Washing Machine</option>' +
+          '<option value="Washing Machine">🧺 Washing Machine</option>' +
           '<option value="Dishwasher">🍽️ Dishwasher</option>' +
           '<option value="IT Hardware">💻 IT Hardware</option>' +
           '<option value="Pool">🏊 Pool Pump</option>' +
@@ -1196,8 +1240,9 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
           '<input type="number" id="optload-threshold-' + i + '" class="optload-threshold-input" min="0" step="10" value="10" style="padding:4px;font-size:11px;width:60px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
           '<div style="font-size:8px;">Default - 10 W</div>' +
           '</div>' +
-          '<input type="text" id="optload-forecast-' + i + '" placeholder="number.xxxx_forecast" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-          '<input type="text" id="optload-historical-' + i + '" placeholder="sensor.xxxx_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+          '<div style="display:flex;justify-content:center;align-items:center;" title="Show kWh column"><input type="checkbox" id="optload-show-kwh-' + i + '" checked style="cursor:pointer;width:18px;height:18px;accent-color:#4CAF50;"></div>' +
+          '<input type="text" id="optload-forecast-' + i + '" placeholder="sensor.xxxx_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+          '<input type="text" id="optload-historical-' + i + '" placeholder="sensor.xxxx_active_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
           '<input type="text" id="optload-energy-' + i + '" placeholder="sensor.xxxx_energy" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
           '</div>';
       }
@@ -1222,9 +1267,9 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '</div>' +
     '</div>' +
     '<div style="border-top:1px solid var(--divider-color);padding-top:16px;margin-top:16px;display:flex;flex-direction:column;gap:8px;">' +
-    '<div style="font-size:13px;font-weight:bold;color:#FFC107;margin-bottom:8px;">💰 Price Display</div>' +
+    '<div style="font-size:13px;font-weight:bold;color:#FFC107;margin-bottom:8px;">🔢 Decimal Places / Rounding</div>' +
     '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<label style="font-weight:bold;min-width:180px;font-size:12px;">Buy/Sell Decimals:</label>' +
+    '<label style="font-weight:bold;min-width:180px;font-size:12px;">Buy/Sell Price Decimals:</label>' +
     '<select id="settings-price-decimals" style="padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;width:220px;">' +
     '<option value="2">2 decimal places</option>' +
     '<option value="3">3 decimal places</option>' +
@@ -1232,7 +1277,25 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<option value="5">5 decimal places</option>' +
     '</select>' +
     '</div>' +
-    '<span style="font-size:11px;color:var(--secondary-text-color);">Precision for tariff Buy/Sell prices</span>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<label style="font-weight:bold;min-width:180px;font-size:12px;">kW Column Decimals:</label>' +
+    '<select id="settings-kw-decimals" style="padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;width:220px;">' +
+    '<option value="1">1 decimal place</option>' +
+    '<option value="2">2 decimal places</option>' +
+    '<option value="3" selected>3 decimal places</option>' +
+    '<option value="4">4 decimal places</option>' +
+    '</select>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<label style="font-weight:bold;min-width:180px;font-size:12px;">kWh Column Decimals:</label>' +
+    '<select id="settings-kwh-decimals" style="padding:8px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;width:220px;">' +
+    '<option value="1">1 decimal place</option>' +
+    '<option value="2">2 decimal places</option>' +
+    '<option value="3" selected>3 decimal places</option>' +
+    '<option value="4">4 decimal places</option>' +
+    '</select>' +
+    '</div>' +
+    '<span style="font-size:11px;color:var(--secondary-text-color);">kW/kWh range: 1–4 decimal places. Price range: 2–5 decimal places.</span>' +
     '</div>' +
     '</div>' +
     '</div>' +
@@ -1240,8 +1303,8 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div class="settings-tab-content" data-content="colours-self">' +
     '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Self Consumption - Solar/Battery scenarios (no grid):</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-height:500px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="display:grid;gap:0;">' +
-    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);">' +
+    '<div style="display:grid;gap:0;align-content:start;">' +
+    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);position:sticky;top:0;white-space:nowrap;">' +
     '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Event</div><div style="text-align:center;">Text</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.battery_ev_charge || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-battery_ev_charge-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_ev_charge-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_ev_charge-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
@@ -1252,8 +1315,8 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_battery_ev_to_loads || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_battery_ev_to_loads-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_ev_to_loads-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_ev_to_loads-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_battery_to_loads_no_grid || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_loads_no_grid-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_loads_no_grid-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_loads_no_grid-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '</div>' +
-    '<div style="display:grid;gap:0;">' +
-    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);">' +
+    '<div style="display:grid;gap:0;align-content:start;">' +
+    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);position:sticky;top:0;white-space:nowrap;">' +
     '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Event</div><div style="text-align:center;">Text</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_ev_to_loads || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_ev_to_loads-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_ev_to_loads-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_ev_to_loads-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
@@ -1268,7 +1331,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div class="settings-tab-content" data-content="colours-profit">' +
     '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Profit - Exporting to Grid:</div>' +
     '<div style="display:grid;gap:0;max-height:500px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);">' +
+    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);position:sticky;top:0;white-space:nowrap;">' +
     '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Event</div><div style="text-align:center;">Text</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.battery_ev_to_grid_force || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-battery_ev_to_grid_force-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_ev_to_grid_force-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_ev_to_grid_force-txt" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
@@ -1279,9 +1342,9 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div class="settings-tab-content" data-content="colours-cost">' +
     '<div style="font-size:13px;margin-bottom:12px;color:var(--secondary-text-color);">Cost - Importing from Grid or Mixed:</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-height:500px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="display:grid;gap:0;">' +
-    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);">' +
-    '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;color:#cc3333;">Event</div><div style="text-align:center;color:#cc3333;">Text</div>' +
+    '<div style="display:grid;gap:0;align-content:start;">' +
+    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);position:sticky;top:0;white-space:nowrap;">' +
+    '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Event</div><div style="text-align:center;">Text</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.battery_grid_to_loads || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-battery_grid_to_loads-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_grid_to_loads-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_grid_to_loads-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.battery_to_baseload_grid_force || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-battery_to_baseload_grid_force-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_to_baseload_grid_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-battery_to_baseload_grid_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
@@ -1292,9 +1355,9 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.grid_to_loads_battery_force || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_battery_force-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_battery_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_battery_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.grid_to_loads_only || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_only-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_only-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-grid_to_loads_only-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '</div>' +
-    '<div style="display:grid;gap:0;">' +
-    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);position:sticky;top:0;background:var(--card-background-color);">' +
-    '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;color:#cc3333;">Event</div><div style="text-align:center;color:#cc3333;">Text</div>' +
+    '<div style="display:grid;gap:0;align-content:start;">' +
+    '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:10px;font-weight:bold;margin-bottom:12px;padding:6px 4px;border-radius:6px;background:rgba(33,150,243,0.15);border:1px solid rgba(33,150,243,0.3);position:sticky;top:0;white-space:nowrap;">' +
+    '<div>Event</div><div style="text-align:center;">BKG</div><div style="text-align:center;">Event</div><div style="text-align:center;">Text</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_battery_grid_to_loads || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_battery_grid_to_loads-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_grid_to_loads-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_grid_to_loads-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
     '<div style="display:grid;grid-template-columns:380px 40px 40px 40px;gap:6px;align-items:center;font-size:12px;padding:6px 0;"><div>' + (_HAEO_EVENT_LABELS.pv_battery_to_baseload_grid_force || 'SomeText') + '</div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_grid_force-bg" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_grid_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div><div style="text-align:center;"><input type="color" id="color-pv_battery_to_baseload_grid_force-cost" class="color-picker" style="width:35px;height:25px;cursor:pointer;"></div></div>' +
@@ -1366,150 +1429,6 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
 // ── Custom Element ────────────────────────────────────────────────────────────
 class HaeoEventsCard extends HTMLElement {
   // Inverter brand sensor mappings for Past Events Entities
-  _INVERTER_BRAND_SENSORS = {
-    sigenergy: {
-      base_power: 'sensor.sigen_plant_total_load_power',
-      base_energy: 'sensor.sigen_plant_total_load_consumption',
-      pv_power: 'sensor.sigen_plant_pv_power',
-      pv_energy: 'sensor.sigen_plant_total_pv_generation',
-      grid_power: 'sensor.sigen_plant_grid_active_power',
-      grid_energy_import: 'sensor.sigen_plant_total_imported_energy',
-      grid_energy_export: 'sensor.sigen_plant_total_exported_energy',
-      battery_power: 'sensor.sigen_plant_battery_power',
-      battery_energy_charge: 'sensor.sigen_plant_daily_battery_charge_energy',
-      battery_energy_discharge: 'sensor.sigen_plant_daily_battery_discharge_energy'
-    },
-    sigenergy_mqtt: {
-      base_power: 'sensor.sigenergy_load_power',
-      base_energy: 'sensor.sigenergy_load_consumption',
-      pv_power: 'sensor.sigenergy_pv_power',
-      pv_energy: 'sensor.sigenergy_pv_generation',
-      grid_power: 'sensor.sigenergy_grid_power',
-      grid_energy_import: 'sensor.sigenergy_grid_import_energy',
-      grid_energy_export: 'sensor.sigenergy_grid_export_energy',
-      battery_power: 'sensor.sigenergy_battery_power',
-      battery_energy_charge: 'sensor.sigenergy_battery_charge_energy',
-      battery_energy_discharge: 'sensor.sigenergy_battery_discharge_energy'
-    },
-    deye: {
-      base_power: 'sensor.deye_load_power',
-      base_energy: 'sensor.deye_load_consumption',
-      pv_power: 'sensor.deye_pv_power',
-      pv_energy: 'sensor.deye_pv_generation',
-      grid_power: 'sensor.deye_grid_power',
-      grid_energy_import: 'sensor.deye_grid_import_energy',
-      grid_energy_export: 'sensor.deye_grid_export_energy',
-      battery_power: 'sensor.deye_battery_power',
-      battery_energy_charge: 'sensor.deye_battery_charge_energy',
-      battery_energy_discharge: 'sensor.deye_battery_discharge_energy'
-    },
-    fronius: {
-      base_power: 'sensor.fronius_load_power',
-      base_energy: 'sensor.fronius_load_consumption',
-      pv_power: 'sensor.fronius_pv_power',
-      pv_energy: 'sensor.fronius_pv_generation',
-      grid_power: 'sensor.fronius_grid_power',
-      grid_energy_import: 'sensor.fronius_grid_import_energy',
-      grid_energy_export: 'sensor.fronius_grid_export_energy',
-      battery_power: 'sensor.fronius_battery_power',
-      battery_energy_charge: 'sensor.fronius_battery_charge_energy',
-      battery_energy_discharge: 'sensor.fronius_battery_discharge_energy'
-    },
-    goodwe: {
-      base_power: 'sensor.goodwe_load_power',
-      base_energy: 'sensor.goodwe_load_consumption',
-      pv_power: 'sensor.goodwe_pv_power',
-      pv_energy: 'sensor.goodwe_pv_generation',
-      grid_power: 'sensor.goodwe_grid_power',
-      grid_energy_import: 'sensor.goodwe_grid_import_energy',
-      grid_energy_export: 'sensor.goodwe_grid_export_energy',
-      battery_power: 'sensor.goodwe_battery_power',
-      battery_energy_charge: 'sensor.goodwe_battery_charge_energy',
-      battery_energy_discharge: 'sensor.goodwe_battery_discharge_energy'
-    },
-    huawei: {
-      base_power: 'sensor.huawei_load_power',
-      base_energy: 'sensor.huawei_load_consumption',
-      pv_power: 'sensor.huawei_pv_power',
-      pv_energy: 'sensor.huawei_pv_generation',
-      grid_power: 'sensor.huawei_grid_power',
-      grid_energy_import: 'sensor.huawei_grid_import_energy',
-      grid_energy_export: 'sensor.huawei_grid_export_energy',
-      battery_power: 'sensor.huawei_battery_power',
-      battery_energy_charge: 'sensor.huawei_battery_charge_energy',
-      battery_energy_discharge: 'sensor.huawei_battery_discharge_energy'
-    },
-    istore: {
-      base_power: 'sensor.istore_load_power',
-      base_energy: 'sensor.istore_load_consumption',
-      pv_power: 'sensor.istore_pv_power',
-      pv_energy: 'sensor.istore_pv_generation',
-      grid_power: 'sensor.istore_grid_power',
-      grid_energy_import: 'sensor.istore_grid_import_energy',
-      grid_energy_export: 'sensor.istore_grid_export_energy',
-      battery_power: 'sensor.istore_battery_power',
-      battery_energy_charge: 'sensor.istore_battery_charge_energy',
-      battery_energy_discharge: 'sensor.istore_battery_discharge_energy'
-    },
-    sungrow: {
-      base_power: 'sensor.sungrow_load_power',
-      base_energy: 'sensor.sungrow_load_consumption',
-      pv_power: 'sensor.sungrow_pv_power',
-      pv_energy: 'sensor.sungrow_pv_generation',
-      grid_power: 'sensor.sungrow_grid_power',
-      grid_energy_import: 'sensor.sungrow_grid_import_energy',
-      grid_energy_export: 'sensor.sungrow_grid_export_energy',
-      battery_power: 'sensor.sungrow_battery_power',
-      battery_energy_charge: 'sensor.sungrow_battery_charge_energy',
-      battery_energy_discharge: 'sensor.sungrow_battery_discharge_energy'
-    }
-  };
-
-  // Generate forecast entity ID from name
-  _generateForecastEntityId(name) {
-    if (!name) return '';
-    return 'number.' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_load_forecast';
-  }
-
-  // Populate Past Events Entities based on inverter brand selection
-  _populatePastEntitiesByInverter(brand) {
-    const sensors = this._INVERTER_BRAND_SENSORS[brand];
-    if (!sensors) {
-      return;
-    }
-    
-    
-    // Populate Base Load
-    const loadHistorical = this.shadowRoot.getElementById('load-historical');
-    const loadEnergy = this.shadowRoot.getElementById('load-energy');
-    if (loadHistorical) loadHistorical.value = sensors.base_power || '';
-    if (loadEnergy) loadEnergy.value = sensors.base_energy || '';
-    
-    // Populate Solar
-    const pvHistorical = this.shadowRoot.getElementById('pv-historical');
-    const pvEnergy = this.shadowRoot.getElementById('pv-energy');
-    if (pvHistorical) pvHistorical.value = sensors.pv_power || '';
-    if (pvEnergy) pvEnergy.value = sensors.pv_energy || '';
-    
-    // Populate Grid (import + export)
-    const gridHistorical = this.shadowRoot.getElementById('grid-historical');
-    const gridEnergy = this.shadowRoot.getElementById('grid-energy');
-    const gridEnergyExport = this.shadowRoot.getElementById('grid-energy-export');
-    if (gridHistorical) gridHistorical.value = sensors.grid_power || '';
-    if (gridEnergy) gridEnergy.value = sensors.grid_energy_import || '';
-    if (gridEnergyExport) gridEnergyExport.value = sensors.grid_energy_export || '';
-    
-    // Populate Battery (charge + discharge)
-    const batteryHistorical = this.shadowRoot.getElementById('battery-historical');
-    const batteryEnergy = this.shadowRoot.getElementById('battery-energy');
-    const batteryEnergyDischarge = this.shadowRoot.getElementById('battery-energy-discharge');
-    if (batteryHistorical) batteryHistorical.value = sensors.battery_power || '';
-    if (batteryEnergy) batteryEnergy.value = sensors.battery_energy_charge || '';
-    if (batteryEnergyDischarge) batteryEnergyDischarge.value = sensors.battery_energy_discharge || '';
-    
-    // Note: EV and EV2 are not auto-populated as they may vary by installation
-  }
-
   // Get available forecast load entities from HA
   _getAvailableForecastEntities() {
     if (!this._hass || !this._hass.states) return [];
@@ -1797,39 +1716,25 @@ class HaeoEventsCard extends HTMLElement {
       // localStorage unavailable or corrupted, use defaults
     }
 
-    // Load display settings (price decimals) from localStorage if available
+    // Load display settings (price/kW/kWh decimals) from localStorage if available
     try {
       const savedDisplay = localStorage.getItem('haeo-events-card-display');
       if (savedDisplay) {
-        this._displaySettings = JSON.parse(savedDisplay);
-      } else {
-        this._displaySettings = { priceDecimals: 4 };
+        const parsed = JSON.parse(savedDisplay);
+        this._displaySettings = {
+          priceDecimals: parsed.priceDecimals ?? 4,
+          kwDecimals:    parsed.kwDecimals    ?? 3,
+          kwhDecimals:   parsed.kwhDecimals   ?? 3,
+        };      } else {
+        this._displaySettings = { priceDecimals: 4, kwDecimals: 3, kwhDecimals: 3 };
       }
     } catch (e) {
-      this._displaySettings = { priceDecimals: 4 };
+      this._displaySettings = { priceDecimals: 4, kwDecimals: 3, kwhDecimals: 3 };
     }
 
-    // Load deferrable loads configuration from localStorage if available
-    // NOTE: We now use entity-based config only (_loadDeferrableLoadsConfig)
-    // Keep _deferableLoadsConfig as empty array to avoid rendering old presets
+    // _deferableLoadsConfig is kept as empty array — old preset system replaced by entity-based config
     this._deferableLoadsConfig = [];
-    
-    // OLD: Load deferrable loads configuration (now deprecated - using entities instead)
-    // try {
-    //   const savedDeferLoads = localStorage.getItem('haeo-events-card-deferrable-loads');
-    //   if (savedDeferLoads) {
-    //     this._deferableLoadsConfig = JSON.parse(savedDeferLoads);
-    //   }
-    // } catch (e) {
-    //   // localStorage unavailable or corrupted, use defaults
-    // }
-    
-    // Initialize thresholds for each configured deferrable load (deprecated - now using entities)
-    // this._deferableLoadsConfig.forEach((config, idx) => {
-    //   if (this._thresholdSettings[`deferLoad${idx}`] === undefined) {
-    //     this._thresholdSettings[`deferLoad${idx}`] = config.threshold || 50;
-    //   }
-    // });
+
     if (!this.shadowRoot.getElementById('tb-future')) {
       const enabledOptionalLoads = this._getEnabledOptionalLoads();
       try {
@@ -2041,6 +1946,13 @@ class HaeoEventsCard extends HTMLElement {
       }
     });
 
+    // Auto-detect energy button handler
+    const autoDetectBtn = this.shadowRoot.getElementById('auto-detect-energy-btn');
+    if (autoDetectBtn && !autoDetectBtn._wired) {
+      autoDetectBtn._wired = true;
+      autoDetectBtn.addEventListener('click', () => this._autoDetectEnergyEntities());
+    }
+
     // Price decimals setting handler
     const priceDecimalsSelect = this.shadowRoot.getElementById('settings-price-decimals');
     if (priceDecimalsSelect && !priceDecimalsSelect._wired) {
@@ -2048,15 +1960,34 @@ class HaeoEventsCard extends HTMLElement {
       priceDecimalsSelect.value = this._displaySettings?.priceDecimals || 4;
       priceDecimalsSelect.addEventListener('change', () => {
         this._displaySettings.priceDecimals = parseInt(priceDecimalsSelect.value) || 4;
-        try {
-          localStorage.setItem('haeo-events-card-display', JSON.stringify(this._displaySettings));
-        } catch (e) {
-          console.error('Failed to save display settings:', e);
-        }
-        // Re-render to apply the new decimal places
-        if (this._activeTab === 'future') {
-          this._renderFuture();
-        }
+        try { localStorage.setItem('haeo-events-card-display', JSON.stringify(this._displaySettings)); } catch (e) {}
+        if (this._activeTab === 'future') this._renderFuture();
+      });
+    }
+
+    // kW decimals setting handler
+    const kwDecimalsSelect = this.shadowRoot.getElementById('settings-kw-decimals');
+    if (kwDecimalsSelect && !kwDecimalsSelect._wired) {
+      kwDecimalsSelect._wired = true;
+      kwDecimalsSelect.value = this._displaySettings?.kwDecimals || 3;
+      kwDecimalsSelect.addEventListener('change', () => {
+        this._displaySettings.kwDecimals = Math.min(4, Math.max(1, parseInt(kwDecimalsSelect.value) || 3));
+        try { localStorage.setItem('haeo-events-card-display', JSON.stringify(this._displaySettings)); } catch (e) {}
+        if (this._activeTab === 'future') this._renderFuture();
+        if (this._activeTab === 'past') this._renderPast();
+      });
+    }
+
+    // kWh decimals setting handler
+    const kwhDecimalsSelect = this.shadowRoot.getElementById('settings-kwh-decimals');
+    if (kwhDecimalsSelect && !kwhDecimalsSelect._wired) {
+      kwhDecimalsSelect._wired = true;
+      kwhDecimalsSelect.value = this._displaySettings?.kwhDecimals || 3;
+      kwhDecimalsSelect.addEventListener('change', () => {
+        this._displaySettings.kwhDecimals = Math.min(4, Math.max(1, parseInt(kwhDecimalsSelect.value) || 3));
+        try { localStorage.setItem('haeo-events-card-display', JSON.stringify(this._displaySettings)); } catch (e) {}
+        if (this._activeTab === 'future') this._renderFuture();
+        if (this._activeTab === 'past') this._renderPast();
       });
     }
 
@@ -2078,46 +2009,6 @@ class HaeoEventsCard extends HTMLElement {
         });
       }
     });
-
-    // Deferrable Loads Configuration
-    const deferLoadCount = this.shadowRoot.getElementById('defer-load-count');
-    if (deferLoadCount && !deferLoadCount._wired) {
-      deferLoadCount._wired = true;
-      deferLoadCount.value = this._deferableLoadsConfig.length;
-      deferLoadCount.addEventListener('change', () => {
-        const newCount = parseInt(deferLoadCount.value) || 0;
-        // Adjust config array to new count
-        if (newCount < this._deferableLoadsConfig.length) {
-          this._deferableLoadsConfig = this._deferableLoadsConfig.slice(0, newCount);
-        } else {
-          while (this._deferableLoadsConfig.length < newCount) {
-            this._deferableLoadsConfig.push({
-              name: '',
-              forecastEntityId: '',
-              historicalEntityId: '',
-              emoji: '🔌',
-              color: { bg: '#d4c5f9', txt: '#4527a0', cost: '#4527a0' },
-              threshold: 50
-            });
-          }
-        }
-        this._renderDeferableLoadsConfig();
-      });
-    }
-
-    // Render deferrable loads config UI
-    this._renderDeferableLoadsConfig();
-
-    // Reset deferrable loads button
-    const resetDeferLoadsBtn = this.shadowRoot.getElementById('reset-defer-loads-btn');
-    if (resetDeferLoadsBtn && !resetDeferLoadsBtn._wired) {
-      resetDeferLoadsBtn._wired = true;
-      resetDeferLoadsBtn.addEventListener('click', () => {
-        this._deferableLoadsConfig = [];
-        deferLoadCount.value = 0;
-        this._renderDeferableLoadsConfig();
-      });
-    }
 
     // Optional Loads handlers
     for (let i = 0; i < 10; i++) {
@@ -2154,21 +2045,31 @@ class HaeoEventsCard extends HTMLElement {
             
             // Preset selected - auto-fill fields
             const presetMap = {
-              'Air Conditioner': { emoji: '🌡️', abbr: 'HVAC', defaultSensor: 'sensor.hvac_power' },
-              'Hot Water System': { emoji: '🚿', abbr: 'HWS', defaultSensor: 'sensor.hot_water_power' },
-              'Clothes Dryer': { emoji: '👚', abbr: 'C. Dryer', defaultSensor: 'sensor.dryer_power' },
-              'Washing Machine': { emoji: '🗑️', abbr: 'W. Machine', defaultSensor: 'sensor.washing_machine_power' },
-              'Dishwasher': { emoji: '🍽️', abbr: 'Dishw.', defaultSensor: 'sensor.dishwasher_power' },
-              'IT Hardware': { emoji: '💻', abbr: 'IT H/W', defaultSensor: 'sensor.it_hardware_power' },
-              'Pool': { emoji: '🏊', abbr: 'Pump', defaultSensor: 'sensor.pool_power' },
-              'Generic Load': { emoji: '🔌', abbr: 'Generic', defaultSensor: 'sensor.generic_load_power' }
+              'Circuit':          { emoji: '⚡',  abbr: 'Circuit',    defaultForecast: 'sensor.circuit_power_X_power',        defaultSensor: 'sensor.circuit_power_X_active_power',  defaultEnergy: 'sensor.circuit_power_X_energy' },
+              'Air Conditioner':  { emoji: '🌡️', abbr: 'HVAC',       defaultForecast: 'sensor.air_conditioner_power',         defaultSensor: 'sensor.air_conditioner_active_power',  defaultEnergy: 'sensor.air_conditioner_energy' },
+              'Hot Water System': { emoji: '🚿', abbr: 'HWS',        defaultForecast: 'sensor.hot_water_system_power',        defaultSensor: 'sensor.hot_water_system_active_power', defaultEnergy: 'sensor.hot_water_system_energy' },
+              'Clothes Dryer':    { emoji: '👚', abbr: 'C. Dryer',   defaultForecast: 'sensor.clothes_dryer_power',           defaultSensor: 'sensor.clothes_dryer_active_power',    defaultEnergy: 'sensor.clothes_dryer_energy' },
+              'Washing Machine':  { emoji: '🧺', abbr: 'W. Machine', defaultForecast: 'sensor.washing_machine_power',         defaultSensor: 'sensor.washing_machine_active_power',  defaultEnergy: 'sensor.washing_machine_energy' },
+              'Dishwasher':       { emoji: '🍽️', abbr: 'Dishw.',     defaultForecast: 'sensor.dishwasher_power',              defaultSensor: 'sensor.dishwasher_active_power',       defaultEnergy: 'sensor.dishwasher_energy' },
+              'IT Hardware':      { emoji: '💻', abbr: 'IT H/W',     defaultForecast: 'sensor.it_hardware_power',             defaultSensor: 'sensor.it_hardware_active_power',      defaultEnergy: 'sensor.it_hardware_energy' },
+              'Pool':             { emoji: '🏊', abbr: 'Pump',       defaultForecast: 'sensor.pool_power',                   defaultSensor: 'sensor.pool_active_power',              defaultEnergy: 'sensor.pool_energy' },
+              'Generic Load':     { emoji: '🔌', abbr: 'Generic',    defaultForecast: 'sensor.generic_load_power',            defaultSensor: 'sensor.generic_load_active_power',     defaultEnergy: 'sensor.generic_load_energy' },
             };
             
             const info = presetMap[preset];
             if (info) {
               emojiInput.value = info.emoji;
-              forecastInput.value = this._generateForecastEntityId(preset);
-              historicalInput.value = info.defaultSensor;
+              const energyInput = this.shadowRoot.getElementById(`optload-energy-${i}`);
+              if (preset === 'Circuit') {
+                const slotNum = i + 1;
+                forecastInput.value = `sensor.circuit_power_${slotNum}_power`;
+                historicalInput.value = `sensor.circuit_power_${slotNum}_active_power`;
+                if (energyInput) energyInput.value = `sensor.circuit_power_${slotNum}_energy`;
+              } else {
+                forecastInput.value = info.defaultForecast;
+                historicalInput.value = info.defaultSensor;
+                if (energyInput) energyInput.value = info.defaultEnergy;
+              }
             }
           } else {
             // None selected - hide custom name input and clear fields
@@ -2253,23 +2154,6 @@ class HaeoEventsCard extends HTMLElement {
           }
         });
       }
-    }
-
-    // Inverter brand dropdown handler
-    const inverterSelect = this.shadowRoot.getElementById('inverter-brand');
-    if (inverterSelect && !inverterSelect._wired) {
-      inverterSelect._wired = true;
-      // Load saved inverter brand
-      const savedBrand = localStorage.getItem('haeo-events-card-inverter-brand') || 'sigenergy';
-      inverterSelect.value = savedBrand;
-      
-      inverterSelect.addEventListener('change', () => {
-        const brand = inverterSelect.value;
-        localStorage.setItem('haeo-events-card-inverter-brand', brand);
-        
-        // Populate Past Events Entities based on selected inverter
-        this._populatePastEntitiesByInverter(brand);
-      });
     }
 
     // Load entity autocomplete handlers for all loads
@@ -2496,12 +2380,6 @@ class HaeoEventsCard extends HTMLElement {
         } catch (e) {
           // localStorage might be unavailable
         }
-        // Save deferrable loads configuration to localStorage
-        try {
-          localStorage.setItem('haeo-events-card-deferrable-loads', JSON.stringify(this._deferableLoadsConfig));
-        } catch (e) {
-          // localStorage might be unavailable
-        }
         // Save entity settings to localStorage
         try {
           const weatherInput = this.shadowRoot.getElementById('weather-entity-input');
@@ -2522,11 +2400,6 @@ class HaeoEventsCard extends HTMLElement {
         // Save optional loads configuration to localStorage
         try {
           this._saveOptionalLoadsConfig();
-        } catch (e) {
-        }
-        // Save deferrable loads entity configuration to localStorage
-        try {
-          this._saveDeferrableLoadsConfig();
         } catch (e) {
         }
         // Close modal and refresh
@@ -2577,18 +2450,36 @@ class HaeoEventsCard extends HTMLElement {
     // Build UTC-epoch-ms → value Map from a sensor's {time, value} forecast attribute.
     // Keying by epoch ms is timezone-safe regardless of UTC offset in time strings.
     // mult: unit multiplier to normalise to kW — auto-detected from unit_of_measurement.
+    // If no forecast attribute exists, falls back to the live state value repeated for
+    // all primary forecast timestamps (used for Base Load which is a live sensor).
     const buildMap = (entityId, mult) => {
-      const fc = this._hass?.states[entityId]?.attributes?.forecast;
-      if (!Array.isArray(fc)) {
-        return new Map();
+      const stateObj = this._hass?.states[entityId];
+      const fc = stateObj?.attributes?.forecast;
+      if (Array.isArray(fc) && fc.length) {
+        const m = new Map();
+        for (const row of fc) {
+          if (!row || row.time == null) continue;
+          const ts = new Date(row.time).getTime();
+          if (!isNaN(ts)) m.set(ts, (row.value != null ? parseFloat(row.value) || 0 : 0) * mult);
+        }
+        return m;
       }
-      const m = new Map();
-      for (const row of fc) {
-        if (!row || row.time == null) continue;
-        const ts = new Date(row.time).getTime();
-        if (!isNaN(ts)) m.set(ts, (row.value != null ? parseFloat(row.value) || 0 : 0) * mult);
+      // No forecast attribute — use live state value as a constant across all slots
+      const liveVal = parseFloat(stateObj?.state);
+      if (!isNaN(liveVal) && isFinite(liveVal)) {
+        const unit = stateObj?.attributes?.unit_of_measurement || '';
+        const unitMult = unit === 'W' ? 0.001 : unit === 'MW' ? 1000 : 1;
+        const m = new Map();
+        m._liveValue = liveVal * mult * unitMult;  // flag for constant-value maps
+        return m;
       }
-      return m;
+      return new Map();
+    };
+
+    // Wrapper: looks up a value from a map, using live constant if map has no timestamps
+    const mapGet = (m, ts) => {
+      if (m._liveValue !== undefined) return m._liveValue;
+      return m.get(ts) ?? 0;
     };
 
     // Primary axis: battery_active_power — has the richest power forecast data.
@@ -2612,20 +2503,23 @@ class HaeoEventsCard extends HTMLElement {
     // Load saved entity configuration (with defaults as fallback)
     const loadEntityConfig = this._loadLoadEntitiesConfig();
     const enabledOptionalLoads = this._getEnabledOptionalLoads();
-    
+
+    // Invert multipliers for Future tab (sign flip for inverted sensors)
+    const _inv = (key) => loadEntityConfig[key]?.invert ? -1 : 1;
+
     // Build forecast maps using saved or default entities
-    const battMap  = buildMap(loadEntityConfig.battery.forecast || this._eid('haeo_battery'),        1);
-    const gridMap  = buildMap(loadEntityConfig.grid.forecast || this._eid('haeo_grid'),           1); // positive=import, negative=export — matches display
-    const loadMap  = buildMap(loadEntityConfig.base.forecast || this._eid('haeo_load'),           1);
-    const deferLoadMap = buildMap(loadEntityConfig.deferrable?.forecast || this._eid('haeo_deferrable_load'), 1);
-    const solarMap = buildMap(loadEntityConfig.pv.forecast || this._eid('haeo_solar'),          1);
-    const socMap   = buildMap(this._eid('haeo_soc'),            1);
-    const evPowerMap = buildMap(loadEntityConfig.ev.forecast || this._eid('haeo_ev_power'),     1);
-    const evSocMap   = buildMap(this._eid('haeo_ev_soc'),       1);
-    const ev2PowerMap = buildMap(loadEntityConfig.ev2.forecast || this._eid('haeo_ev2_power'),    1);
+    const battMap     = buildMap(loadEntityConfig.battery.forecast || this._eid('haeo_battery'),             _inv('battery'));
+    const gridMap     = buildMap(loadEntityConfig.grid.forecast || this._eid('haeo_grid'),                   _inv('grid'));
+    const loadMap     = buildMap(loadEntityConfig.base.forecast || this._eid('haeo_load'),                   _inv('base'));
+    const deferLoadMap= buildMap(loadEntityConfig.deferrable?.forecast || this._eid('haeo_deferrable_load'), _inv('deferLoad'));
+    const solarMap    = buildMap(loadEntityConfig.pv.forecast || this._eid('haeo_solar'),                    _inv('pv'));
+    const socMap      = buildMap(this._eid('haeo_soc'),            1);
+    const evPowerMap  = buildMap(loadEntityConfig.ev.forecast || this._eid('haeo_ev_power'),                 _inv('ev'));
+    const evSocMap    = buildMap(this._eid('haeo_ev_soc'),       1);
+    const ev2PowerMap = buildMap(loadEntityConfig.ev2.forecast || this._eid('haeo_ev2_power'),               _inv('ev2'));
     const ev2SocMap   = buildMap(this._eid('haeo_ev2_soc'),      1);
-    const buyMap   = buildMap(this._eid('haeo_buy_price'),      1);
-    const sellMap  = buildMap(this._eid('haeo_sell_price'),     1);
+    const buyMap      = buildMap(this._eid('haeo_buy_price'),      1);
+    const sellMap     = buildMap(this._eid('haeo_sell_price'),     1);
     
     // Build forecast maps for each configured deferrable load
     // Build deferrable loads map using entity-based config
@@ -2686,15 +2580,15 @@ class HaeoEventsCard extends HTMLElement {
     // Current activity: use live sensors, fallback to forecast if unavailable
     const liveGridKw = parseFloat(this._hass?.states[this._eid('haeo_grid')]?.state) ?? null;
     const liveBattKw = parseFloat(this._hass?.states[this._eid('haeo_battery')]?.state) ?? null;
-    const currentGridKw = liveGridKw != null ? liveGridKw : gridMap.get(nowTs) || 0;
-    const currentBattKw = liveBattKw != null ? liveBattKw : battMap.get(nowTs) || 0;
+    const currentGridKw = liveGridKw != null ? liveGridKw : mapGet(gridMap, nowTs);
+    const currentBattKw = liveBattKw != null ? liveBattKw : mapGet(battMap, nowTs);
     const isGridImporting = currentGridKw > 0.05;  // 50W threshold
     const isBattCharging = currentBattKw < -0.1;   // 100W threshold
     const isGridExporting = currentGridKw < -0.05; // 50W threshold
     const isBattExporting = currentBattKw > 0.1 && isGridExporting; // discharge + grid export
 
     // Get current Mode and Focus
-    const nowClassification = _haeo_classifyFuture(solarMap.get(nowTs) || 0, loadMap.get(nowTs) || 0, currentBattKw, currentGridKw, evPowerMap.get(nowTs) || 0, deferLoadMap.get(nowTs) || 0, ev2PowerMap.get(nowTs) || 0, [], enabledOptionalLoads);
+    const nowClassification = _haeo_classifyFuture(mapGet(solarMap, nowTs), mapGet(loadMap, nowTs), currentBattKw, currentGridKw, mapGet(evPowerMap, nowTs), mapGet(deferLoadMap, nowTs), mapGet(ev2PowerMap, nowTs), [], enabledOptionalLoads);
     const { mode, focus, modeColor, focusColor } = _haeo_getModeAndFocus(nowClassification.label);
 
     // Morning SoC / Peak SoC — show next day's minimum SoC during morning (00:00-12:00) or current peak
@@ -2704,7 +2598,7 @@ class HaeoEventsCard extends HTMLElement {
       const diff = Math.abs(ts - nowTs);
       if (diff < closestDiff) {
         closestDiff = diff;
-        chargingNow = (solarMap.get(ts) || 0) > 0.5 && (battMap.get(ts) || 0) < -0.1;
+        chargingNow = (mapGet(solarMap, ts)) > 0.5 && (mapGet(battMap, ts)) < -0.1;
       }
     }
     
@@ -2769,7 +2663,7 @@ class HaeoEventsCard extends HTMLElement {
         const ts = new Date(row.time).getTime();
         if (isNaN(ts) || ts < nowTs) continue;
         const soc = socMap.get(ts) || 0;
-        if ((solarMap.get(ts) || 0) > 0.5 && (battMap.get(ts) || 0) < -0.01 && soc > pkSoc) {
+        if ((mapGet(solarMap, ts)) > 0.5 && (mapGet(battMap, ts)) < -0.01 && soc > pkSoc) {
           pkSoc  = soc;
           pkTime = new Date(ts).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
@@ -2828,10 +2722,10 @@ class HaeoEventsCard extends HTMLElement {
     for (const row of primaryFc) {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
-      const gridKw = gridMap.get(ts) || 0;
-      const battKw = battMap.get(ts) || 0;
-      const solarKw = solarMap.get(ts) || 0;
-      const loadKw = loadMap.get(ts) || 0;
+      const gridKw = mapGet(gridMap, ts);
+      const battKw = mapGet(battMap, ts);
+      const solarKw = mapGet(solarMap, ts);
+      const loadKw = mapGet(loadMap, ts);
       
       // Grid Import (grid > 0.1 kW)
       if (!gridImportTime && gridKw > 0.1)
@@ -2940,10 +2834,10 @@ class HaeoEventsCard extends HTMLElement {
       const ts = new Date(row.time).getTime();
       if (isNaN(ts) || ts < nowTs) continue;
       const dayStr = new Date(ts).toLocaleDateString('en-CA');
-      const battKw  = battMap.get(ts)  || 0;
-      const gridKw  = gridMap.get(ts)  || 0;
-      const loadKw  = loadMap.get(ts)  || 0;
-      const solarKw = solarMap.get(ts) || 0;
+      const battKw  = mapGet(battMap, ts);
+      const gridKw  = mapGet(gridMap, ts);
+      const loadKw  = mapGet(loadMap, ts);
+      const solarKw = mapGet(solarMap, ts);
       const stepH   = stepHFor(ts);
       
       // Retrieve values for dynamic deferrable loads (use nearestGet for timestamp matching)
@@ -2955,7 +2849,7 @@ class HaeoEventsCard extends HTMLElement {
       // Retrieve values for optional loads
       const optionalLoadsKwValues = [];
       optionalLoadMaps.forEach((item, idx) => {
-        optionalLoadsKwValues[idx] = item.map.get(ts) || 0;
+        optionalLoadsKwValues[idx] = mapGet(item.map, ts);
       });
 
       // Cost/Profit: export = |gridKwh| × sellP (negative = profit), import = gridKwh × buyP (positive = cost)
@@ -2983,7 +2877,7 @@ class HaeoEventsCard extends HTMLElement {
       dailyCosts[dayStr] += cost;
       const dk = dailyKwh[dayStr];
       dk.load += loadKw  * stepH;
-      dk.deferLoad += (deferLoadMap.get(ts) || 0) * stepH;
+      dk.deferLoad += (mapGet(deferLoadMap, ts)) * stepH;
       
       // Accumulate optional loads kWh
       optionalLoadMaps.forEach((config, idx) => {
@@ -3005,8 +2899,8 @@ class HaeoEventsCard extends HTMLElement {
       } else if (battKw < -0.05) {
         dk.battDis += Math.abs(battKw) * stepH;
       }
-      dk.ev   += (evPowerMap.get(ts) || 0) * stepH;
-      dk.ev2  += (ev2PowerMap.get(ts) || 0) * stepH;
+      dk.ev   += (mapGet(evPowerMap, ts)) * stepH;
+      dk.ev2  += (mapGet(ev2PowerMap, ts)) * stepH;
       
       // Accumulate dynamic deferrable loads
       deferLoadValues.forEach((val, idx) => {
@@ -3044,27 +2938,33 @@ class HaeoEventsCard extends HTMLElement {
       const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
       const dayLabel = day === todayStr ? '📅 Today' : '📅 ' + new Date(day + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
       const dayCostLabel = dayTotal <= 0 ? _HAEO_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _HAEO_CUR + dayTotal.toFixed(2);
-      const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) : '—';
-      const fmtImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
-      const fmtExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
-      const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
-      const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
+      const _kwDp2 = this._displaySettings?.kwDecimals || 3;
+      const _kwhDp2 = this._displaySettings?.kwhDecimals || 3;
+      const fmtKd = (v) => Math.abs(v) > 0.001 ? (v < 0 ? '-' : '') + Math.abs(v).toFixed(_kwhDp2) : '—';
+      const fmtImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(_kwhDp2) + '</span>' : '—';
+      const fmtExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(_kwhDp2) + '</span>' : '—';
+      const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(_kwhDp2) + '</span>' : '—';
+      const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(_kwhDp2) + '</span>' : '—';
       
       // Row 1: Load, PV, Grid Import, Battery Charge
       let html = '<tr class="dr" style="border-bottom:1px solid var(--divider-color,#444);">' +
         '<td colspan="2">' + dayLabel + '</td>' +
         '<td class="bgl" colspan="2"></td>' +
+        (_showTotalLoad ? '<td class="bgl"></td><td class="bgi" style="text-align:right;font-weight:bold;">' + fmtKd(dk.load + (columnSettings.deferLoad !== false ? dk.deferLoad : 0) + (columnSettings.ev !== false ? (dk.evChg || 0) : 0) + (columnSettings.ev2 !== false ? (dk.ev2Chg || 0) : 0) + Object.keys(dk).filter(k => k.startsWith('optload')).reduce((s,k) => s + dk[k], 0)) + '</td>' : '') +
         '<td class="bgl"></td>' +
         '<td class="bgi" style="text-align:right;">' + fmtKd(dk.load) + '</td>';
       
       // Add Def. Loads toggle column (single entity, not multiple presets)
       if (columnSettings.deferLoad !== false) {
-        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">—</td>';
+        html += '<td class="bgl"></td>';
+        if (loadEntityConfig.deferLoad?.showKwh !== false) html += '<td class="bgi" style="text-align:right;">—</td>';
       }
       
       // Add optional loads columns
       optionalLoadMaps.forEach((config, idx) => {
-        html += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + (dk[`optload${idx}`] > 0 ? fmtKd(dk[`optload${idx}`]) : '—') + '</td>';
+        html += '<td class="bgl"></td>';
+        const optLoad = enabledOptionalLoads[idx];
+        if (optLoad?.showKwh !== false) html += '<td class="bgi" style="text-align:right;">' + (dk[`optload${idx}`] > 0 ? fmtKd(dk[`optload${idx}`]) : '—') + '</td>';
       });
       
       html += '<td class="bgl"></td>' +
@@ -3086,6 +2986,7 @@ class HaeoEventsCard extends HTMLElement {
       let row2 = '<tr class="dr" style="border-top:1px solid var(--divider-color,#444);">' +
         '<td colspan="2"></td>' +
         '<td class="bgl" colspan="2"></td>' +
+        (_showTotalLoad ? '<td class="bgl"></td><td></td>' : '') +
         '<td class="bgl"></td>' +
         '<td></td>';
       
@@ -3121,6 +3022,7 @@ class HaeoEventsCard extends HTMLElement {
     
     // Capture this context for use in row building
     const columnSettings = this._columnSettings;
+    const _showTotalLoad = columnSettings.deferLoad !== false || columnSettings.ev !== false || columnSettings.ev2 !== false || enabledOptionalLoads.length > 0;
 
     for (const row of primaryFc) {
       const ts = new Date(row.time).getTime();
@@ -3136,12 +3038,12 @@ class HaeoEventsCard extends HTMLElement {
       }
 
       // Power sensors share the battery timestamp axis — exact match
-      const battKw  = battMap.get(ts)       || 0;
-      const gridKw  = gridMap.get(ts)       || 0;
-      const loadKw  = loadMap.get(ts)       || 0;
-      const solarKw = solarMap.get(ts)      || 0;
+      const battKw  = mapGet(battMap, ts);
+      const gridKw  = mapGet(gridMap, ts);
+      const loadKw  = mapGet(loadMap, ts);
+      const solarKw = mapGet(solarMap, ts);
       const soc     = socMap.get(ts)        || 0;
-      const deferLoadKw = deferLoadMap.get(ts) || 0;
+      const deferLoadKw = mapGet(deferLoadMap, ts);
       
       // Retrieve values for dynamic deferrable loads (use nearestGet for timestamp matching)
       const deferLoadValues = [];
@@ -3150,9 +3052,9 @@ class HaeoEventsCard extends HTMLElement {
         deferLoadValues[idx] = val;
       });
       
-      const evKw    = evPowerMap.get(ts)    || 0;
+      const evKw    = mapGet(evPowerMap, ts);
       const evSoc   = evSocMap.get(ts)      || 0;
-      const ev2Kw   = ev2PowerMap.get(ts)   || 0;
+      const ev2Kw   = mapGet(ev2PowerMap, ts);
       const ev2Soc  = ev2SocMap.get(ts)     || 0;
       
       // Build optional loads values for this timestamp
@@ -3211,11 +3113,13 @@ class HaeoEventsCard extends HTMLElement {
       const socCol   = soc <= 20 ? '#f44336' : soc >= 75 ? '#4caf50' : c.txt;
       const costFmt  = _haeo_fmtCost(cost);
       const costCol  = costFmt.col || (cost > 0.0001 ? c.cost : c.txt);
-      const fmtKwh   = (v) => Math.abs(v * stepH) > 0.001 ? (v * stepH).toFixed(3) : '—';
+      const _kwDp = this._displaySettings?.kwDecimals || 3;
+      const _kwhDp = this._displaySettings?.kwhDecimals || 3;
+      const fmtKwh   = (v) => Math.abs(v * stepH) > 0.0001 ? (v * stepH).toFixed(_kwhDp) : '—';
       const fmtKwhC  = (v, col) => {
         const kwh = v * stepH;
-        if (Math.abs(kwh) <= 0.001) return '—';
-        return '<span style="color:' + col + ';">' + kwh.toFixed(3) + '</span>';
+        if (Math.abs(kwh) <= 0.0001) return '—';
+        return '<span style="color:' + col + ';">' + kwh.toFixed(_kwhDp) + '</span>';
       };
       
       // Build deferrable load label (single entity now, not multiple presets)
@@ -3241,35 +3145,47 @@ class HaeoEventsCard extends HTMLElement {
         '<td><span title="' + detailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
         '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
         '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
-        '<td class="bgl">' + loadKw.toFixed(3)  + '</td>' +
+        // Total Load = base + deferLoad + all enabled optional loads
+        (() => {
+          if (!_showTotalLoad) return '';
+          const totalLoadKw = loadKw
+            + (columnSettings.deferLoad !== false ? deferLoadKw : 0)
+            + (columnSettings.ev !== false ? mapGet(evPowerMap, ts) : 0)
+            + (columnSettings.ev2 !== false ? mapGet(ev2PowerMap, ts) : 0)
+            + optionalLoadsKwValues.reduce((s, v) => s + v, 0);
+          return '<td class="bgl" style="font-weight:bold;">' + totalLoadKw.toFixed(_kwDp) + '</td>' +
+                 '<td class="bgi" style="font-weight:bold;">' + fmtKwh(totalLoadKw) + '</td>';
+        })() +
+        '<td class="bgl">' + loadKw.toFixed(_kwDp)  + '</td>' +
         '<td class="bgi">' + fmtKwh(loadKw)     + '</td>' +
         // Def. Loads toggle column (single entity, not multiple presets)
         (columnSettings.deferLoad !== false ? (
-          '<td class="bgl">' + (deferLoadKw >= 0.05 ? deferLoadKw.toFixed(3) : '—') + '</td>' +
-          '<td class="bgi">' + (deferLoadKw >= 0.05 ? fmtKwh(deferLoadKw) : '—') + '</td>'
+          '<td class="bgl">' + (deferLoadKw >= 0.05 ? deferLoadKw.toFixed(_kwDp) : '—') + '</td>' +
+          (loadEntityConfig.deferLoad?.showKwh !== false ? '<td class="bgi">' + (deferLoadKw >= 0.05 ? fmtKwh(deferLoadKw) : '—') + '</td>' : '')
         ) : '') +
         // Optional loads columns
         optionalLoadMaps.map((item, idx) => {
           const optKw = optionalLoadsKwValues[idx] || 0;
-          const optThreshold = (this._thresholdSettings['optload'] || 10) / 1000; // Convert W to kW
-          return '<td class="bgl">' + (optKw > optThreshold ? optKw.toFixed(3) : '—') + '</td>' +
-                 '<td class="bgi">' + (optKw > optThreshold ? fmtKwh(optKw) : '—') + '</td>';
+          const optThreshold = (this._thresholdSettings['optload'] || 10) / 1000;
+          const optLoad = enabledOptionalLoads[idx];
+          return '<td class="bgl">' + (optKw > optThreshold ? optKw.toFixed(_kwDp) : '—') + '</td>' +
+                 (optLoad?.showKwh !== false ? '<td class="bgi">' + (optKw > optThreshold ? fmtKwh(optKw) : '—') + '</td>' : '');
         }).join('') +
-        '<td class="bgl">' + (solarKw >= 0.05 ? solarKw.toFixed(3) : '—') + '</td>' +
+        '<td class="bgl">' + (solarKw >= 0.05 ? solarKw.toFixed(_kwDp) : '—') + '</td>' +
         '<td class="bgi">' + (solarKw >= 0.05 ? fmtKwh(solarKw) : '—') + '</td>' +
-        '<td class="bgl">' + (Math.abs(gridKw) >= 0.1 ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(3) + '</span>' : '—') + '</td>' +
+        '<td class="bgl">' + (Math.abs(gridKw) >= 0.1 ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(_kwDp) + '</span>' : '—') + '</td>' +
         '<td class="bgi">' + (Math.abs(gridKw) >= 0.1 ? fmtKwhC(gridKw, gridCol) : '—') + '</td>' +
-        '<td class="bgl">' + (Math.abs(battDisplay) >= 0.1 ? '<span style="color:' + battCol + ';">' + battDisplay.toFixed(3) + '</span>' : '—') + '</td>' +
+        '<td class="bgl">' + (Math.abs(battDisplay) >= 0.1 ? '<span style="color:' + battCol + ';">' + battDisplay.toFixed(_kwDp) + '</span>' : '—') + '</td>' +
         '<td class="bgi">' + (Math.abs(battDisplay) >= 0.1 ? '<span style="color:' + battCol + ';">' + fmtKwh(battDisplay) + '</span>' : '—') + '</td>' +
         '<td class="bgi"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
         (columnSettings.ev !== false ? 
-          '<td class="bgl">' + (evSensorsExist ? (Math.abs(evDisplay) >= 0.1 ? '<span style="color:' + evCol + ';">' + evDisplay.toFixed(3) + '</span>' : '—') : 'x') + '</td>' +
-          '<td class="bgi">' + (evSensorsExist ? (Math.abs(evDisplay) >= 0.1 ? '<span style="color:' + evCol + ';">' + fmtKwh(evDisplay) + '</span>' : '—') : 'x') + '</td>' +
+          '<td class="bgl">' + (evSensorsExist ? (Math.abs(evDisplay) >= 0.1 ? '<span style="color:' + evCol + ';">' + evDisplay.toFixed(_kwDp) + '</span>' : '—') : 'x') + '</td>' +
+          (loadEntityConfig.ev?.showKwh !== false ? '<td class="bgi">' + (evSensorsExist ? (Math.abs(evDisplay) >= 0.1 ? '<span style="color:' + evCol + ';">' + fmtKwh(evDisplay) + '</span>' : '—') : 'x') + '</td>' : '') +
           '<td class="bgi"><span style="color:' + (evSoc <= 20 ? '#f44336' : evSoc >= 80 ? '#4caf50' : textColor) + ';">' + (evSensorsExist ? (evSoc > 0 ? evSoc.toFixed(1) : '—') : 'x') + '</span></td>'
           : '') +
         (columnSettings.ev2 !== false ?
-          '<td class="bgl">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= 0.1 ? '<span style="color:' + ev2Col + ';">' + ev2Display.toFixed(3) + '</span>' : '—') : 'x') + '</td>' +
-          '<td class="bgi">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= 0.1 ? '<span style="color:' + ev2Col + ';">' + fmtKwh(ev2Display) + '</span>' : '—') : 'x') + '</td>' +
+          '<td class="bgl">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= 0.1 ? '<span style="color:' + ev2Col + ';">' + ev2Display.toFixed(_kwDp) + '</span>' : '—') : 'x') + '</td>' +
+          (loadEntityConfig.ev2?.showKwh !== false ? '<td class="bgi">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= 0.1 ? '<span style="color:' + ev2Col + ';">' + fmtKwh(ev2Display) + '</span>' : '—') : 'x') + '</td>' : '') +
           '<td class="bgi"><span style="color:' + (ev2Soc <= 20 ? '#f44336' : ev2Soc >= 80 ? '#4caf50' : textColor) + ';">' + (ev2SensorsExist ? (ev2Soc > 0 ? ev2Soc.toFixed(1) : '—') : 'x') + '</span></td>'
           : '') +
         '<td class="bgl"><span style="color:' + costColor + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
@@ -3319,6 +3235,10 @@ class HaeoEventsCard extends HTMLElement {
     try {
       const { start, end } = this._getRangeP();
       st.textContent = 'Fetching...';
+
+      // Decimal place settings for Past render
+      const _kwDp  = this._displaySettings?.kwDecimals  || 3;
+      const _kwhDp = this._displaySettings?.kwhDecimals || 3;
 
       // Load saved entity configuration (with defaults as fallback)
       const loadEntityConfig = this._loadLoadEntitiesConfig();
@@ -3403,6 +3323,16 @@ class HaeoEventsCard extends HTMLElement {
         ev:      _haeo_powerMult(this._hass, this._eid('haeo_ev_power')),
         ev2:     _haeo_powerMult(this._hass, this._eid('haeo_ev2_power')),
       };
+
+      // Apply invert flow flags — negate the multiplier for any load with invert=true
+      const _invertConfig = this._loadLoadEntitiesConfig();
+      if (_invertConfig.base?.invert)     this._pwrMult.load     *= -1;
+      if (_invertConfig.pv?.invert)       this._pwrMult.solar    *= -1;
+      if (_invertConfig.grid?.invert)     this._pwrMult.grid     *= -1;
+      if (_invertConfig.battery?.invert)  this._pwrMult.battery  *= -1;
+      if (_invertConfig.ev?.invert)       this._pwrMult.ev       *= -1;
+      if (_invertConfig.ev2?.invert)      this._pwrMult.ev2      *= -1;
+      if (_invertConfig.deferLoad?.invert) this._pwrMult.deferLoad *= -1;
       
       // Add multipliers for each configured deferrable load
       this._deferableLoadsConfig.forEach((config, idx) => {
@@ -3567,22 +3497,26 @@ class HaeoEventsCard extends HTMLElement {
         const dk = pastDailyKwh[day] || defaultDk;
         const dayColor = dayTotal <= 0 ? '#4caf50' : '#f44336';
         const dayCostLbl = dayTotal <= 0 ? _HAEO_CUR + Math.abs(dayTotal).toFixed(2) : '-' + _HAEO_CUR + dayTotal.toFixed(2);
-        const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
-        const fmtImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
-        const fmtExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
-        const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(3) + '</span>' : '—';
-        const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(3) + '</span>' : '—';
-        const fmtEV = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(2) + '</span>' : '—';
+        const _kwDp3 = this._displaySettings?.kwDecimals || 3;
+        const _kwhDp3 = this._displaySettings?.kwhDecimals || 3;
+        const fmtKd = (v) => Math.abs(v) > 0.001 ? v.toFixed(_kwhDp3) : '—';
+        const fmtImp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(_kwhDp3) + '</span>' : '—';
+        const fmtExp = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(_kwhDp3) + '</span>' : '—';
+        const fmtBattChg = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(_kwhDp3) + '</span>' : '—';
+        const fmtBattDis = (v) => Math.abs(v) > 0.001 ? '<span style="color:#f44336;">' + v.toFixed(_kwhDp3) + '</span>' : '—';
+        const fmtEV = (v) => Math.abs(v) > 0.001 ? '<span style="color:#4caf50;">' + v.toFixed(_kwhDp3) + '</span>' : '—';
         
         let row1 = '<tr class="dr" style="border-bottom:1px solid var(--divider-color,#444);">' +
           '<td colspan="2">📅 ' + day + '</td>' +
           '<td class="bgl" colspan="2"></td>' +
+          (_showTotalLoad ? '<td class="bgl"></td><td class="bgi" style="text-align:right;font-weight:bold;">' + fmtKd(dk.load + (columnSettings.deferLoad !== false ? dk.deferLoad : 0) + (columnSettings.ev !== false ? (dk.evChg || 0) : 0) + (columnSettings.ev2 !== false ? (dk.ev2Chg || 0) : 0) + Object.keys(dk).filter(k => k.startsWith('optload')).reduce((s,k) => s + dk[k], 0)) + '</td>' : '') +
           '<td class="bgl"></td>' +
           '<td class="bgi" style="text-align:right;">' + fmtKd(dk.load) + '</td>';
         
         // Def. Loads toggle column and optional load cells - Row 1 (only if enabled)
         if (columnSettings.deferLoad !== false) {
-          row1 += '<td class="bgl"></td><td class="bgi" style="text-align:right;">—</td>';
+          row1 += '<td class="bgl"></td>';
+          if (loadEntityConfig.deferLoad?.showKwh !== false) row1 += '<td class="bgi" style="text-align:right;">—</td>';
           this._deferableLoadsConfig.forEach((config, idx) => {
             row1 += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + fmtKd(dk[`deferLoad${idx}`]) + '</td>';
           });
@@ -3591,8 +3525,8 @@ class HaeoEventsCard extends HTMLElement {
         // Optional loads columns - display accumulated daily energy
         enabledOptionalLoads.forEach((config, idx) => {
           const optEnergy = dk[`optload${idx}`] || 0;
-          row1 += '<td class="bgl"></td>' +
-                  '<td class="bgi" style="text-align:right;">' + fmtKd(optEnergy) + '</td>';
+          row1 += '<td class="bgl"></td>';
+          if (config.showKwh !== false) row1 += '<td class="bgi" style="text-align:right;">' + fmtKd(optEnergy) + '</td>';
         });
         
         row1 += '<td class="bgl"></td>' +
@@ -3603,10 +3537,14 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgi" style="text-align:right;">' + fmtBattChg(dk.battChg) + '</td>' +
           '<td class="bgi"></td>';
         if (columnSettings.ev !== false) {
-          row1 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Charge:</td><td class="bgi" style="text-align:right;">' + fmtEV(dk.evChg) + '</td><td class="bgi"></td>';
+          row1 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Charge:</td>';
+          if (loadEntityConfig.ev?.showKwh !== false) row1 += '<td class="bgi" style="text-align:right;">' + fmtEV(dk.evChg) + '</td>';
+          row1 += '<td class="bgi"></td>';
         }
         if (columnSettings.ev2 !== false) {
-          row1 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Charge:</td><td class="bgi" style="text-align:right;">' + fmtEV(dk.ev2Chg) + '</td><td class="bgi"></td>';
+          row1 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Charge:</td>';
+          if (loadEntityConfig.ev2?.showKwh !== false) row1 += '<td class="bgi" style="text-align:right;">' + fmtEV(dk.ev2Chg) + '</td>';
+          row1 += '<td class="bgi"></td>';
         }
         row1 += '<td class="bgl" style="text-align:right;color:' + dayColor + ';">' + dayCostLbl + '</td></tr>';
         
@@ -3614,6 +3552,7 @@ class HaeoEventsCard extends HTMLElement {
         let row2 = '<tr class="dr" style="border-top:1px solid var(--divider-color,#444);">' +
           '<td colspan="2"></td>' +
           '<td class="bgl" colspan="2"></td>' +
+          (_showTotalLoad ? '<td class="bgl"></td><td></td>' : '') +
           '<td class="bgl"></td>' +
           '<td></td>';
         
@@ -3635,10 +3574,14 @@ class HaeoEventsCard extends HTMLElement {
           '<td class="bgi" style="text-align:right;">' + fmtBattDis(dk.battDis) + '</td>' +
           '<td class="bgi"></td>';
         if (columnSettings.ev !== false) {
-          row2 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Disch:</td><td class="bgi" style="text-align:right;">' + fmtEV(dk.evDis) + '</td><td></td>';
+          row2 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Disch:</td>';
+          if (loadEntityConfig.ev?.showKwh !== false) row2 += '<td class="bgi" style="text-align:right;">' + fmtEV(dk.evDis) + '</td>';
+          row2 += '<td></td>';
         }
         if (columnSettings.ev2 !== false) {
-          row2 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Disch:</td><td class="bgi" style="text-align:right;">' + fmtEV(dk.ev2Dis) + '</td><td></td>';
+          row2 += '<td class="bgl" style="font-weight:bold;font-size:9px;color:#666;">Disch:</td>';
+          if (loadEntityConfig.ev2?.showKwh !== false) row2 += '<td class="bgi" style="text-align:right;">' + fmtEV(dk.ev2Dis) + '</td>';
+          row2 += '<td></td>';
         }
         row2 += '<td></td></tr>';
         return row1 + row2;
@@ -3650,6 +3593,7 @@ class HaeoEventsCard extends HTMLElement {
       
       // Capture this context for use in row building
       const columnSettings = this._columnSettings;
+      const _showTotalLoad = columnSettings.deferLoad !== false || columnSettings.ev !== false || columnSettings.ev2 !== false || enabledOptionalLoads.length > 0;
 
       for (const ts of entries) {
         const dt      = new Date(ts);
@@ -3802,7 +3746,7 @@ class HaeoEventsCard extends HTMLElement {
           ? (eBattC !== null ? eBattC  :  (-battKw * stepHB))
           : null;
 
-        const fmtE = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(3) : '—';
+        const fmtE = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(_kwhDp) : '—';
         
         // Build deferrable load emoji label (top 2 or generic if 3+)
         let deferLoadLabel = '';
@@ -3827,36 +3771,47 @@ class HaeoEventsCard extends HTMLElement {
           '<td><span title="' + pastDetailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
           '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
           '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
-          '<td class="bgl">' + (loadKw >= _thresholdKw('load') ? loadKw.toFixed(3) : '—')  + '</td>' +
+          // Total Load = base + deferLoad + all enabled optional loads
+          (() => {
+            if (!_showTotalLoad) return '';
+            const totalLoadKw = loadKw
+              + (columnSettings.deferLoad !== false ? deferLoadKw : 0)
+              + (columnSettings.ev !== false ? Math.abs(evDisplay) : 0)
+              + (columnSettings.ev2 !== false ? Math.abs(ev2Display) : 0)
+              + optionalLoadsKwValues.reduce((s, v) => s + v, 0);
+            return '<td class="bgl" style="font-weight:bold;">' + (totalLoadKw >= 0.001 ? totalLoadKw.toFixed(_kwDp) : '—') + '</td>' +
+                   '<td class="bgi" style="font-weight:bold;">' + (totalLoadKw >= 0.001 ? fmtE(totalLoadKw * stepHB) : '—') + '</td>';
+          })() +
+          '<td class="bgl">' + (loadKw >= _thresholdKw('load') ? loadKw.toFixed(_kwDp) : '—')  + '</td>' +
           '<td class="bgi">' + (loadKw >= _thresholdKw('load') ? fmtE(eLoad) : '—')  + '</td>' +
           // Def. Loads toggle column (single entity, not multiple presets)
           (columnSettings.deferLoad !== false ? (
-            '<td class="bgl">' + (deferLoadKw >= _thresholdKw('deferLoad') ? deferLoadKw.toFixed(3) : '—') + '</td>' +
-            '<td class="bgi">' + (deferLoadKw >= _thresholdKw('deferLoad') ? fmtE(eDeferLoad) : '—') + '</td>'
+            '<td class="bgl">' + (deferLoadKw >= _thresholdKw('deferLoad') ? deferLoadKw.toFixed(_kwDp) : '—') + '</td>' +
+            (loadEntityConfig.deferLoad?.showKwh !== false ? '<td class="bgi">' + (deferLoadKw >= _thresholdKw('deferLoad') ? fmtE(eDeferLoad) : '—') + '</td>' : '')
           ) : '') +
           // Optional loads columns
           enabledOptionalLoads.map((config, idx) => {
             const optKw = optionalLoadsKwValues[idx] || 0;
             const optEnergy = optionalLoadsEnergyValues[idx] || 0;
-            const optThreshold = (this._thresholdSettings['optload'] || 10) / 1000; // Convert W to kW
-            return '<td class="bgl">' + (optKw > optThreshold ? optKw.toFixed(3) : '—') + '</td>' +
-                   '<td class="bgi">' + (optEnergy > 0.001 ? optEnergy.toFixed(3) : '—') + '</td>';
+            const optThreshold = (this._thresholdSettings['optload'] || 10) / 1000;
+            return '<td class="bgl">' + (optKw > optThreshold ? optKw.toFixed(_kwDp) : '—') + '</td>' +
+                   (config.showKwh !== false ? '<td class="bgi">' + (optEnergy > 0.001 ? optEnergy.toFixed(_kwhDp) : '—') + '</td>' : '');
           }).join('') +
-          '<td class="bgl">' + (solarKw >= _thresholdKw('pv') ? solarKw.toFixed(3) : '—') + '</td>' +
+          '<td class="bgl">' + (solarKw >= _thresholdKw('pv') ? solarKw.toFixed(_kwDp) : '—') + '</td>' +
           '<td class="bgi">' + (solarKw >= _thresholdKw('pv') ? fmtE(eSolar) : '—') + '</td>' +
-          '<td class="bgl">' + (Math.abs(gridKw) >= _thresholdKw('grid') ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(3) + '</span>' : '—') + '</td>' +
+          '<td class="bgl">' + (Math.abs(gridKw) >= _thresholdKw('grid') ? '<span style="color:' + gridCol + ';">' + gridKw.toFixed(_kwDp) + '</span>' : '—') + '</td>' +
           '<td class="bgi">' + (Math.abs(gridKw) >= _thresholdKw('grid') && eGrid !== null && Math.abs(eGrid) > 0.005 ? '<span style="color:' + gridCol + ';">' + eGrid.toFixed(3) + '</span>' : '—') + '</td>' +
-          '<td class="bgl">' + (Math.abs(battDisplay) >= _thresholdKw('battery') ? '<span style="color:' + battCol + ';">' + battDisplay.toFixed(3) + '</span>' : '—') + '</td>' +
+          '<td class="bgl">' + (Math.abs(battDisplay) >= _thresholdKw('battery') ? '<span style="color:' + battCol + ';">' + battDisplay.toFixed(_kwDp) + '</span>' : '—') + '</td>' +
           '<td class="bgi">' + (Math.abs(battDisplay) >= _thresholdKw('battery') && eBatt !== null && Math.abs(eBatt) > 0.005 ? '<span style="color:' + battCol + ';">' + eBatt.toFixed(3) + '</span>' : '—') + '</td>' +
           '<td class="bgi"><span style="color:' + socCol + ';">' + soc.toFixed(1) + '</span></td>' +
           (columnSettings.ev !== false ?
-            '<td class="bgl">' + (evSensorsExist ? (Math.abs(evDisplay) >= _thresholdKw('ev') ? '<span style="color:' + evCol + ';">' + evDisplay.toFixed(3) + '</span>' : '—') : 'x') + '</td>' +
-            '<td class="bgi">' + (evSensorsExist ? (Math.abs(evDisplay) >= _thresholdKw('ev') ? '<span style="color:' + evCol + ';">' + fmtE(evDisplay * stepH) + '</span>' : '—') : 'x') + '</td>' +
+            '<td class="bgl">' + (evSensorsExist ? (Math.abs(evDisplay) >= _thresholdKw('ev') ? '<span style="color:' + evCol + ';">' + evDisplay.toFixed(_kwDp) + '</span>' : '—') : 'x') + '</td>' +
+            (loadEntityConfig.ev?.showKwh !== false ? '<td class="bgi">' + (evSensorsExist ? (Math.abs(evDisplay) >= _thresholdKw('ev') ? '<span style="color:' + evCol + ';">' + fmtE(evDisplay * stepH) + '</span>' : '—') : 'x') + '</td>' : '') +
             '<td class="bgi"><span style="color:' + (evSoc <= 20 ? '#f44336' : evSoc >= 80 ? '#4caf50' : textColor) + ';">' + (evSensorsExist ? (evSoc > 0 ? evSoc.toFixed(1) : '—') : 'x') + '</span></td>'
             : '') +
           (columnSettings.ev2 !== false ?
-            '<td class="bgl">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= _thresholdKw('ev2') ? '<span style="color:' + ev2Col + ';">' + ev2Display.toFixed(3) + '</span>' : '—') : 'x') + '</td>' +
-            '<td class="bgi">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= _thresholdKw('ev2') ? '<span style="color:' + ev2Col + ';">' + fmtE(ev2Display * stepH) + '</span>' : '—') : 'x') + '</td>' +
+            '<td class="bgl">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= _thresholdKw('ev2') ? '<span style="color:' + ev2Col + ';">' + ev2Display.toFixed(_kwDp) + '</span>' : '—') : 'x') + '</td>' +
+            (loadEntityConfig.ev2?.showKwh !== false ? '<td class="bgi">' + (ev2SensorsExist ? (Math.abs(ev2Display) >= _thresholdKw('ev2') ? '<span style="color:' + ev2Col + ';">' + fmtE(ev2Display * stepH) + '</span>' : '—') : 'x') + '</td>' : '') +
             '<td class="bgi"><span style="color:' + (ev2Soc <= 20 ? '#f44336' : ev2Soc >= 80 ? '#4caf50' : textColor) + ';">' + (ev2SensorsExist ? (ev2Soc > 0 ? ev2Soc.toFixed(1) : '—') : 'x') + '</span></td>'
             : '') +
           '<td class="bgl"><span style="color:' + costColorAdapt + ';font-weight:bold;">' + costFmt.disp + '</span></td>' +
@@ -3897,7 +3852,6 @@ class HaeoEventsCard extends HTMLElement {
     // Populate forms from saved config
     this._populateLoadEntitiesForm();
     this._populateOptionalLoadsForm();
-    this._populateDeferrableLoadsForm();
     this._populateEntitiesForm();
     
     // CRITICAL FIX: Delay color picker setup to ensure DOM elements exist
@@ -3929,34 +3883,37 @@ class HaeoEventsCard extends HTMLElement {
     
     const enabledOptionalLoads = this._getEnabledOptionalLoads();
     // Rebuild colgroup and theads for both tabs
-    const colgroup = _haeo_buildColgroup(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads);
-    const thead_future = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'future');
-    const thead_past = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'past');
-    
-    // Update FUTURE header table
-    const futureHeaderTable = this.shadowRoot.getElementById('table-future-head');
-    if (futureHeaderTable) {
-      futureHeaderTable.innerHTML = colgroup + thead_future;
+    const _loadCfg = this._loadLoadEntitiesConfig();
+    const showKwhConfig = { deferLoad: _loadCfg.deferLoad?.showKwh ?? true, ev: _loadCfg.ev?.showKwh ?? true, ev2: _loadCfg.ev2?.showKwh ?? true };
+    const colgroup = _haeo_buildColgroup(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, showKwhConfig);
+    const thead_future = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'future', showKwhConfig);
+    const thead_past = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'past', showKwhConfig);
+
+    // Update single future table — replace colgroup and thead, preserve tbody
+    const futureTable = this.shadowRoot.getElementById('table-future');
+    if (futureTable) {
+      const oldCg = futureTable.querySelector('colgroup');
+      const oldTh = futureTable.querySelector('thead');
+      const tmpFuture = document.createElement('table');
+      tmpFuture.innerHTML = colgroup + thead_future;
+      if (oldCg) oldCg.replaceWith(tmpFuture.querySelector('colgroup'));
+      else futureTable.insertBefore(tmpFuture.querySelector('colgroup'), futureTable.firstChild);
+      if (oldTh) oldTh.replaceWith(tmpFuture.querySelector('thead'));
+      else futureTable.insertBefore(tmpFuture.querySelector('thead'), futureTable.querySelector('tbody'));
     }
-    
-    // Update PAST header table
-    const pastHeaderTable = this.shadowRoot.getElementById('table-past-head');
-    if (pastHeaderTable) {
-      pastHeaderTable.innerHTML = colgroup + thead_past;
+
+    // Update single past table — replace colgroup and thead, preserve tbody
+    const pastTable = this.shadowRoot.getElementById('table-past');
+    if (pastTable) {
+      const oldCg = pastTable.querySelector('colgroup');
+      const oldTh = pastTable.querySelector('thead');
+      const tmpPast = document.createElement('table');
+      tmpPast.innerHTML = colgroup + thead_past;
+      if (oldCg) oldCg.replaceWith(tmpPast.querySelector('colgroup'));
+      else pastTable.insertBefore(tmpPast.querySelector('colgroup'), pastTable.firstChild);
+      if (oldTh) oldTh.replaceWith(tmpPast.querySelector('thead'));
+      else pastTable.insertBefore(tmpPast.querySelector('thead'), pastTable.querySelector('tbody'));
     }
-    
-    // Update body table colgroups only (preserve tbody with current data)
-    const bodyTables = this.shadowRoot.querySelectorAll('table.dt:not(.dt-head)');
-    bodyTables.forEach(table => {
-      const oldColgroup = table.querySelector('colgroup');
-      const newColgroupEl = document.createElement('colgroup');
-      newColgroupEl.innerHTML = colgroup.replace('<colgroup>', '').replace('</colgroup>', '');
-      if (oldColgroup) {
-        oldColgroup.replaceWith(newColgroupEl);
-      } else {
-        table.insertBefore(newColgroupEl, table.firstChild);
-      }
-    });
     
     // Clear _wired flags on old elements so _wireEvents re-attaches
     const allElements = this.shadowRoot.querySelectorAll('[id]');
@@ -4496,341 +4453,6 @@ class HaeoEventsCard extends HTMLElement {
     return desc || 'Energy flow event';
   }
 
-  // Render deferrable loads configuration UI
-  _renderDeferableLoadsConfig() {
-    const container = this.shadowRoot.getElementById('defer-loads-config');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    this._deferableLoadsConfig.forEach((config, idx) => {
-      const item = document.createElement('div');
-      item.className = 'defer-load-config-item';
-      item.id = `defer-config-${idx}`;
-      
-      let html = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--divider-color);">
-          <div style="font-size:12px;font-weight:bold;">Deferrable Load ${idx + 1}</div>
-          <button data-idx="${idx}" class="defer-config-remove" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px;" title="Remove">✕</button>
-        </div>
-        
-        <!-- Main grid: Name/Emoji/Threshold on left, Colours on right -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:12px;">
-          <!-- Left side: Name, Emoji, Threshold -->
-          <div>
-            <div style="display:grid;grid-template-columns:2fr 80px 120px;gap:12px;margin-bottom:12px;">
-              <div>
-                <label style="font-size:11px;margin-bottom:4px;display:block;">Name</label>
-                <select id="defer-name-${idx}" class="defer-name-select" data-idx="${idx}" style="width:100%;padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;">
-                  <option value="">Select...</option>
-        `;
-        
-        // Add presets
-        _HAEO_DEFERRABLE_PRESETS.forEach(preset => {
-          const selected = config.name === preset.name ? 'selected' : '';
-          html += `<option value="${preset.name}" ${selected}>${preset.emoji} ${preset.displayName}</option>`;
-        });
-        
-        html += `
-                  <option value="custom">✏️ Custom</option>
-                </select>
-                <input type="text" id="defer-name-custom-${idx}" class="defer-name-custom" data-idx="${idx}" placeholder="Custom name" value="${config.name}" style="width:100%;padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;margin-top:4px;display:none;" />
-              </div>
-              <div>
-                <label style="font-size:11px;margin-bottom:4px;display:block;">Emoji</label>
-                <button id="defer-emoji-${idx}" class="emoji-picker-btn defer-emoji-btn" data-idx="${idx}" style="width:100%;padding:6px;font-size:18px;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:4px;cursor:pointer;">${config.emoji}</button>
-              </div>
-              <div>
-                <label style="font-size:11px;margin-bottom:4px;display:block;">Threshold (W)</label>
-                <input type="number" id="defer-threshold-${idx}" class="defer-threshold-input" data-idx="${idx}" min="0" step="10" value="${config.threshold !== undefined ? config.threshold : 50}" style="width:100%;padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;" />
-              </div>
-            </div>
-            
-            <!-- Forecast Entity -->
-            <div style="margin-bottom:12px;">
-              <label style="font-size:11px;margin-bottom:4px;display:block;">Forecast Entity (FUTURE tab)</label>
-              <div style="position:relative;">
-                <input type="text" id="defer-entity-forecast-${idx}" class="defer-entity-forecast" data-idx="${idx}" placeholder="Search..." value="${config.forecastEntityId || ''}" style="width:100%;padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;" autocomplete="off" />
-                <div id="defer-entity-forecast-list-${idx}" class="entity-dropdown-list" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-top:none;border-radius:0 0 4px 4px;z-index:100;"></div>
-              </div>
-            </div>
-            
-            <!-- Historical Entity -->
-            <div>
-              <label style="font-size:11px;margin-bottom:4px;display:block;">Historical Entity (PAST tab)</label>
-              <div style="position:relative;">
-                <input type="text" id="defer-entity-historical-${idx}" class="defer-entity-historical" data-idx="${idx}" placeholder="Search..." value="${config.historicalEntityId || ''}" style="width:100%;padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;" autocomplete="off" />
-                <div id="defer-entity-historical-list-${idx}" class="entity-dropdown-list" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-top:none;border-radius:0 0 4px 4px;z-index:100;"></div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Right side: Colours -->
-          <div>
-            <label style="font-size:11px;margin-bottom:8px;display:block;font-weight:bold;">Colours</label>
-            <div style="display:flex;flex-direction:column;gap:12px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <label style="font-size:11px;min-width:50px;">Background:</label>
-                <input type="color" id="defer-color-bg-${idx}" class="defer-color-bg" data-idx="${idx}" value="${config.color?.bg || '#d4c5f9'}" style="width:50px;height:35px;cursor:pointer;border-radius:4px;border:1px solid var(--divider-color);" />
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <label style="font-size:11px;min-width:50px;">Text:</label>
-                <input type="color" id="defer-color-txt-${idx}" class="defer-color-txt" data-idx="${idx}" value="${config.color?.txt || '#4527a0'}" style="width:50px;height:35px;cursor:pointer;border-radius:4px;border:1px solid var(--divider-color);" />
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <label style="font-size:11px;min-width:50px;">Cost:</label>
-                <input type="color" id="defer-color-cost-${idx}" class="defer-color-cost" data-idx="${idx}" value="${config.color?.cost || '#4527a0'}" style="width:50px;height:35px;cursor:pointer;border-radius:4px;border:1px solid var(--divider-color);" />
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      item.innerHTML = html;
-      container.appendChild(item);
-    });
-    
-    // Wire up deferrable loads event handlers
-    this._wireDeferableLoadsHandlers();
-  }
-
-  // Wire deferrable loads handlers
-  _wireDeferableLoadsHandlers() {
-    // Name select handlers
-    this.shadowRoot.querySelectorAll('.defer-name-select').forEach(sel => {
-      if (!sel._wired) {
-        sel._wired = true;
-        const idx = parseInt(sel.dataset.idx);
-        sel.addEventListener('change', () => {
-          const customInput = this.shadowRoot.getElementById(`defer-name-custom-${idx}`);
-          const forecastInput = this.shadowRoot.getElementById(`defer-entity-forecast-${idx}`);
-          if (sel.value === 'custom') {
-            customInput.style.display = 'block';
-            customInput.value = '';
-            this._deferableLoadsConfig[idx].name = '';
-          } else if (sel.value) {
-            const preset = _HAEO_DEFERRABLE_PRESETS.find(p => p.name === sel.value);
-            if (preset) {
-              this._deferableLoadsConfig[idx].name = preset.name;
-              this._deferableLoadsConfig[idx].emoji = preset.emoji;
-              // Auto-generate forecast entity ID
-              const autoGenerated = this._generateForecastEntityId(preset.name);
-              this._deferableLoadsConfig[idx].forecastEntityId = autoGenerated;
-              if (forecastInput) forecastInput.value = autoGenerated;
-              customInput.style.display = 'none';
-            }
-          }
-        });
-      }
-    });
-    
-    // Custom name handlers
-    this.shadowRoot.querySelectorAll('.defer-name-custom').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].name = input.value;
-          // Auto-generate forecast entity ID
-          const autoGenerated = this._generateForecastEntityId(input.value);
-          this._deferableLoadsConfig[idx].forecastEntityId = autoGenerated;
-          const forecastInput = this.shadowRoot.getElementById(`defer-entity-forecast-${idx}`);
-          if (forecastInput) forecastInput.value = autoGenerated;
-        });
-      }
-    });
-    
-    // Forecast entity autocomplete handlers
-    this.shadowRoot.querySelectorAll('.defer-entity-forecast').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        
-        // Set initial value to auto-generated if empty
-        if (!input.value && this._deferableLoadsConfig[idx].name) {
-          const autoGenerated = this._generateForecastEntityId(this._deferableLoadsConfig[idx].name);
-          input.value = autoGenerated;
-          this._deferableLoadsConfig[idx].forecastEntityId = autoGenerated;
-        }
-        
-        input.addEventListener('input', (e) => {
-          const query = e.target.value.toLowerCase();
-          const listDiv = this.shadowRoot.getElementById(`defer-entity-forecast-list-${idx}`);
-          
-          if (query.length < 1) {
-            listDiv.style.display = 'none';
-            return;
-          }
-          
-          // Get forecast load entities from HA
-          const forecastEntities = this._getAvailableForecastEntities();
-          const filtered = forecastEntities.filter(s => s.toLowerCase().includes(query)).slice(0, 10);
-          
-          if (filtered.length === 0) {
-            listDiv.style.display = 'none';
-            return;
-          }
-          
-          listDiv.innerHTML = filtered.map(entity => 
-            `<div class="entity-option" data-entity="${entity}" style="padding:8px;border-bottom:1px solid var(--divider-color);cursor:pointer;font-size:12px;" title="${entity}">${entity}</div>`
-          ).join('');
-          
-          listDiv.style.display = 'block';
-          
-          // Wire option clicks
-          listDiv.querySelectorAll('.entity-option').forEach(opt => {
-            opt.addEventListener('click', () => {
-              input.value = opt.dataset.entity;
-              this._deferableLoadsConfig[idx].forecastEntityId = opt.dataset.entity;
-              listDiv.style.display = 'none';
-            });
-          });
-        });
-        
-        input.addEventListener('blur', () => {
-          setTimeout(() => {
-            const listDiv = this.shadowRoot.getElementById(`defer-entity-forecast-list-${idx}`);
-            if (listDiv) listDiv.style.display = 'none';
-          }, 200);
-        });
-        
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].forecastEntityId = input.value;
-        });
-      }
-    });
-    
-    // Historical entity autocomplete handlers
-    this.shadowRoot.querySelectorAll('.defer-entity-historical').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        input.addEventListener('input', (e) => {
-          const query = e.target.value.toLowerCase();
-          const listDiv = this.shadowRoot.getElementById(`defer-entity-historical-list-${idx}`);
-          
-          if (query.length < 1) {
-            listDiv.style.display = 'none';
-            return;
-          }
-          
-          // Get power sensors from HA
-          const sensors = this._getAvailablePowerSensors();
-          const filtered = sensors.filter(s => s.toLowerCase().includes(query)).slice(0, 10);
-          
-          if (filtered.length === 0) {
-            listDiv.style.display = 'none';
-            return;
-          }
-          
-          listDiv.innerHTML = filtered.map(sensor => 
-            `<div class="entity-option" data-entity="${sensor}" style="padding:8px;border-bottom:1px solid var(--divider-color);cursor:pointer;font-size:12px;" title="${sensor}">${sensor}</div>`
-          ).join('');
-          
-          listDiv.style.display = 'block';
-          
-          // Wire option clicks
-          listDiv.querySelectorAll('.entity-option').forEach(opt => {
-            opt.addEventListener('click', () => {
-              input.value = opt.dataset.entity;
-              this._deferableLoadsConfig[idx].historicalEntityId = opt.dataset.entity;
-              listDiv.style.display = 'none';
-            });
-          });
-        });
-        
-        input.addEventListener('blur', () => {
-          setTimeout(() => {
-            const listDiv = this.shadowRoot.getElementById(`defer-entity-historical-list-${idx}`);
-            if (listDiv) listDiv.style.display = 'none';
-          }, 200);
-        });
-        
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].historicalEntityId = input.value;
-        });
-      }
-    });
-    
-    // Emoji button handlers
-    this.shadowRoot.querySelectorAll('.defer-emoji-btn').forEach(btn => {
-      if (!btn._wired) {
-        btn._wired = true;
-        const idx = parseInt(btn.dataset.idx);
-        btn.addEventListener('click', () => {
-          this._openEmojiPicker(idx);
-        });
-      }
-    });
-    
-    // Threshold input handlers
-    this.shadowRoot.querySelectorAll('.defer-threshold-input').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        input.addEventListener('change', () => {
-          const val = parseInt(input.value);
-          this._deferableLoadsConfig[idx].threshold = (val !== undefined && val !== null) ? val : 50;
-          this._thresholdSettings[`deferLoad${idx}`] = this._deferableLoadsConfig[idx].threshold;
-        });
-      }
-    });
-    
-    // Color pickers
-    this.shadowRoot.querySelectorAll('.defer-color-bg').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        if (!this._deferableLoadsConfig[idx].color) {
-          this._deferableLoadsConfig[idx].color = { bg: '#d4c5f9', txt: '#4527a0', cost: '#4527a0' };
-        }
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].color.bg = input.value;
-        });
-      }
-    });
-    
-    this.shadowRoot.querySelectorAll('.defer-color-txt').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        if (!this._deferableLoadsConfig[idx].color) {
-          this._deferableLoadsConfig[idx].color = { bg: '#d4c5f9', txt: '#4527a0', cost: '#4527a0' };
-        }
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].color.txt = input.value;
-        });
-      }
-    });
-    
-    this.shadowRoot.querySelectorAll('.defer-color-cost').forEach(input => {
-      if (!input._wired) {
-        input._wired = true;
-        const idx = parseInt(input.dataset.idx);
-        if (!this._deferableLoadsConfig[idx].color) {
-          this._deferableLoadsConfig[idx].color = { bg: '#d4c5f9', txt: '#4527a0', cost: '#4527a0' };
-        }
-        input.addEventListener('change', () => {
-          this._deferableLoadsConfig[idx].color.cost = input.value;
-        });
-      }
-    });
-    
-    // Remove buttons
-    this.shadowRoot.querySelectorAll('.defer-config-remove').forEach(btn => {
-      if (!btn._wired) {
-        btn._wired = true;
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.dataset.idx);
-          this._deferableLoadsConfig.splice(idx, 1);
-          const deferLoadCount = this.shadowRoot.getElementById('defer-load-count');
-          if (deferLoadCount) deferLoadCount.value = this._deferableLoadsConfig.length;
-          this._renderDeferableLoadsConfig();
-        });
-      }
-    });
-  }
-
   // Generate forecast entity ID from name
   _generateForecastEntityId(name) {
     if (!name) return '';
@@ -4886,6 +4508,7 @@ class HaeoEventsCard extends HTMLElement {
       const thresholdInput = this.shadowRoot.getElementById(`optload-threshold-${i}`);
       
       if (enableCheckbox && emojiSelect && loadNameSelect && forecastInput && historicalInput) {
+        const showKwhInput = this.shadowRoot.getElementById(`optload-show-kwh-${i}`);
         const entry = {
           enabled: enableCheckbox.checked,
           emoji: emojiSelect.value || '🔌',
@@ -4894,7 +4517,8 @@ class HaeoEventsCard extends HTMLElement {
           forecastEntity: forecastInput.value || '',
           historicalEntity: historicalInput.value || '',
           energyEntity: energyInput ? energyInput.value || '' : '',
-          threshold: thresholdInput ? parseInt(thresholdInput.value) || 10 : 10
+          threshold: thresholdInput ? parseInt(thresholdInput.value) || 10 : 10,
+          showKwh: showKwhInput ? showKwhInput.checked : true
         };
         config.push(entry);
       }
@@ -4920,12 +4544,13 @@ class HaeoEventsCard extends HTMLElement {
   // Save all load entity configurations
   _saveLoadEntitiesConfig() {
     const loads = {
-      base: { forecast: this.shadowRoot.getElementById('load-forecast')?.value || '', historical: this.shadowRoot.getElementById('load-historical')?.value || '', energy: this.shadowRoot.getElementById('load-energy')?.value || '' },
-      pv: { forecast: this.shadowRoot.getElementById('pv-forecast')?.value || '', historical: this.shadowRoot.getElementById('pv-historical')?.value || '', energy: this.shadowRoot.getElementById('pv-energy')?.value || '' },
-      grid: { forecast: this.shadowRoot.getElementById('grid-forecast')?.value || '', historical: this.shadowRoot.getElementById('grid-historical')?.value || '', energy: this.shadowRoot.getElementById('grid-energy')?.value || '', energyExport: this.shadowRoot.getElementById('grid-energy-export')?.value || '', dailyImport: this.shadowRoot.getElementById('grid-daily-import')?.value || '', dailyExport: this.shadowRoot.getElementById('grid-daily-export')?.value || '' },
-      battery: { forecast: this.shadowRoot.getElementById('battery-forecast')?.value || '', historical: this.shadowRoot.getElementById('battery-historical')?.value || '', energy: this.shadowRoot.getElementById('battery-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('battery-energy-discharge')?.value || '' },
-      ev: { forecast: this.shadowRoot.getElementById('ev-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev-historical')?.value || '', energy: this.shadowRoot.getElementById('ev-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev-energy-discharge')?.value || '' },
-      ev2: { forecast: this.shadowRoot.getElementById('ev2-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev2-historical')?.value || '', energy: this.shadowRoot.getElementById('ev2-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev2-energy-discharge')?.value || '' }
+      base: { forecast: this.shadowRoot.getElementById('load-forecast')?.value || '', historical: this.shadowRoot.getElementById('load-historical')?.value || '', energy: this.shadowRoot.getElementById('load-energy')?.value || '', invert: this.shadowRoot.getElementById('invert-load')?.checked || false },
+      pv: { forecast: this.shadowRoot.getElementById('pv-forecast')?.value || '', historical: this.shadowRoot.getElementById('pv-historical')?.value || '', energy: this.shadowRoot.getElementById('pv-energy')?.value || '', invert: this.shadowRoot.getElementById('invert-pv')?.checked || false },
+      grid: { forecast: this.shadowRoot.getElementById('grid-forecast')?.value || '', historical: this.shadowRoot.getElementById('grid-historical')?.value || '', energy: this.shadowRoot.getElementById('grid-energy')?.value || '', energyExport: this.shadowRoot.getElementById('grid-energy-export')?.value || '', dailyImport: this.shadowRoot.getElementById('grid-daily-import')?.value || '', dailyExport: this.shadowRoot.getElementById('grid-daily-export')?.value || '', invert: this.shadowRoot.getElementById('invert-grid')?.checked || false },
+      battery: { forecast: this.shadowRoot.getElementById('battery-forecast')?.value || '', historical: this.shadowRoot.getElementById('battery-historical')?.value || '', energy: this.shadowRoot.getElementById('battery-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('battery-energy-discharge')?.value || '', invert: this.shadowRoot.getElementById('invert-battery')?.checked || false },
+      ev: { forecast: this.shadowRoot.getElementById('ev-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev-historical')?.value || '', energy: this.shadowRoot.getElementById('ev-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev-energy-discharge')?.value || '', invert: this.shadowRoot.getElementById('invert-ev')?.checked || false, showKwh: this.shadowRoot.getElementById('show-kwh-ev')?.checked ?? true },
+      ev2: { forecast: this.shadowRoot.getElementById('ev2-forecast')?.value || '', historical: this.shadowRoot.getElementById('ev2-historical')?.value || '', energy: this.shadowRoot.getElementById('ev2-energy')?.value || '', energyDischarge: this.shadowRoot.getElementById('ev2-energy-discharge')?.value || '', invert: this.shadowRoot.getElementById('invert-ev2')?.checked || false, showKwh: this.shadowRoot.getElementById('show-kwh-ev2')?.checked ?? true },
+      deferLoad: { forecast: this.shadowRoot.getElementById('deferLoad-forecast')?.value || '', historical: this.shadowRoot.getElementById('deferLoad-historical')?.value || '', energy: this.shadowRoot.getElementById('deferLoad-energy')?.value || '', invert: this.shadowRoot.getElementById('invert-deferLoad')?.checked || false, showKwh: this.shadowRoot.getElementById('show-kwh-deferLoad')?.checked ?? true }
     };
     try {
       localStorage.setItem('haeo-events-card-load-entities', JSON.stringify(loads));
@@ -4943,22 +4568,434 @@ class HaeoEventsCard extends HTMLElement {
       }
     } catch (e) {
     }
-    return {
-      base: { forecast: 'sensor.load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
+    // No saved config — build defaults and persist them immediately so
+    // _saveLoadEntitiesConfig() always reads real values (not empty placeholders)
+    const defaults = {
+      base: { forecast: 'sensor.base_load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
       pv: { forecast: 'sensor.solar_power', historical: 'sensor.sigen_plant_pv_power', energy: 'sensor.sigen_plant_total_pv_generation' },
       grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy', dailyImport: 'sensor.sigen_plant_daily_grid_import_energy', dailyExport: 'sensor.sigen_plant_daily_grid_export_energy' },
       battery: { forecast: 'sensor.battery_active_power', historical: 'sensor.sigen_plant_battery_power', energy: 'sensor.sigen_plant_daily_battery_charge_energy', energyDischarge: 'sensor.sigen_plant_daily_battery_discharge_energy' },
-      ev: { forecast: 'sensor.ev_active_power', historical: 'sensor.sigen_ac_charger_charging_power', energy: '', energyDischarge: '' },
-      ev2: { forecast: 'sensor.ev2_active_power', historical: 'sensor.sigen_ac_charger_charging_power_2', energy: '', energyDischarge: '' }
+      ev: { forecast: 'sensor.ev_active_power', historical: 'sensor.sigen_ac_charger_charging_power', energy: 'sensor.sigen_plant_total_charged_energy_of_the_evac', energyDischarge: '' },
+      ev2: { forecast: 'sensor.ev2_active_power', historical: 'sensor.sigen_dc_charger_output_power', energy: 'sensor.sigen_plant_total_charged_energy_of_the_evdc', energyDischarge: 'sensor.sigen_plant_total_discharged_energy_of_the_evdc' }
     };
+    try { localStorage.setItem('haeo-events-card-load-entities', JSON.stringify(defaults)); } catch (e) {}
+    return defaults;
+  }
+
+  // ── Daily meter helper ───────────────────────────────────────────────────────
+  // Checks whether an energy entity is a lifetime cumulative counter (total_increasing,
+  // value > 50 kWh). If so, looks for an existing daily-reset utility_meter wrapping
+  // it (from any source — Genergy, a previous HAEO run, or user-created). If none
+  // exists, creates one via the HA config entries API.
+  //
+  // Naming convention for new meters: sensor.ems_card_<slug>_daily
+  //
+  // Returns: { isCumulative: bool, dailyEntity: string }
+  async _ensureDailyMeter(sourceEntityId, meterLabel) {
+    if (!this._hass || !sourceEntityId) return { isCumulative: false, dailyEntity: sourceEntityId };
+
+    const stateObj = this._hass.states[sourceEntityId];
+    if (!stateObj) return { isCumulative: false, dailyEntity: sourceEntityId };
+
+    // Skip entities whose name already implies a daily reset
+    const lower = sourceEntityId.toLowerCase();
+    if (/daily|_today|summary_day/.test(lower)) return { isCumulative: false, dailyEntity: sourceEntityId };
+
+    // Only act on cumulative energy sensors with a large accumulated value
+    const stateClass = stateObj.attributes?.state_class;
+    const unit = stateObj.attributes?.unit_of_measurement || '';
+    const rawVal = parseFloat(stateObj.state);
+    const isEnergyUnit = ['kWh', 'MWh', 'Wh'].includes(unit);
+    const valKwh = unit === 'MWh' ? rawVal * 1000 : unit === 'Wh' ? rawVal / 1000 : rawVal;
+    const isCumulative = (stateClass === 'total_increasing' || stateClass === 'total') && isEnergyUnit && valKwh > 50;
+    if (!isCumulative) return { isCumulative: false, dailyEntity: sourceEntityId };
+
+    // ── Step 1: Look for a native daily-reset sibling in HA states ───────────
+    // Many inverter integrations (Sigenergy, Fronius, Deye, FoxESS, Goodwe) provide
+    // both a lifetime total AND a daily-reset sensor for the same measurement.
+    // Prefer the native daily sensor over creating a utility_meter helper.
+    const allKeys = Object.keys(this._hass.states);
+    const sourceLower = sourceEntityId.toLowerCase();
+    const devicePrefix = sourceLower
+      .replace(/^sensor\./, '')
+      .replace(/(total_|lifetime_|cumulative_|all_time_)/gi, '')
+      .replace(/_of_the_ev\w*/gi, '')                            // strip _of_the_evac / _of_the_evdc etc.
+      .replace(/_(imported|exported|generation|consumption|produced|consumed|energy|charged|discharged|charge_total|discharge_total|feed_in_energy|yield).*$/i, '');
+
+    // Extract measurement type keywords from the source entity so the candidate
+    // must match the same measurement (import ≠ export ≠ generation ≠ self-consumption)
+    const importKeywords  = ['import', 'imported', 'grid_buy', 'grid_in', 'consumed_from_grid', 'grid_consumption', 'consumption_energy'];
+    const exportKeywords  = ['export', 'exported', 'grid_sell', 'grid_out', 'fed_into_grid', 'feed_in'];
+    const pvKeywords      = ['pv', 'solar', 'generation', 'produced', 'yield', 'power_yield'];
+    const battChgKeywords = ['battery_charge', 'batt_charge', 'charge_energy', 'charging', 'battery_charge_total', '_charge_total'];
+    const battDisKeywords = ['battery_discharge', 'batt_discharge', 'discharge_energy', 'discharging', 'battery_discharge_total', '_discharge_total'];
+    const evChgKeywords   = ['evac', 'evdc', 'ev_charge', 'ev_charged', 'charged_energy_of_the_ev', 'ev_energy', 'ev_ac', 'ev_dc'];
+    const evDisKeywords   = ['ev_discharge', 'ev_discharged', 'discharged_energy_of_the_ev', 'v2g', 'ev_to_grid'];
+
+    const sourceIsImport  = importKeywords.some(k => sourceLower.includes(k));
+    const sourceIsExport  = exportKeywords.some(k => sourceLower.includes(k));
+    const sourceIsPV      = pvKeywords.some(k => sourceLower.includes(k));
+    const sourceIsBattChg = battChgKeywords.some(k => sourceLower.includes(k));
+    const sourceIsBattDis = battDisKeywords.some(k => sourceLower.includes(k));
+    const sourceIsEvChg   = evChgKeywords.some(k => sourceLower.includes(k));
+    const sourceIsEvDis   = evDisKeywords.some(k => sourceLower.includes(k));
+
+    // Only attempt sibling lookup if the prefix is meaningful (≥ 8 chars)
+    if (devicePrefix.length >= 8) {
+      const nativeDailySibling = allKeys.find(eid => {
+        if (eid === sourceEntityId) return false;
+        const eidLower = eid.toLowerCase();
+        // Must contain a daily-reset indicator
+        if (!/daily|_today|summary_day/.test(eidLower)) return false;
+        // Must be an energy sensor
+        const s = this._hass.states[eid];
+        if (!s) return false;
+        const sUnit = s.attributes?.unit_of_measurement || '';
+        if (!['kWh', 'MWh', 'Wh'].includes(sUnit)) return false;
+        // Must share device prefix
+        const eidPrefix = eid.replace(/^sensor\./, '').slice(0, Math.max(12, devicePrefix.length));
+        if (!eidPrefix.toLowerCase().startsWith(devicePrefix.slice(0, 10))) return false;
+        // Must match the same measurement type as the source entity
+        if (sourceIsImport  && !importKeywords.some(k => eidLower.includes(k)))  return false;
+        if (sourceIsExport  && !exportKeywords.some(k => eidLower.includes(k)))  return false;
+        if (sourceIsPV      && !pvKeywords.some(k => eidLower.includes(k)))      return false;
+        if (sourceIsBattChg && !battChgKeywords.some(k => eidLower.includes(k))) return false;
+        if (sourceIsBattDis && !battDisKeywords.some(k => eidLower.includes(k))) return false;
+        if (sourceIsEvChg   && !evChgKeywords.some(k => eidLower.includes(k)))   return false;
+        if (sourceIsEvDis   && !evDisKeywords.some(k => eidLower.includes(k)))   return false;
+        return true;
+      });
+      if (nativeDailySibling) return { isCumulative: true, dailyEntity: nativeDailySibling };
+    }
+
+    // ── Step 2: Look for an existing ems_card_ or genergy_ daily meter ───────
+    const slug = sourceEntityId.replace(/^sensor\./, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+    const expectedId = `sensor.ems_card_${slug}_daily`;
+    const existingMeter = allKeys.find(eid => {
+      if (eid === expectedId) return true;
+      if ((eid.startsWith('sensor.ems_card_') || eid.startsWith('sensor.genergy_')) && eid.includes(slug.slice(0, 12))) return true;
+      return false;
+    });
+    if (existingMeter) return { isCumulative: true, dailyEntity: existingMeter };
+
+    // Create a new utility_meter via HA config entries flow
+    const friendlyName = `EMS Card ${meterLabel} Daily`;
+    try {
+      const flowResult = await this._hass.callApi('POST', 'config/config_entries/flow', {
+        handler: 'utility_meter',
+        show_advanced_options: false
+      });
+      if (!flowResult?.flow_id) throw new Error('No flow_id returned');
+
+      const createResult = await this._hass.callApi('POST', `config/config_entries/flow/${flowResult.flow_id}`, {
+        name: friendlyName,
+        source: sourceEntityId,
+        cycle: 'daily',
+        offset: 0,
+        net_consumption: false,
+        tariffs: [],
+        always_available: true,
+        periodically_resetting: false,
+      });
+
+      if (createResult?.type === 'create_entry') {
+        await new Promise(r => setTimeout(r, 3000));
+        try { await this._hass.callService('homeassistant', 'update_entity', { entity_id: sourceEntityId }); } catch (e) {}
+        await new Promise(r => setTimeout(r, 1000));
+        const newMeter = Object.keys(this._hass.states).find(k => k.includes('ems_card_') && k.includes(slug.slice(0, 10)));
+        return { isCumulative: true, dailyEntity: newMeter || expectedId };
+      }
+    } catch (err) {
+      console.warn('[HAEO] Failed to create utility meter for', sourceEntityId, err);
+    }
+
+    // Fallback: return the source entity with the cumulative flag
+    return { isCumulative: true, dailyEntity: sourceEntityId };
+  }
+
+  // Auto-detect energy entities from HA Energy Dashboard config
+  async _autoDetectEnergyEntities() {
+    if (!this._hass) {
+      alert("HA connection not ready");
+      return;
+    }
+    
+    const btn = this.shadowRoot?.getElementById('auto-detect-energy-btn');
+    if (btn) btn.textContent = '⏳ Detecting...';
+    
+    try {
+      const prefs = await this._hass.callWS({ type: 'energy/get_prefs' });
+      if (!prefs?.energy_sources) {
+        alert("No Energy Dashboard configuration found.");
+        if (btn) btn.textContent = '🔍 Auto-Detect';
+        return;
+      }
+      
+      const loadConfig = this._loadLoadEntitiesConfig() || {};
+      const found = [];
+      const allStates = this._hass.states;
+      const allStateKeys = Object.keys(allStates);
+      
+      // Iterate through energy_sources
+      prefs.energy_sources.forEach(source => {
+        if (source.type === 'solar') {
+          if (source.stat_energy_from) {
+            loadConfig.pv = loadConfig.pv || {};
+            loadConfig.pv.energy = source.stat_energy_from;
+            found.push(`🌞 ${source.stat_energy_from}`);
+          }
+        }
+        else if (source.type === 'battery') {
+          if (source.stat_energy_to) {   // Battery charge
+            loadConfig.battery = loadConfig.battery || {};
+            loadConfig.battery.energy = source.stat_energy_to;
+            found.push(`🔋 charge: ${source.stat_energy_to}`);
+          }
+          if (source.stat_energy_from) { // Battery discharge
+            loadConfig.battery = loadConfig.battery || {};
+            loadConfig.battery.energyDischarge = source.stat_energy_from;
+            found.push(`🔋 discharge: ${source.stat_energy_from}`);
+          }
+        }
+        else if (source.type === 'grid') {
+          // Grid import (flow_from array or direct stat_energy_from)
+          const flowFrom = source.flow_from || [];
+          if (flowFrom.length > 0) {
+            flowFrom.forEach(flow => {
+              if (flow.stat_energy_from) {
+                loadConfig.grid = loadConfig.grid || {};
+                loadConfig.grid.energy = flow.stat_energy_from;
+                found.push(`⚡ import: ${flow.stat_energy_from}`);
+              }
+            });
+          } else if (source.stat_energy_from) {
+            loadConfig.grid = loadConfig.grid || {};
+            loadConfig.grid.energy = source.stat_energy_from;
+            found.push(`⚡ import: ${source.stat_energy_from}`);
+          }
+          // Grid export (flow_to array or direct stat_energy_to)
+          const flowTo = source.flow_to || [];
+          if (flowTo.length > 0) {
+            flowTo.forEach(flow => {
+              if (flow.stat_energy_to) {
+                loadConfig.grid = loadConfig.grid || {};
+                loadConfig.grid.energyExport = flow.stat_energy_to;
+                found.push(`⚡ export: ${flow.stat_energy_to}`);
+              }
+            });
+          } else if (source.stat_energy_to) {
+            loadConfig.grid = loadConfig.grid || {};
+            loadConfig.grid.energyExport = source.stat_energy_to;
+            found.push(`⚡ export: ${source.stat_energy_to}`);
+          }
+        }
+      });
+
+      // ── PAST power sensor auto-detection ─────────────────────────────────────
+      // Helper: only skip if entity is already set AND exists in HA states
+      const alreadySet = (val) => val && allStates[val];
+
+      // Helper: find a sensor.* entity by unit and keywords
+      const findSensor = (units, keywords, excludes = []) => allStateKeys.find(eid => {
+        if (!eid.startsWith('sensor.')) return false;
+        const l = eid.toLowerCase();
+        const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+        if (!units.includes(unit)) return false;
+        if (excludes.some(x => l.includes(x))) return false;
+        return keywords.some(k => l.includes(k));
+      });
+      // Scan HA states for live power sensors (W/kW) for each load type
+      if (btn) btn.textContent = '⏳ Detecting PAST power sensors...';
+      const pwrUnits = ['W', 'kW'];
+
+      // Base load power
+      if (!alreadySet(loadConfig.base?.historical)) {
+        const e = findSensor(pwrUnits, ['total_load_power', 'load_power', 'consumed_power', 'home_load'], ['forecast', 'daily', 'energy']);
+        if (e) { loadConfig.base = loadConfig.base || {}; loadConfig.base.historical = e; found.push(`🏠 Base load power: ${e}`); }
+      }
+      // Solar power
+      if (!alreadySet(loadConfig.pv?.historical)) {
+        const e = findSensor(pwrUnits, ['pv_power', 'solar_power', 'pv_active_power'], ['forecast', 'daily', 'energy', 'string', 'pv1', 'pv2', 'pv3']);
+        if (e) { loadConfig.pv = loadConfig.pv || {}; loadConfig.pv.historical = e; found.push(`🌞 Solar power: ${e}`); }
+      }
+      // Grid power
+      if (!alreadySet(loadConfig.grid?.historical)) {
+        const e = findSensor(pwrUnits, ['grid_active_power', 'grid_power', 'grid_ct', 'meter_power'], ['forecast', 'daily', 'energy', 'import', 'export']);
+        if (e) { loadConfig.grid = loadConfig.grid || {}; loadConfig.grid.historical = e; found.push(`⚡ Grid power: ${e}`); }
+      }
+      // Battery power
+      if (!alreadySet(loadConfig.battery?.historical)) {
+        const e = findSensor(pwrUnits, ['battery_power', 'batt_power', 'ess_power', 'battery_active_power'], ['forecast', 'daily', 'energy', 'charge_power', 'discharge_power']);
+        if (e) { loadConfig.battery = loadConfig.battery || {}; loadConfig.battery.historical = e; found.push(`🔋 Battery power: ${e}`); }
+      }
+
+      // ── PAST energy fallback: scan HA states for any still-missing energy fields ──
+      const kwhUnits = ['kWh', 'MWh', 'Wh'];
+      if (!alreadySet(loadConfig.grid?.energy)) {
+        const e = findSensor(kwhUnits, ['total_imported_energy', 'grid_import_energy', 'grid_consumption_energy', 'grid_buy_energy', 'grid_import_total'], ['export', 'export_energy', 'daily', 'self_consumption']);
+        if (e) { loadConfig.grid = loadConfig.grid || {}; loadConfig.grid.energy = e; found.push(`⚡ Grid import energy: ${e}`); }
+      }
+      if (!alreadySet(loadConfig.grid?.energyExport)) {
+        const e = findSensor(kwhUnits, ['total_exported_energy', 'grid_export_energy', 'feed_in_energy', 'grid_sell_energy', 'grid_export_total'], ['import', 'import_energy', 'daily', 'self_consumption']);
+        if (e) { loadConfig.grid = loadConfig.grid || {}; loadConfig.grid.energyExport = e; found.push(`⚡ Grid export energy: ${e}`); }
+      }
+      if (!alreadySet(loadConfig.pv?.energy)) {
+        const e = findSensor(kwhUnits, ['total_pv_generation', 'pv_energy', 'solar_energy', 'pv_yield_total', 'total_generation'], ['daily', 'forecast', 'self_consumption']);
+        if (e) { loadConfig.pv = loadConfig.pv || {}; loadConfig.pv.energy = e; found.push(`🌞 Solar energy: ${e}`); }
+      }
+      if (!alreadySet(loadConfig.base?.energy)) {
+        const e = findSensor(kwhUnits, ['total_load_consumption', 'load_energy', 'load_consumption_total', 'total_consumed'], ['daily', 'forecast', 'self_consumption']);
+        if (e) { loadConfig.base = loadConfig.base || {}; loadConfig.base.energy = e; found.push(`🏠 Load energy: ${e}`); }
+      }
+
+      // ── EV PAST entity auto-detection ────────────────────────────────────────
+      // Scan HA states for Sigenergy v2.9 EV AC/DC power and energy sensors.
+      // Also handles other brands via generic EV power/energy keyword matching.
+      if (btn) btn.textContent = '⏳ Detecting EV sensors...';
+
+      // EV1 (AC charger) — power
+      if (!loadConfig.ev?.historical) {
+        const ev1Power = allStateKeys.find(eid => {
+          const l = eid.toLowerCase();
+          const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+          if (!['W', 'kW'].includes(unit)) return false;
+          return l.includes('sigen_ac_charger') && l.includes('power') ||
+                 (l.includes('ev') && l.includes('ac') && l.includes('power') && !l.includes('energy'));
+        });
+        if (ev1Power) {
+          loadConfig.ev = loadConfig.ev || {};
+          loadConfig.ev.historical = ev1Power;
+          found.push(`🔌 EV1 power: ${ev1Power}`);
+        }
+      }
+
+      // EV1 (AC charger) — charge energy (lifetime total)
+      if (!loadConfig.ev?.energy) {
+        const ev1Energy = allStateKeys.find(eid => {
+          const l = eid.toLowerCase();
+          const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+          if (!['kWh', 'MWh', 'Wh'].includes(unit)) return false;
+          return l.includes('charged_energy_of_the_evac') ||
+                 l.includes('evac') && l.includes('charge') ||
+                 (l.includes('ev') && l.includes('ac') && l.includes('energy') && !l.includes('discharge'));
+        });
+        if (ev1Energy) {
+          loadConfig.ev = loadConfig.ev || {};
+          loadConfig.ev.energy = ev1Energy;
+          found.push(`🔌 EV1 charge energy: ${ev1Energy}`);
+        }
+      }
+
+      // EV2 (DC bidirectional charger) — power
+      if (!loadConfig.ev2?.historical) {
+        const ev2Power = allStateKeys.find(eid => {
+          const l = eid.toLowerCase();
+          const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+          if (!['W', 'kW'].includes(unit)) return false;
+          return l.includes('sigen_dc_charger') && l.includes('power') ||
+                 (l.includes('ev') && l.includes('dc') && l.includes('power') && !l.includes('energy'));
+        });
+        if (ev2Power) {
+          loadConfig.ev2 = loadConfig.ev2 || {};
+          loadConfig.ev2.historical = ev2Power;
+          found.push(`🔋 EV2 power: ${ev2Power}`);
+        }
+      }
+
+      // EV2 (DC) — charge energy (lifetime total)
+      if (!loadConfig.ev2?.energy) {
+        const ev2ChargeEnergy = allStateKeys.find(eid => {
+          const l = eid.toLowerCase();
+          const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+          if (!['kWh', 'MWh', 'Wh'].includes(unit)) return false;
+          return l.includes('charged_energy_of_the_evdc') && !l.includes('discharged') ||
+                 (l.includes('evdc') && l.includes('charge') && !l.includes('discharge'));
+        });
+        if (ev2ChargeEnergy) {
+          loadConfig.ev2 = loadConfig.ev2 || {};
+          loadConfig.ev2.energy = ev2ChargeEnergy;
+          found.push(`🔋 EV2 charge energy: ${ev2ChargeEnergy}`);
+        }
+      }
+
+      // EV2 (DC) — discharge energy (V2G, lifetime total)
+      if (!loadConfig.ev2?.energyDischarge) {
+        const ev2DischargeEnergy = allStateKeys.find(eid => {
+          const l = eid.toLowerCase();
+          const unit = allStates[eid]?.attributes?.unit_of_measurement || '';
+          if (!['kWh', 'MWh', 'Wh'].includes(unit)) return false;
+          return l.includes('discharged_energy_of_the_evdc') ||
+                 (l.includes('evdc') && l.includes('discharge'));
+        });
+        if (ev2DischargeEnergy) {
+          loadConfig.ev2 = loadConfig.ev2 || {};
+          loadConfig.ev2.energyDischarge = ev2DischargeEnergy;
+          found.push(`🔋 EV2 discharge energy (V2G): ${ev2DischargeEnergy}`);
+        }
+      }
+
+      // ── Daily meter check ─────────────────────────────────────────────────
+      // For each detected energy entity, check if it's a lifetime cumulative
+      // counter (e.g. Fronius, Deye, FoxESS). If so, find or create a
+      // daily-reset utility_meter and use that instead.
+      if (btn) btn.textContent = '⏳ Checking energy sensors...';
+
+      const energyFields = [
+        { obj: loadConfig.pv,      key: 'energy',          label: 'PV Energy' },
+        { obj: loadConfig.battery, key: 'energy',          label: 'Battery Charge' },
+        { obj: loadConfig.battery, key: 'energyDischarge', label: 'Battery Discharge' },
+        { obj: loadConfig.grid,    key: 'energy',          label: 'Grid Import' },
+        { obj: loadConfig.grid,    key: 'energyExport',    label: 'Grid Export' },
+        { obj: loadConfig.ev,      key: 'energy',          label: 'EV1 Charge Energy' },
+        { obj: loadConfig.ev2,     key: 'energy',          label: 'EV2 Charge Energy' },
+        { obj: loadConfig.ev2,     key: 'energyDischarge', label: 'EV2 Discharge Energy' },
+      ];
+
+      for (const field of energyFields) {
+        if (!field.obj || !field.obj[field.key]) continue;
+        const sourceEid = field.obj[field.key];
+        const result = await this._ensureDailyMeter(sourceEid, field.label);
+        if (result.isCumulative && result.dailyEntity !== sourceEid) {
+          found.push(`📊 ${field.label}: cumulative sensor → daily meter (${result.dailyEntity})`);
+          field.obj[field.key] = result.dailyEntity;
+        } else if (result.isCumulative && result.dailyEntity === sourceEid) {
+          found.push(`⚠️ ${field.label}: cumulative sensor detected but meter creation failed — using source directly`);
+        }
+      }
+
+
+      this._saveLoadEntitiesConfigFromObject(loadConfig);
+      this._populateLoadEntitiesForm();
+      
+      if (btn) btn.textContent = '🔍 Auto-Detect';
+      if (found.length > 0) {
+        alert("✅ Detected:\n" + found.join('\n'));
+      } else {
+        alert("⚠️ No energy entities found in HA Energy Dashboard.");
+      }
+      
+    } catch (err) {
+      console.error(err);
+      if (btn) btn.textContent = '🔍 Auto-Detect';
+      alert("Auto-detect failed: " + err.message);
+    }
+  }
+
+  // Helper to save load entity config from object
+  _saveLoadEntitiesConfigFromObject(config) {
+    try {
+      localStorage.setItem('haeo-events-card-load-entities', JSON.stringify(config));
+    } catch (e) {
+      console.error('Failed to save config:', e);
+    }
   }
 
   // Populate load entity form from saved config
   _populateLoadEntitiesForm() {
     const config = this._loadLoadEntitiesConfig();
     
-    // Map load names to their input IDs (base -> load, others direct)
-    const loadMap = { base: 'load', pv: 'pv', grid: 'grid', battery: 'battery', ev: 'ev', ev2: 'ev2' };
+    // Map config keys to their input IDs (base -> load, others direct)
+    const loadMap = { base: 'load', pv: 'pv', grid: 'grid', battery: 'battery', ev: 'ev', ev2: 'ev2', deferLoad: 'deferLoad' };
     
     Object.keys(loadMap).forEach(loadName => {
       const inputId = loadMap[loadName];
@@ -5006,60 +5043,23 @@ class HaeoEventsCard extends HTMLElement {
     if (ev2DischargeInput && config.ev2) {
       ev2DischargeInput.value = config.ev2.energyDischarge || '';
     }
-  }
 
-  // Save deferrable loads entity configuration
-  _saveDeferrableLoadsConfig() {
-    const forecastInput = this.shadowRoot.getElementById('deferLoad-forecast');
-    const historicalInput = this.shadowRoot.getElementById('deferLoad-historical');
-    const energyInput = this.shadowRoot.getElementById('deferLoad-energy');
-    
+    // Restore invert flow checkboxes
+    const invertIds = ['load', 'pv', 'grid', 'battery', 'ev', 'ev2', 'deferLoad'];
+    const invertKeys = { load: 'base', pv: 'pv', grid: 'grid', battery: 'battery', ev: 'ev', ev2: 'ev2', deferLoad: 'deferLoad' };
+    invertIds.forEach(id => {
+      const cb = this.shadowRoot.getElementById(`invert-${id}`);
+      const key = invertKeys[id];
+      if (cb && config[key]) cb.checked = config[key].invert || false;
+    });
 
-    if (forecastInput && historicalInput && energyInput) {
-      const config = {
-        forecastEntity: forecastInput.value || '',
-        historicalEntity: historicalInput.value || '',
-        energyEntity: energyInput.value || ''
-      };
-      try {
-        localStorage.setItem('haeo-events-card-deferrable-loads-entities', JSON.stringify(config));
-      } catch (e) {
-      }
-      return config;
-    }
-    return {};
-  }
-
-  // Load deferrable loads entity configuration
-  _loadDeferrableLoadsConfig() {
-    try {
-      const saved = localStorage.getItem('haeo-events-card-deferrable-loads-entities');
-      if (saved) {
-        const config = JSON.parse(saved);
-        return config;
-      }
-    } catch (e) {
-    }
-    const defaults = { forecastEntity: '', historicalEntity: '', energyEntity: '' };
-    return defaults;
-  }
-
-  // Populate deferrable loads form from saved config
-  _populateDeferrableLoadsForm() {
-    const config = this._loadDeferrableLoadsConfig();
-    const forecastInput = this.shadowRoot.getElementById('deferLoad-forecast');
-    const historicalInput = this.shadowRoot.getElementById('deferLoad-historical');
-    const energyInput = this.shadowRoot.getElementById('deferLoad-energy');
-    
-    if (forecastInput) {
-      forecastInput.value = config.forecastEntity || '';
-    }
-    if (historicalInput) {
-      historicalInput.value = config.historicalEntity || '';
-    }
-    if (energyInput) {
-      energyInput.value = config.energyEntity || '';
-    }
+    // Restore show kWh checkboxes for deferLoad, ev, ev2
+    const showKwhDeferLoad = this.shadowRoot.getElementById('show-kwh-deferLoad');
+    if (showKwhDeferLoad && config.deferLoad) showKwhDeferLoad.checked = config.deferLoad.showKwh ?? true;
+    const showKwhEv = this.shadowRoot.getElementById('show-kwh-ev');
+    if (showKwhEv && config.ev) showKwhEv.checked = config.ev.showKwh ?? true;
+    const showKwhEv2 = this.shadowRoot.getElementById('show-kwh-ev2');
+    if (showKwhEv2 && config.ev2) showKwhEv2.checked = config.ev2.showKwh ?? true;
   }
 
   _populateEntitiesForm() {
@@ -5156,17 +5156,15 @@ class HaeoEventsCard extends HTMLElement {
         loadNameSelect.value = config[i].loadName || '';
         forecastInput.value = config[i].forecastEntity || '';
         historicalInput.value = config[i].historicalEntity || '';
-        if (energyInput) {
-          energyInput.value = config[i].energyEntity || '';
-        }
-        if (thresholdInput) {
-          thresholdInput.value = config[i].threshold || 10;
-        }
-        
+        if (energyInput) energyInput.value = config[i].energyEntity || '';
+        if (thresholdInput) thresholdInput.value = config[i].threshold || 10;
+
+        const showKwhInput = this.shadowRoot.getElementById(`optload-show-kwh-${i}`);
+        if (showKwhInput) showKwhInput.checked = config[i].showKwh ?? true;
+
         // Populate custom name if it was saved
         if (customNameInput) {
           customNameInput.value = config[i].customName || '';
-          // Show/hide custom name input based on loadName
           if (config[i].loadName === 'custom' && config[i].customName) {
             customNameInput.style.display = 'block';
           } else {
@@ -5272,56 +5270,82 @@ class HaeoEventsCard extends HTMLElement {
             }
           });
           
-        } else if (activeTabName === 'loads') {
+        } else if (activeTabName === 'base-sensors') {
           
-          // Reset inverter brand selector to Sigenergy FIRST
-          const inverterBrand = this.shadowRoot.getElementById('inverter-brand');
-          if (inverterBrand) {
-            inverterBrand.value = 'sigenergy';
-            // Trigger change event to populate entity placeholders from inverter brand
-            inverterBrand.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-          
-          // Reset all threshold inputs to defaults
+          // Write defaults back to localStorage — Base Sensors only (base/pv/grid/battery)
+          // EV, EV2, deferLoad are reset via the Optional Loads tab
+          const loadCfg = this._loadLoadEntitiesConfig();
+          const resetDefaults = {
+            base: { forecast: 'sensor.base_load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
+            pv: { forecast: 'sensor.solar_power', historical: 'sensor.sigen_plant_pv_power', energy: 'sensor.sigen_plant_total_pv_generation' },
+            grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy', dailyImport: 'sensor.sigen_plant_daily_grid_import_energy', dailyExport: 'sensor.sigen_plant_daily_grid_export_energy' },
+            battery: { forecast: 'sensor.battery_active_power', historical: 'sensor.sigen_plant_battery_power', energy: 'sensor.sigen_plant_daily_battery_charge_energy', energyDischarge: 'sensor.sigen_plant_daily_battery_discharge_energy' },
+            // Preserve existing EV/EV2/deferLoad values
+            ev: loadCfg.ev,
+            ev2: loadCfg.ev2,
+            deferLoad: loadCfg.deferLoad,
+          };
+          try { localStorage.setItem('haeo-events-card-load-entities', JSON.stringify(resetDefaults)); } catch (e) {}
+
+          // Reset threshold inputs for base sensors only
           const thresholdDefaults = {
             'threshold-load': 0,
             'threshold-pv': 50,
             'threshold-grid': 100,
             'threshold-battery': 100,
-            'threshold-ev': 100,
-            'threshold-ev2': 100,
-            'threshold-deferLoad': 5
           };
-          
-          // Reset thresholds
           Object.entries(thresholdDefaults).forEach(([id, defaultValue]) => {
             const input = this.shadowRoot.getElementById(id);
             if (input) input.value = defaultValue;
           });
-          
-          // Reset column toggles - DISABLE EV, EV2, Deferrable Loads (uncheck them)
-          const colEV = this.shadowRoot.getElementById('col-ev');
-          const colEV2 = this.shadowRoot.getElementById('col-ev2');
-          const colDeferLoad = this.shadowRoot.getElementById('col-deferLoad');
-          if (colEV) colEV.checked = false;
-          if (colEV2) colEV2.checked = false;
-          if (colDeferLoad) colDeferLoad.checked = false;
-          
-          // Reset entity inputs - ONLY clear EV, EV2, and Deferrable Loads
-          // (forecast/future decisions keep their defaults and show white)
-          const entityIds = [
-            'ev-forecast', 'ev-historical', 'ev-energy', 'ev-energy-discharge',
-            'ev2-forecast', 'ev2-historical', 'ev2-energy', 'ev2-energy-discharge',
-            'deferLoad-forecast', 'deferLoad-historical', 'deferLoad-energy'
-          ];
-          
-          entityIds.forEach(id => {
-            const input = this.shadowRoot.getElementById(id);
-            if (input) input.value = '';
+
+          // Populate all entity inputs from the defaults we just saved
+          this._populateLoadEntitiesForm();
+
+          // Reset invert toggles for base sensors only
+          ['load', 'pv', 'grid', 'battery'].forEach(id => {
+            const cb = this.shadowRoot.getElementById(`invert-${id}`);
+            if (cb) cb.checked = false;
           });
           
         } else if (activeTabName === 'optional-loads') {
-          // Reset optional loads: disable all, reset filter to 10W, reset to plug emoji and no name
+
+          // Reset fixed rows: Deferrable Loads, EV, EV2
+          const fixedDefaults = {
+            deferLoad: { forecast: 'sensor.deferrable_loads_power_forecast', historical: 'sensor.deferrable_loads_power', energy: 'sensor.deferrable_loads_energy', threshold: 5 },
+            ev:        { forecast: 'sensor.ev_active_power', historical: 'sensor.sigen_ac_charger_charging_power', energy: 'sensor.sigen_plant_total_charged_energy_of_the_evac', energyDischarge: '', threshold: 100 },
+            ev2:       { forecast: 'sensor.ev2_active_power', historical: 'sensor.sigen_dc_charger_output_power', energy: 'sensor.sigen_plant_total_charged_energy_of_the_evdc', energyDischarge: 'sensor.sigen_plant_total_discharged_energy_of_the_evdc', threshold: 100 },
+          };
+          ['deferLoad', 'ev', 'ev2'].forEach(key => {
+            const d = fixedDefaults[key];
+            const enable   = this.shadowRoot.getElementById(`col-${key}`);
+            const thresh   = this.shadowRoot.getElementById(`threshold-${key}`);
+            const showKwh  = this.shadowRoot.getElementById(`show-kwh-${key}`);
+            const forecast = this.shadowRoot.getElementById(`${key}-forecast`);
+            const hist     = this.shadowRoot.getElementById(`${key}-historical`);
+            const energy   = this.shadowRoot.getElementById(`${key}-energy`);
+            const energyDis= this.shadowRoot.getElementById(`${key}-energy-discharge`);
+            const invert   = this.shadowRoot.getElementById(`invert-${key}`);
+            if (enable)    enable.checked = false;
+            if (thresh)    thresh.value = d.threshold;
+            if (showKwh)   showKwh.checked = true;
+            if (forecast)  forecast.value = d.forecast;
+            if (hist)      hist.value = d.historical;
+            if (energy)    energy.value = d.energy;
+            if (energyDis) energyDis.value = d.energyDischarge || '';
+            if (invert)    invert.checked = false;
+          });
+
+          // Also write defaults back to localStorage for these fixed rows
+          try {
+            const loadCfg = this._loadLoadEntitiesConfig();
+            loadCfg.deferLoad = { ...fixedDefaults.deferLoad, invert: false, showKwh: true };
+            loadCfg.ev        = { ...fixedDefaults.ev,        invert: false, showKwh: true };
+            loadCfg.ev2       = { ...fixedDefaults.ev2,       invert: false, showKwh: true };
+            localStorage.setItem('haeo-events-card-load-entities', JSON.stringify(loadCfg));
+          } catch (e) {}
+
+          // Reset optional loads config object (10 pull-down rows)
           if (this._optionalLoadsConfig) {
             this._optionalLoadsConfig.forEach(config => {
               config.enabled = false;
@@ -5329,19 +5353,31 @@ class HaeoEventsCard extends HTMLElement {
               config.emoji = '🔌';
               config.loadName = '';
               config.customName = '';
+              config.forecastEntity = '';
+              config.historicalEntity = '';
+              config.energyEntity = '';
+              config.showKwh = true;
             });
           }
-          // Update UI inputs for optional loads
+          // Update all UI inputs for optional loads
           for (let i = 0; i < 10; i++) {
-            const enableCheckbox = this.shadowRoot.getElementById(`optload-enable-${i}`);
-            const emojiSelect = this.shadowRoot.getElementById(`optload-emoji-${i}`);
-            const presetSelect = this.shadowRoot.getElementById(`optload-preset-${i}`);
-            const thresholdInput = this.shadowRoot.getElementById(`optload-threshold-${i}`);
-            
-            if (enableCheckbox) enableCheckbox.checked = false;
-            if (emojiSelect) emojiSelect.value = '🔌';
-            if (presetSelect) presetSelect.value = '';
-            if (thresholdInput) thresholdInput.value = 10;
+            const enableCheckbox  = this.shadowRoot.getElementById(`optload-enable-${i}`);
+            const emojiSelect     = this.shadowRoot.getElementById(`optload-emoji-${i}`);
+            const presetSelect    = this.shadowRoot.getElementById(`optload-preset-${i}`);
+            const thresholdInput  = this.shadowRoot.getElementById(`optload-threshold-${i}`);
+            const forecastInput   = this.shadowRoot.getElementById(`optload-forecast-${i}`);
+            const historicalInput = this.shadowRoot.getElementById(`optload-historical-${i}`);
+            const energyInput     = this.shadowRoot.getElementById(`optload-energy-${i}`);
+
+            if (enableCheckbox)  enableCheckbox.checked = false;
+            if (emojiSelect)     emojiSelect.value = '🔌';
+            if (presetSelect)    presetSelect.value = '';
+            if (thresholdInput)  thresholdInput.value = 10;
+            if (forecastInput)   forecastInput.value = '';
+            if (historicalInput) historicalInput.value = '';
+            if (energyInput)     energyInput.value = '';
+            const showKwhInput = this.shadowRoot.getElementById(`optload-show-kwh-${i}`);
+            if (showKwhInput)    showKwhInput.checked = true;
           }
         }
       });
@@ -5357,8 +5393,7 @@ class HaeoEventsCard extends HTMLElement {
       colors: this._colorSettings,
       thresholds: this._thresholdSettings,
       deferableLoads: this._deferableLoadsConfig,
-      optionalLoads: this._loadOptionalLoadsConfig(),
-      deferrableLoadsEntities: this._loadDeferrableLoadsConfig()
+      optionalLoads: this._loadOptionalLoadsConfig()
     };
     
     const json = JSON.stringify(allSettings, null, 2);
