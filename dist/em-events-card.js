@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.8.8';
+const _EMEC_VERSION = 'v2.8.24';
 
 let _EMEC_CUR = '$';
 
@@ -114,8 +114,8 @@ function _emec_fmtP(v) {
 }
 
 function _emec_fmtCost(cost) {
-  if (cost > 0.0001)  return { disp: '-' + _EMEC_CUR + cost.toFixed(3),           col: null };
-  if (cost < -0.0001) return { disp: _EMEC_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
+  if (cost > 0.001)  return { disp: '-' + _EMEC_CUR + cost.toFixed(3),           col: null };
+  if (cost < -0.001) return { disp: _EMEC_CUR  + Math.abs(cost).toFixed(3), col: '#4caf50' };
   return { disp: '—', col: null };
 }
 
@@ -442,8 +442,8 @@ function _emec_buildHTML() {
     '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
     '<label style="font-weight:600;font-size:13px;">☀️ Solar</label>' +
     '<div style="display:flex;flex-direction:column;gap:4px;">' +
-    '<input type="number" id="settings-solar-threshold" min="0" step="1" value="5" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 5 W</div>' +
+    '<input type="number" id="settings-solar-threshold" min="0" step="1" value="500" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 500 W</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
     '<div style="text-align:center;"><strong>5min:</strong><br><span id="solar-kwh-5min">0.00042</span></div>' +
@@ -466,8 +466,8 @@ function _emec_buildHTML() {
     '<div style="display:grid;grid-template-columns:120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
     '<label style="font-weight:600;font-size:13px;">🔋 Battery</label>' +
     '<div style="display:flex;flex-direction:column;gap:4px;">' +
-    '<input type="number" id="settings-battery-threshold" min="0" step="1" value="10" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
-    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 10 W</div>' +
+    '<input type="number" id="settings-battery-threshold" min="0" step="1" value="100" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 100 W</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--primary-text-color);">' +
     '<div style="text-align:center;"><strong>5min:</strong><br><span id="battery-kwh-5min">0.00083</span></div>' +
@@ -486,7 +486,11 @@ function _emec_buildHTML() {
     '</select>' +
     '<div style="font-size:10px;color:var(--secondary-text-color);text-align:center;">Default: 3</div>' +
     '</div>' +
-    '<div style="font-size:11px;color:var(--primary-text-color);text-align:center;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">Example: 0.352</div>' +
+    '<div id="price-decimals-example" style="font-size:11px;color:var(--primary-text-color);text-align:center;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">Example: $0.352</div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-start;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider-color);">' +
+    '<button id="reset-thresholds-btn" style="background:#f44336;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
+    '</div>' +
     '</div>' +
     '</div>' +
     // Other empty tabs
@@ -611,7 +615,7 @@ function _emec_buildHTML() {
     '</div>' +
     '</div>' +
     '<div style="display:flex;gap:12px;justify-content:flex-start;margin-top:12px;border-top:1px solid var(--divider-color);padding-top:12px;">' +
-    '<button id="reset-colors-btn" style="background:#0099ff;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
+    '<button id="reset-colors-btn" style="background:#f44336;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
     '</div>' +
     '</div>' +
     
@@ -637,7 +641,7 @@ function _emec_buildHTML() {
     '</div>' +
     '</div>' +
     '<div style="display:flex;gap:12px;justify-content:space-between;border-top:1px solid var(--divider-color);padding-top:12px;">' +
-    '<button id="settings-reset-btn" style="background:#666;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
+    '<button id="settings-reset-btn" style="background:#f44336;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Reset to Defaults</button>' +
     '<button id="settings-apply-btn" style="background:#0099ff;color:#fff;border:none;cursor:pointer;padding:8px 16px;border-radius:4px;font-weight:600;font-size:12px;">Apply</button>' +
     '</div>' +
     '</div>' +
@@ -1005,6 +1009,29 @@ class EmEventsCard extends HTMLElement {
       }
     });
 
+    // Wire price decimals dropdown for auto-save
+    const decimalsSelect = this.shadowRoot.getElementById('settings-price-decimals');
+    if (decimalsSelect && !decimalsSelect._wired) {
+      decimalsSelect._wired = true;
+      decimalsSelect.addEventListener('change', () => {
+        // Update example display
+        const decimals = parseInt(decimalsSelect.value) || 3;
+        const exampleDiv = this.shadowRoot.getElementById('price-decimals-example');
+        if (exampleDiv) {
+          const exampleValue = (0.352).toFixed(decimals);
+          exampleDiv.textContent = `Example: $${exampleValue}`;
+        }
+        
+        this._autoSaveSettings();
+        // Refresh active tab to update price display
+        if (this._activeTab === 'future') {
+          this._renderFuture();
+        } else {
+          this._loadPast();
+        }
+      });
+    }
+
     settingsTabs.forEach((tab) => {
       if (!tab._wired) {
         tab._wired = true;
@@ -1107,7 +1134,7 @@ class EmEventsCard extends HTMLElement {
       const diff = Math.abs(ts - nowTs);
       if (diff < closestDiff) {
         closestDiff = diff;
-        chargingNow = (row.inputs.pv_kw || 0) > 0.5 && (row.expected.battery_charge_kw || 0) > 0.1;
+        chargingNow = (row.inputs.pv_kw || 0) > ((this._settings?.solarThreshold || 500) / 1000) && (row.expected.battery_charge_kw || 0) > ((this._settings?.batteryThreshold || 100) / 1000);
       }
     }
 
@@ -1161,8 +1188,8 @@ class EmEventsCard extends HTMLElement {
     let nextImporting = false, nextCharging = false;
     for (const row of timeline) {
       if (new Date(row.ts).getTime() < nowTs) continue;
-      nextImporting = (row.expected.grid_import_kw   || 0) > 0.1;
-      nextCharging  = (row.expected.battery_charge_kw|| 0) > 0.1;
+      nextImporting = (row.expected.grid_import_kw   || 0) > ((this._settings?.gridThreshold || 10) / 1000);
+      nextCharging  = (row.expected.battery_charge_kw|| 0) > ((this._settings?.batteryThreshold || 100) / 1000);
       break;
     }
 
@@ -1611,11 +1638,11 @@ class EmEventsCard extends HTMLElement {
         const ts = new Date(row.ts).getTime();
         if (ts < nowTs) continue;
         
-        if (!gridImportTime && (row.expected.grid_import_kw||0) > 0.1) {
+        if (!gridImportTime && (row.expected.grid_import_kw||0) > ((this._settings?.gridThreshold || 10) / 1000)) {
           gridImportTime = fmtAlertTime(ts);
           gridImportTs = ts;
         }
-        if (!gridExportTime && (row.expected.grid_export_kw||0) > 0.1) {
+        if (!gridExportTime && (row.expected.grid_export_kw||0) > ((this._settings?.gridThreshold || 10) / 1000)) {
           gridExportTime = fmtAlertTime(ts);
           gridExportTs = ts;
         }
@@ -1822,7 +1849,9 @@ class EmEventsCard extends HTMLElement {
         const battCKw   = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_charging_power'],    ts)) || 0) / 1000;
         const battDKw   = (parseFloat(_emec_getAt(lookup['sensor.inverter_battery_discharging_power'], ts)) || 0) / 1000;
         const gridThreshold = (this._settings?.gridThreshold || 10) / 1000; // Convert W to kW
-        const batteryThreshold = (this._settings?.batteryThreshold || 10) / 1000; // Convert W to kW
+        const batteryThreshold = (this._settings?.batteryThreshold || 100) / 1000; // Convert W to kW
+        const loadThreshold = (this._settings?.loadThreshold || 5) / 1000; // Convert W to kW
+        const solarThreshold = (this._settings?.solarThreshold || 500) / 1000; // Convert W to kW
         const gridKw    = gridExpKw > gridThreshold ? -gridExpKw : gridImpKw > gridThreshold ? gridImpKw : 0;
         const battKw    = battCKw   > batteryThreshold ? battCKw    : battDKw   > batteryThreshold ? -battDKw  : 0;
         const rawBuyP   = parseFloat(_emec_getAt(lookup['sensor.nodered_buyprice'],  ts)) || 0;
@@ -1852,10 +1881,10 @@ class EmEventsCard extends HTMLElement {
         const socCol  = soc <= 20 ? '#f44336'  : soc >= 75 ? '#4caf50'  : c.txt;
 
         let costDisp, costCol;
-        if (gridExpKw > 0.2 && cost < -0.0001) {
+        if (cost < -0.001) {
           costDisp = _EMEC_CUR + Math.abs(cost).toFixed(3);
           costCol  = '#4caf50';
-        } else if (gridImpKw > 0.2 && cost > 0.0001) {
+        } else if (cost > 0.001) {
           costDisp = '-' + _EMEC_CUR + cost.toFixed(3);
           costCol  = '#f44336';
         } else {
@@ -1868,12 +1897,12 @@ class EmEventsCard extends HTMLElement {
         const eGrid = gridKw * stepHP;
         const eBatt = battKw * stepHP;
 
-        const fmtKw  = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
-        const fmtGKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
-        const fmtBKw = (v) => Math.abs(v) < 0.005 ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
-        const fmtKwh = (v) => Math.abs(v) > 0.001 ? v.toFixed(3) : '—';
-        const fmtGKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + gridCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
-        const fmtBKwh = (v) => Math.abs(v) > 0.001 ? '<span style="color:' + battCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
+        const fmtKw  = (v) => Math.abs(v) < (loadThreshold / 1000) ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + c.txt + ';">' + v.toFixed(3) + '</span>';
+        const fmtGKw = (v) => Math.abs(v) < (gridThreshold / 1000) ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + gridCol + ';">' + v.toFixed(3) + '</span>';
+        const fmtBKw = (v) => Math.abs(v) < (batteryThreshold / 1000) ? '<span style="color:' + c.txt + ';">—</span>' : '<span style="color:' + battCol + ';">' + v.toFixed(3) + '</span>';
+        const fmtKwh = (v) => Math.abs(v) > (loadThreshold / 1000 * stepHP) ? v.toFixed(3) : '—';
+        const fmtGKwh = (v) => Math.abs(v) > (gridThreshold / 1000 * stepHP) ? '<span style="color:' + gridCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
+        const fmtBKwh = (v) => Math.abs(v) > (batteryThreshold / 1000 * stepHP) ? '<span style="color:' + battCol + ';">' + (v < 0 ? '-' : '') + Math.abs(v).toFixed(3) + '</span>' : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
@@ -2013,9 +2042,9 @@ class EmEventsCard extends HTMLElement {
     } else {
       this._settings = {
         loadThreshold: 5,
-        solarThreshold: 5,
+        solarThreshold: 500,
         gridThreshold: 10,
-        batteryThreshold: 10,
+        batteryThreshold: 100,
         priceDecimals: 3
       };
       this._saveSettings();
@@ -2119,6 +2148,51 @@ class EmEventsCard extends HTMLElement {
         }
       });
     }
+
+    // Wire Reset Thresholds button
+    const resetThresholdsBtn = this.shadowRoot.getElementById('reset-thresholds-btn');
+    if (resetThresholdsBtn && !resetThresholdsBtn._wired) {
+      resetThresholdsBtn._wired = true;
+      resetThresholdsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Reset to default thresholds
+        const defaults = {
+          loadThreshold: 5,
+          solarThreshold: 500,
+          gridThreshold: 10,
+          batteryThreshold: 100,
+          priceDecimals: 3
+        };
+        
+        // Update inputs
+        const inputs = {
+          load: this.shadowRoot.getElementById('settings-load-threshold'),
+          pv: this.shadowRoot.getElementById('settings-solar-threshold'),
+          grid: this.shadowRoot.getElementById('settings-grid-threshold'),
+          battery: this.shadowRoot.getElementById('settings-battery-threshold'),
+          decimals: this.shadowRoot.getElementById('settings-price-decimals')
+        };
+        
+        if (inputs.load) inputs.load.value = defaults.loadThreshold;
+        if (inputs.pv) inputs.pv.value = defaults.solarThreshold;
+        if (inputs.grid) inputs.grid.value = defaults.gridThreshold;
+        if (inputs.battery) inputs.battery.value = defaults.batteryThreshold;
+        if (inputs.decimals) inputs.decimals.value = defaults.priceDecimals;
+        
+        // Update settings and save
+        this._settings = defaults;
+        this._saveSettings();
+        this._updateKwhDisplays();
+        
+        // Refresh active tab
+        if (this._activeTab === 'future') {
+          this._renderFuture();
+        } else {
+          this._loadPast();
+        }
+      });
+    }
   }
 
   _exportSettings() {
@@ -2201,9 +2275,9 @@ class EmEventsCard extends HTMLElement {
     };
     
     if (inputs.load) inputs.load.value = this._settings?.loadThreshold || 5;
-    if (inputs.pv) inputs.pv.value = this._settings?.solarThreshold || 5;
+    if (inputs.pv) inputs.pv.value = this._settings?.solarThreshold || 500;
     if (inputs.grid) inputs.grid.value = this._settings?.gridThreshold || 10;
-    if (inputs.battery) inputs.battery.value = this._settings?.batteryThreshold || 10;
+    if (inputs.battery) inputs.battery.value = this._settings?.batteryThreshold || 100;
     if (inputs.decimals) inputs.decimals.value = this._settings?.priceDecimals || 3;
     
     this._updateKwhDisplays();
@@ -2240,6 +2314,16 @@ class EmEventsCard extends HTMLElement {
     
     this._initializeSettings();
     this._loadThresholdInputs();
+    
+    // Update price decimals example
+    const decimalsSelect = this.shadowRoot.getElementById('settings-price-decimals');
+    const exampleDiv = this.shadowRoot.getElementById('price-decimals-example');
+    if (decimalsSelect && exampleDiv) {
+      const decimals = parseInt(decimalsSelect.value) || 3;
+      const exampleValue = (0.352).toFixed(decimals);
+      exampleDiv.textContent = `Example: $${exampleValue}`;
+    }
+    
     modal.style.display = 'flex';
   }
 
@@ -2250,9 +2334,9 @@ class EmEventsCard extends HTMLElement {
 
   _autoSaveSettings() {
     const load = parseFloat(this.shadowRoot.getElementById('settings-load-threshold')?.value) || 5;
-    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 5;
+    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 500;
     const grid = parseFloat(this.shadowRoot.getElementById('settings-grid-threshold')?.value) || 10;
-    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 10;
+    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 100;
     const decimals = parseInt(this.shadowRoot.getElementById('settings-price-decimals')?.value) || 3;
     
     // Validate
@@ -2273,9 +2357,9 @@ class EmEventsCard extends HTMLElement {
 
   _applySettings() {
     const load = parseFloat(this.shadowRoot.getElementById('settings-load-threshold')?.value) || 5;
-    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 5;
+    const pv = parseFloat(this.shadowRoot.getElementById('settings-solar-threshold')?.value) || 500;
     const grid = parseFloat(this.shadowRoot.getElementById('settings-grid-threshold')?.value) || 10;
-    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 10;
+    const battery = parseFloat(this.shadowRoot.getElementById('settings-battery-threshold')?.value) || 100;
     const decimals = parseInt(this.shadowRoot.getElementById('settings-price-decimals')?.value) || 3;
     
     // Validate
