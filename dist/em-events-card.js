@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.8.24';
+const _EMEC_VERSION = 'v2.8.28';
 
 let _EMEC_CUR = '$';
 
@@ -1080,9 +1080,9 @@ class EmEventsCard extends HTMLElement {
       return kw.toFixed(1) + ' kW';
     };
     
-    // Parse grid limit
+    // Parse grid limit (now comes as numeric kW from plan)
     if (!gridLimitStr) return null;
-    const gridKw = parseFloat(gridLimitStr);
+    const gridKw = typeof gridLimitStr === 'string' ? parseFloat(gridLimitStr) : gridLimitStr;
     const gridFormatted = formatUnit(gridKw);
     
     // Get Globird EM limit if available
@@ -1091,7 +1091,8 @@ class EmEventsCard extends HTMLElement {
     const superMaxPct = parseFloat(this._hass?.states['input_number.globird_super_max_export_kw_percentage']?.state || 100);
     const otherMaxPct = parseFloat(this._hass?.states['input_number.globird_other_max_export_kw_percentage']?.state || 100);
     const badWeatherMax = parseFloat(this._hass?.states['input_number.globird_bad_weather_max_export']?.state || 100);
-    const inverterMax = parseFloat(this._hass?.states['input_number.inverter_export_power_hardlimit']?.state);
+    const inverterMaxW = parseFloat(this._hass?.states['input_number.inverter_export_power_hardlimit']?.state);
+    const inverterMax = inverterMaxW ? inverterMaxW / 1000 : null; // Convert W to kW
     
     // If Globird sensors not available, just show grid limit
     if (!inverterMax || !superStart || !superEnd) {
@@ -1193,14 +1194,25 @@ class EmEventsCard extends HTMLElement {
       break;
     }
 
-    const exportLimitW  = parseFloat(this._hass.states['sensor.inverter_current_export_power_limit']?.state || 0);
+    const gridHardLimitW = parseFloat(this._hass?.states['input_number.inverter_export_power_hardlimit']?.state || 0);
+    const currentExportLimitW = parseFloat(this._hass.states['sensor.inverter_current_export_power_limit']?.state || 0);
     const chargeLimitW  = parseFloat(this._hass.states['sensor.inverter_current_max_charge_power']?.state  || 0);
     const importLimitKw = parseFloat(this._hass.states['input_number.inverter_import_limit']?.state        || 0);
     const chargeLimitKw = Math.min(chargeLimitW / 1000, importLimitKw > 0 ? importLimitKw : Infinity);
+    
+    // Format export limit as kW or W
+    const fmtExportLimit = (w) => {
+      const kw = w / 1000;
+      if (kw < 1) {
+        return w.toFixed(0) + ' W';
+      }
+      return kw.toFixed(1) + ' kW';
+    };
+    
     const fmtKwLimit = (kw) => (kw === Math.floor(kw) ? kw.toFixed(0) : kw.toFixed(1)) + ' kW';
-    const showExportLimit = exportLimitW > 0;
+    const showExportLimit = gridHardLimitW > 0 || currentExportLimitW > 0;
     const showChargeLimit = (nextImporting || nextCharging) && chargeLimitKw > 0 && isFinite(chargeLimitKw);
-    const exportLimitDisp = showExportLimit ? fmtKwLimit(exportLimitW / 1000) : null;
+    const exportLimitDisp = showExportLimit ? (fmtExportLimit(gridHardLimitW) + ' (Grid) | ' + fmtExportLimit(currentExportLimitW) + ' (EM)') : null;
     const chargeLimitDisp = showChargeLimit ? fmtKwLimit(chargeLimitKw)       : null;
 
     let superExportPill = '';
@@ -1287,7 +1299,7 @@ class EmEventsCard extends HTMLElement {
       (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;" title="Primary strategy: Free Imports = cheap rate, Peak Export = high export price, Charging Battery = low import tariff">' + focusCap + '</span></span>' : '') +
       (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '% | ' + (nowSoc / 100 * batteryCapKwh).toFixed(1) + ' kWh</span></span>' : '') +
       (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%' + dawnKwh + ' (' + dawnTime + ')</span></span>' : '') +
-      (this._getExportLimitDisp(exportLimitDisp) ? '<span>📤 Export Limit: <span class="pill" style="background:#555;" title="Maximum export to grid. Shows EM-controlled limit + Grid Operator limits combined">' + this._getExportLimitDisp(exportLimitDisp) + '</span></span>' : '') +
+      (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;" title="Grid hard limit (6.3kW) vs current EM-set limit (based on economics)">' + exportLimitDisp + '</span></span>' : '') +
       (chargeLimitDisp ? '<span>⚡ ESS Charge Limit: <span class="pill" style="background:#555;" title="Maximum charge rate allowed. Prevents overcharging battery during fast-charge windows">' + chargeLimitDisp + '</span></span>' : '') +
       dynamicChargingPill +
       superExportPill;
