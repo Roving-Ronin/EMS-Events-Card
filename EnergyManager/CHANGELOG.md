@@ -3,6 +3,49 @@
 All notable changes to `em-events-card.js` are documented here.
 
 ---
+
+## v2.9.0
+
+* **Custom Provider Support** — Extract provider and plan name from `input_select.other_tariff_plan` when "Other" is selected (format: "Provider - Plan - State - DNSP - Date")
+* **Dynamic Provider Display** — Status bar pill now shows "⚡ AGL - Battery Rewards" instead of "⚡ Other" for custom electricity providers
+* **Supports any electricity provider** — No longer limited to hardcoded providers (Amber Electric, GloBird, Local Volts, Flow Power)
+
+## v2.8.28
+
+* **Export Limit label clarification** — Changed "Set" to "EM" to clarify Energy Manager's calculated limit (not just "set value")
+
+## v2.8.27
+
+* **Grid export limit from Energy Manager plan** — Shows grid operator's hard cap from `input_number.inverter_export_power_hardlimit` instead of sensor
+* **Dual export limit display** — Format now shows "6.3 kW (Grid) | 151 W (EM)" to distinguish grid cap vs EM's operational decision
+
+## v2.8.26
+
+* **Export limit sources clarified** — Grid limit from hard limit input, current limit from live inverter sensor
+
+## v2.8.25
+
+* **Fixed inverter export power unit conversion** — Converts watts to kW correctly (6300W → 6.3 kW not 151.2 kW)
+
+## v2.8.24
+
+* **Price decimals example now includes $ symbol** — Shows "$0.352" instead of "0.352" for clarity
+
+## v2.8.23
+
+* **Dynamic Price Decimals example** — Example now updates dynamically based on selected decimal places (e.g., "Example: $0.35" for 2 places)
+
+## v2.8.22
+
+* **Backup tab reset button color** — Changed from grey to red (#f44336) for consistency
+
+## v2.8.13-v2.8.21
+
+* **Settings Modal tab structure fixes** — Properly isolated Display Thresholds, Colours, and Backup tabs
+* **Reset to Defaults buttons** — Added to all settings tabs with consistent red styling
+* **Default threshold text updated** — Solar: 5W → 500W, Battery: 10W → 100W displays corrected
+* **Cost display threshold refined** — Increased from 0.0001 to 0.001 to avoid showing "-$0.000" for small values
+
 ## v2.6.0
 
 * **Event Description Tooltips** — Hover over event labels to see detailed rationale for each decision (tariff rates, peak periods, battery discharge timing, cost implications)
