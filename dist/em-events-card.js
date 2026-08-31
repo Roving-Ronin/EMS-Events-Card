@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v2.8.28';
+const _EMEC_VERSION = 'v2.9.0';
 
 let _EMEC_CUR = '$';
 
@@ -784,8 +784,21 @@ class EmEventsCard extends HTMLElement {
       this._wireRange();
     }
     const providerState = hass.states['input_select.electricity_provider']?.state || 'Amber Electric';
+    let displayProvider = providerState;
+    if (providerState === 'Other') {
+      const otherTariffState = hass.states['input_select.other_tariff_plan']?.state;
+      if (otherTariffState) {
+        // Extract provider name and plan (first two parts: "provider - plan - state - dnsp - date")
+        const parts = otherTariffState.split(' - ');
+        if (parts.length >= 2) {
+          displayProvider = parts[0] + ' - ' + parts[1]; // "AGL - Battery Rewards"
+        } else {
+          displayProvider = parts[0]; // Fallback to just provider name
+        }
+      }
+    }
     const provPill = this.shadowRoot.getElementById('provider-pill');
-    if (provPill) provPill.textContent = '⚡ ' + providerState;
+    if (provPill) provPill.textContent = '⚡ ' + displayProvider;
 
     // Watch for automation state changes
     this._watchAutomationState();
