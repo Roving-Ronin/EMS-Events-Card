@@ -1,114 +1,196 @@
-# Energy Manager Events Card - Sensor Usage
+# EM Events Card — Sensors & Entities Used
 
-## Overview
-This document outlines all sensors and input entities used by the Energy Manager Events Card, organized by view (FUTURE/PAST) and category.
+**Version:** v3.5.1  
+**Last Updated:** 2026-10-23
 
----
-
-## Sensor Usage Table
-
-| **Category** | **Sensor** | **FUTURE** | **PAST** | **Purpose** |
-|---|---|---|---|---|
-| **Core Plan Data** | `sensor.energy_manager_plan` | ✅ | | Timeline with expected power flows |
-| | `sensor.energy_manager_decision` | ✅ | | Current decision metadata |
-| **Battery** | `sensor.inverter_battery_level` | ✅ | | Current SoC % |
-| | `sensor.inverter_battery_capacity` | ✅ | | Battery kWh capacity |
-| | `sensor.inverter_battery_charging_power` | ✅ | ✅ | Current charge rate / Historical data |
-| | `sensor.inverter_battery_discharging_power` | ✅ | ✅ | Current discharge rate / Historical data |
-| **Inverter** | `sensor.inverter_pv_power` | ✅ | ✅ | Solar generation (kW) - current & historical |
-| | `sensor.inverter_load_power` | ✅ | ✅ | Home load (kW) - current & historical |
-| | `sensor.inverter_export_power` | ✅ | ✅ | Export rate (kW) - current & historical |
-| | `sensor.inverter_import_power` | ✅ | ✅ | Import rate (kW) - current & historical |
-| | `sensor.inverter_current_export_power_limit` | ✅ | | Grid export limit (kW) |
-| | `sensor.inverter_current_max_charge_power` | ✅ | | Max charge rate (kW) |
-| **Daily Financials** | `sensor.import_formatted` | ✅ | | Daily import cost ($) |
-| | `sensor.export_formatted` | ✅ | | Daily export income ($) |
-| | `sensor.net_formatted` | ✅ | | Daily net ($ imported - exported) |
-| | `sensor.daily_imported_energy` | ✅ | | Daily kWh imported |
-| | `sensor.daily_exported_energy` | ✅ | | Daily kWh exported |
-| | `sensor.daily_consumed_energy` | ✅ | | Daily kWh consumed |
-| **Tariff (Globird)** | `input_number.globird_super_sell` | ✅ | | Super export price ($/kWh) |
-| | `input_number.globird_std_sell` | ✅ | | Standard export price ($/kWh) |
-| | `input_number.globird_other_sell` | ✅ | | Other export price ($/kWh) |
-| | `input_number.globird_free_buy_price` | ✅ | | Free import window price |
-| | `input_number.globird_peak_buy_price` | ✅ | | Peak import price ($/kWh) |
-| | `input_number.globird_other_buy_price` | ✅ | | Other import price ($/kWh) |
-| **Export Limits (Globird)** | `input_number.globird_super_max_export_kw_percentage` | ✅ | | Super export % limit |
-| | `input_number.globird_other_max_export_kw_percentage` | ✅ | | Other export % limit |
-| | `input_number.globird_bad_weather_max_export` | ✅ | | Bad weather restriction (%) |
-| | `input_number.inverter_export_power_hardlimit` | ✅ | | Inverter hard export limit (kW) |
-| **Time Windows (Globird)** | `input_datetime.globird_super_start` | ✅ | | Super export window start time |
-| | `input_datetime.globird_super_end` | ✅ | | Super export window end time |
-| | `input_datetime.globird_free_buy_start` | ✅ | | Free import window start time |
-| | `input_datetime.globird_free_buy_end` | ✅ | | Free import window end time |
-| | `input_datetime.globird_peak_buy_start` | ✅ | | Peak import window start time |
-| | `input_datetime.globird_peak_buy_end` | ✅ | | Peak import window end time |
-| | `input_datetime.globird_std_start` | ✅ | | Standard rate window start time |
-| | `input_datetime.globird_std_end` | ✅ | | Standard rate window end time |
-| **Tariff (Flow Power)** | `input_number.flowpower_buy_price` | ✅ | | Buy price ($/kWh) |
-| | `input_number.flowpower_offpeak_feedin_price` | ✅ | | Off-peak export price |
-| | `input_number.flowpower_peak_feedin_price` | ✅ | | Peak export price |
-| | `input_datetime.flowpower_peak_start_time` | ✅ | | Peak time window start |
-| | `input_datetime.flowpower_peak_end_time` | ✅ | | Peak time window end |
+Complete reference of all Home Assistant sensors, automations, and input entities used by the EM Events Card.
 
 ---
 
-## Summary Statistics
+## Core Plan Data (FUTURE tab)
 
-- **Total sensors referenced:** 50+
-- **FUTURE view sensors:** 40+ (planning & monitoring)
-- **PAST view sensors:** 6+ (historical inverter data)
-- **Shared between both:** Inverter power sensors, battery, load, solar
-- **Globird-specific:** 18
-- **Flow Power-specific:** 5
-- **Generic/inverter:** 12+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.energy_manager_plan` | Sensor | Energy Manager forecast plan (attributes contain timeline) | ✅ Yes |
+| `sensor.energy_manager_decision` | Sensor | Current EM mode/decision metadata | ✅ Yes |
+| `automation.update_energy_manager_decision_sensor` | Automation | Triggers card refresh on new plan updates | ✅ Yes |
 
 ---
 
-## Key Findings
+## Inverter Power Data (Both tabs)
 
-### FUTURE View
-✅ **Comprehensive** - Uses all available sensors for detailed timeline planning
-- Energy plan timeline data (expected power flows)
-- Real-time inverter status
-- Tariff information
-- Export/import limits
-- Time-based windows for smart limiting
-
-### PAST View
-✅ **Historical Actual Data** - Shows what actually happened using inverter sensors
-- Uses **actual inverter sensors** with historical data lookup:
-  - `sensor.inverter_import_power` (actual grid imports)
-  - `sensor.inverter_export_power` (actual grid exports)
-  - `sensor.inverter_pv_power` (actual solar generation)
-  - `sensor.inverter_load_power` (actual home consumption)
-  - `sensor.inverter_battery_charging_power` (actual charge)
-  - `sensor.inverter_battery_discharging_power` (actual discharge)
-- Displays real historical data with time-series lookup via `_emec_getAt()` function
-- Data converted from Watts to kW for display
-
-### Data Comparison
-| Aspect | FUTURE | PAST |
-|--------|--------|------|
-| **Data Source** | Energy Manager plan (expected) | Inverter sensors (actual) |
-| **Time Basis** | Forward-looking timeline | Historical records |
-| **Grid Column** | Planned import/export | Actual import/export |
-| **Accuracy** | Forecast/prediction | Measured reality |
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.inverter_pv_power` | Sensor | Solar generation power (W) | ✅ Yes |
+| `sensor.inverter_load_power` | Sensor | Home load power (W) | ✅ Yes |
+| `sensor.inverter_import_power` | Sensor | Grid import power (W) | ✅ Yes |
+| `sensor.inverter_export_power` | Sensor | Grid export power (W) | ✅ Yes |
+| `sensor.inverter_battery_charging_power` | Sensor | Battery charge power (W) | ✅ Yes |
+| `sensor.inverter_battery_discharging_power` | Sensor | Battery discharge power (W) | ✅ Yes |
 
 ---
 
-## Provider-Specific Sensors
+## Battery Data
 
-### Globird Users
-- 8 tariff price inputs (`globird_*_buy/sell`)
-- 8 time window inputs for 4 rate periods
-- 3 export limit controls
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.inverter_battery_level` | Sensor | Battery state of charge (%) | ✅ Yes |
+| `sensor.inverter_battery_capacity` | Sensor | Battery capacity (kWh) | ✅ Yes |
+| `input_number.inverter_max_soc` | Input Number | Maximum SoC limit (%) | ✅ Yes |
+| `input_number.battery_charge_power_hardlimit` | Input Number | Max battery charge power (kW) | ✅ Yes |
+| `input_number.em_ev_current_soc` | Input Number | EV current SoC (%) — for EV readiness | ⚠️ Optional |
 
-### Flow Power Users
-- 2 tariff price inputs
-- 1 time window (peak period)
+---
 
-### All Users
-- 12+ generic inverter sensors
-- 6 daily financial sensors
-- 1 core plan sensor
+## Daily Energy Totals (PAST tab)
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.daily_consumed_energy` | Sensor | Daily load consumption (kWh) | ✅ Yes |
+| `sensor.daily_imported_energy` | Sensor | Daily grid import (kWh) | ✅ Yes |
+| `sensor.daily_exported_energy` | Sensor | Daily grid export (kWh) | ✅ Yes |
+| `sensor.monthly_solar_generation` | Sensor | Monthly solar generation (kWh) | ✅ Yes |
+| `sensor.monthly_imported_energy` | Sensor | Monthly grid import (kWh) | ✅ Yes |
+| `sensor.monthly_exported_energy` | Sensor | Monthly grid export (kWh) | ✅ Yes |
+| `sensor.monthly_battery_charge` | Sensor | Monthly battery charge (kWh) | ✅ Yes |
+| `sensor.monthly_battery_discharge` | Sensor | Monthly battery discharge (kWh) | ✅ Yes |
+
+---
+
+## Export & Charge Limits
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.inverter_current_export_power_limit` | Sensor | Current export power limit (W) | ✅ Yes |
+| `sensor.inverter_current_max_charge_power` | Sensor | Current max charge power (W) | ✅ Yes |
+| `sensor.inverter_current_max_soc` | Sensor | Current max SoC limit (%) | ✅ Yes |
+| `input_number.inverter_export_power_hardlimit` | Input Number | Grid operator export hard limit (kW) | ✅ Yes |
+| `input_number.inverter_import_limit` | Input Number | Inverter import limit (kW) — for Charge Limit pill | ✅ Yes |
+
+---
+
+## EV Charger Data (Optional — v3.5.1+)
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.charger_current_import` | Sensor | EV charger import power/current (kW or A) | ⚠️ Optional |
+| `sensor.charger_energy_session` | Sensor | EV session energy (kWh) | ⚠️ Optional |
+| `sensor.charger_status_connector` | Sensor | EV charger connector status | ⚠️ Optional |
+| `input_select.em_ev_site_phases` | Input Select | EV charger phase configuration (1/3-phase) | ⚠️ Optional |
+
+---
+
+## Provider Selection
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_select.electricity_provider` | Input Select | Selected provider: `Amber Electric`, `LocalVolts`, `Flow Power`, `GloBird`, or `Other` | ✅ Yes |
+| `input_select.other_tariff_plan` | Input Select | Custom tariff plan for "Other" provider (format: "Provider - Plan - State - DNSP - Date") | ⚠️ Optional |
+
+---
+
+## Tariff Pricing — Amber Electric / LocalVolts
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `sensor.nodered_buyprice` | Sensor | Current buy price ($/kWh) — fallback for Amber/LocalVolts | ⚠️ Optional |
+| `sensor.nodered_sellprice` | Sensor | Current sell price ($/kWh) — fallback for Amber/LocalVolts | ⚠️ Optional |
+
+---
+
+## Tariff Pricing — Flow Power
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_number.flowpower_buy_price` | Input Number | Flat buy price (cents/kWh) | ⚠️ Optional |
+| `input_number.flowpower_peak_feedin_price` | Input Number | Peak feed-in price (cents/kWh) | ⚠️ Optional |
+| `input_number.flowpower_offpeak_feedin_price` | Input Number | Off-peak feed-in price (cents/kWh) | ⚠️ Optional |
+| `input_datetime.flowpower_peak_start_time` | Input DateTime | Peak export window start | ⚠️ Optional |
+| `input_datetime.flowpower_peak_end_time` | Input DateTime | Peak export window end | ⚠️ Optional |
+
+---
+
+## Tariff Pricing — GloBird
+
+### Buy Pricing
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_number.globird_peak_buy_price` | Input Number | Peak buy price (cents/kWh) | ⚠️ Optional |
+| `input_number.globird_free_buy_price` | Input Number | Free period buy price (cents/kWh) | ⚠️ Optional |
+| `input_number.globird_other_buy_price` | Input Number | Off-peak buy price (cents/kWh) | ⚠️ Optional |
+
+### Buy Time Windows
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_datetime.globird_peak_buy_start` | Input DateTime | Peak buy window start | ⚠️ Optional |
+| `input_datetime.globird_peak_buy_end` | Input DateTime | Peak buy window end | ⚠️ Optional |
+| `input_datetime.globird_free_buy_start` | Input DateTime | Free buy window start | ⚠️ Optional |
+| `input_datetime.globird_free_buy_end` | Input DateTime | Free buy window end | ⚠️ Optional |
+
+### Sell Pricing
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_number.globird_super_sell` | Input Number | Super export sell price (cents/kWh) | ⚠️ Optional |
+| `input_number.globird_std_sell` | Input Number | Standard sell price (cents/kWh) | ⚠️ Optional |
+| `input_number.globird_other_sell` | Input Number | Off-peak sell price (cents/kWh) | ⚠️ Optional |
+
+### Sell Time Windows & Caps
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_datetime.globird_super_start` | Input DateTime | Super export window start (default 18:00) | ⚠️ Optional |
+| `input_datetime.globird_super_end` | Input DateTime | Super export window end (default 21:00) | ⚠️ Optional |
+| `input_datetime.globird_std_start` | Input DateTime | Standard sell window start | ⚠️ Optional |
+| `input_datetime.globird_std_end` | Input DateTime | Standard sell window end | ⚠️ Optional |
+| `input_number.globird_super_max_export` | Input Number | Super export daily cap (kWh, default 10) | ⚠️ Optional |
+| `input_number.globird_super_max_export_kw_percentage` | Input Number | Super export as % of system capacity | ⚠️ Optional |
+| `input_number.globird_other_max_export_kw_percentage` | Input Number | Standard sell as % of system capacity | ⚠️ Optional |
+| `input_number.globird_bad_weather_max_export` | Input Number | Bad weather export limit (kWh) | ⚠️ Optional |
+
+---
+
+## Settings & Features
+
+| Entity | Type | Description | Required |
+|--------|------|-------------|----------|
+| `input_boolean.enable_curtailing` | Input Boolean | Enable curtailment display (shows Curtailed columns) | ⚠️ Optional |
+
+---
+
+## Historical Data Lookups (PAST tab)
+
+The PAST tab uses Home Assistant's history system to fetch entity state changes within the selected date range. All power and energy sensors listed above are queried for historical 5-minute readings.
+
+---
+
+## Formatted/Derived Data (Internal)
+
+These are computed internally by the card (not entity requirements):
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| `sensor.export_formatted` | Internal | Formatted grid export display |
+| `sensor.import_formatted` | Internal | Formatted grid import display |
+| `sensor.net_formatted` | Internal | Formatted net cost/profit display |
+| `sensor.solcast_pv_forecast_power_now` | Internal | Used for surplus PV detection (Curtailment) |
+
+---
+
+## Summary
+
+- **Total Entities:** 65+
+- **Required (Core):** 18
+- **Optional (Provider-specific):** 47+
+- **Version:** v3.5.1
+
+### Required for Basic Function
+All **Core Plan Data**, **Inverter Power Data**, **Battery Data**, **Daily Totals**, **Export/Charge Limits**, and **Provider Selection** are required.
+
+### Optional / Provider-Specific
+EV Charger sensors and all tariff pricing entities are optional and depend on:
+- Electricity provider selected
+- Whether EV charger integration is configured
+- Which features are enabled in card settings
