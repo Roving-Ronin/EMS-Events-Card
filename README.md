@@ -2,6 +2,7 @@
 
 
 ![release](https://img.shields.io/github/v/release/Roving-Ronin/EMS-Events-Card?style=flat-square&color=green)
+![downloads](https://img.shields.io/github/downloads/Roving-Ronin/EMS-Events-Card/total?style=flat-square)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)
 ![maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=flat-square)
 ![commit activity](https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square)
@@ -48,7 +49,7 @@ All three card types will be available immediately — add whichever you need to
 ---
 
 ## Manual Installation
-1. Download the latest files from the `dist/` folder in this repository. Ensure you download `cards.js` as well as the individual card files (`em-events-card.js`, `emhass-events-card.js`, `haeo-events-card.js`).
+1. Download `cards.js`, `em-events-card.js`, `emhass-events-card.js` and `haeo-events-card.js` from the **Assets** section of the [latest release](https://github.com/Roving-Ronin/EMS-Events-Card/releases/latest).
 2. In your Home Assistant `config` directory, navigate to the `www/` folder (create it if it doesn't exist).
 3. Create a new folder inside `www/` called `ems-events-card`.
 4. Copy all the `.js` files you downloaded from the `dist/` folder into `config/www/ems-events-card/`.
