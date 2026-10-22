@@ -52,7 +52,7 @@ All three card types will be available immediately — add whichever you need to
 1. Download `cards.js`, `em-events-card.js`, `emhass-events-card.js` and `haeo-events-card.js` from the **Assets** section of the [latest release](https://github.com/Roving-Ronin/EMS-Events-Card/releases/latest).
 2. In your Home Assistant `config` directory, navigate to the `www/` folder (create it if it doesn't exist).
 3. Create a new folder inside `www/` called `ems-events-card`.
-4. Copy all the `.js` files you downloaded from the `dist/` folder into `config/www/ems-events-card/`.
+4. Copy the four `.js` files you downloaded into `config/www/ems-events-card/`.
 5. In Home Assistant, go to **Settings** > **Dashboards**.
 6. Click the three dots in the top right corner and select **Resources**.
 7. Click **Add Resource** in the bottom right corner.
