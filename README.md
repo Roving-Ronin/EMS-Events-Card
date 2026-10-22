@@ -37,7 +37,7 @@ For more detailed views and information for each specific card, please refer to 
 
 ## Installation via HACS
 
-1. In Home Assistant open **HACS → Frontend**
+1. In Home Assistant **Open HACS**
 2. Click the **⋮** menu → **Custom repositories**
 3. Add [https://github.com/Roving-Ronin/ems-events-card](https://github.com/Roving-Ronin/EMS-Events-Card) with category **Dashboard**
 4. Search for **Energy Management Systems - Events Card** and click **Download**
