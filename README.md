@@ -5,7 +5,7 @@
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)
 ![maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=flat-square)
 ![commit activity](https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square)
-![license](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-lightgrey?style=flat-square)
+![license](https://img.shields.io/github/license/Roving-Ronin/EMS-Events-Card?style=flat-square)
 
 ___
 > **Install once via HACS — all three cards are registered as dashboard resources automatically.**
@@ -15,11 +15,11 @@ A collection of custom Home Assistant Lovelace cards for energy management and o
 
 ### Future Decisions
 
-![HAEO - Future Decisions](/HAEO/HAEO-Card-Future-Decisions.png)
+![HAEO - Future Decisions](https://raw.githubusercontent.com/Roving-Ronin/EMS-Events-Card/main/HAEO/HAEO-Card-Future-Decisions.png)
 
 ### Past Events
 
-![Energy Manager - Past Events](/HAEO/HAEO-Card-Past-Events.png)
+![HAEO - Past Events](https://raw.githubusercontent.com/Roving-Ronin/EMS-Events-Card/main/HAEO/HAEO-Card-Past-Events.png)
 
 ---
 
@@ -94,16 +94,18 @@ See each card's README for full configuration options and required sensors.
 
 ## Versioning
 
-Each card is versioned independently using `v[major].[minor].[patch]`. The version is displayed in the card's legend footer. Release tags follow the format `v[em].[haeo].[emhass]` (e.g. `v2.4.8-2.1.5-2.0.9`).
+Each card is versioned independently using `v[major].[minor].[patch]`. The version is displayed in the card's legend footer.
 
 ---
 
 ## Credits: 
 
-Based off the initial version of an EMHASS card by Matt xxx ( Discord ID: matt099351 )
+Inspired by an original EMHASS events card by Matt ( Discord ID: matt099351 )
 
 ---
 
 ## License
 
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International — see [LICENSE](./LICENSE)
+GNU General Public License v3.0 — see [LICENSE](./LICENSE).
+
+You are free to use, modify and share these cards. If you distribute them or any modified version, including as part of another product, the whole work must also be released under GPL-3.0 with its source code. For use under other terms (e.g. in a closed-source or commercial product), contact the author for a commercial licence.
