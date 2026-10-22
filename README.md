@@ -40,7 +40,7 @@ For more detailed views and information for each specific card, please refer to 
 1. In Home Assistant open **HACS → Frontend**
 2. Click the **⋮** menu → **Custom repositories**
 3. Add [https://github.com/Roving-Ronin/ems-events-cards](https://github.com/Roving-Ronin/EMS-Events-Card) with category **Dashboard**
-4. Search for **Energy Management Systems - Events Cards** and click **Download**
+4. Search for **Energy Management Systems - Events Card** and click **Download**
 5. Hard-refresh your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
 
 All three card types will be available immediately — add whichever you need to your dashboard.
