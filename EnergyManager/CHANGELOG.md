@@ -4,6 +4,15 @@ All notable changes to `em-events-card.js` are documented here.
 
 ---
 
+## v3.5.1
+
+* **EV Charger Support** — Energy Manager can now schedule EV charging with multiple charging modes (Solar Only, Cheapest, Scheduled, Ready by time/price) and real-time SoC% tracking; EV events appear in both FUTURE planned decisions and PAST historical records
+* **Solar Forecast Column in PAST** — Historical solar forecast (FCST) data now displayed in PAST tab alongside actual solar readings for analyzing EM's forecast accuracy and decision effectiveness
+* **Tab-Aware Column Structure** — FUTURE and PAST tabs now have correct and distinct column layouts; FUTURE excludes Solar Forecast column, PAST includes it; fixes misalignment and gaps in table rendering
+* **Conditional Column Visibility** — Curtailed and EV Charger columns dynamically shown/hidden based on EM configuration settings without requiring page reload; improves UI focus on relevant decision factors
+* **Event Classifications for EM Decisions** — Comprehensive labeling of EM's planned actions (forced charge/discharge, self-consumption strategies, grid management) with visual indicators (emoji and colour coding) showing decision rationale and energy flows
+* **Cost/Profit Tracking** — Energy Manager decision financial impact calculated per interval based on actual tariff rates and power flows; colour-coded display (green for profit, red for cost) shows tariff-based decision effectiveness
+
 ## v2.9.0
 
 * **Custom Provider Support** — Extract provider and plan name from `input_select.other_tariff_plan` when "Other" is selected (format: "Provider - Plan - State - DNSP - Date")
