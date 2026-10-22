@@ -2,7 +2,7 @@
 
 
 ![release](https://img.shields.io/github/v/release/Roving-Ronin/EMS-Events-Card?style=flat-square&color=green)
-![downloads](https://img.shields.io/github/downloads/Roving-Ronin/EMS-Events-Card/total?style=flat-square)
+![downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Roving-Ronin/EMS-Events-Card/badges/downloads.json&style=flat-square)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)
 ![maintained](https://img.shields.io/badge/maintained-yes-brightgreen?style=flat-square)
 ![commit activity](https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square)
