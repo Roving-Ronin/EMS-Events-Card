@@ -39,7 +39,7 @@ For more detailed views and information for each specific card, please refer to 
 
 1. In Home Assistant open **HACS → Frontend**
 2. Click the **⋮** menu → **Custom repositories**
-3. Add [https://github.com/Roving-Ronin/ems-events-cards](https://github.com/Roving-Ronin/EMS-Events-Card) with category **Dashboard**
+3. Add [https://github.com/Roving-Ronin/ems-events-card](https://github.com/Roving-Ronin/EMS-Events-Card) with category **Dashboard**
 4. Search for **Energy Management Systems - Events Card** and click **Download**
 5. Hard-refresh your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
 
@@ -94,7 +94,7 @@ See each card's README for full configuration options and required sensors.
 
 ## Versioning
 
-Each card is versioned independently using `v[major].[minor].[patch]`. The version is displayed in the card's legend footer.
+The version is displayed in the card's legend footer. Releases use a single bundle version (vX.Y.Z); with each individual card’s own being independently versioned and shown in its legend footer and in the table above. Versioning is based upon the format of  `v[major].[minor].[patch]`. 
 
 ---
 
