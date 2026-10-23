@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.2.69';
+const _HAEO_VERSION = 'v3.2.70';
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -1065,7 +1065,7 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '<input type="number" id="threshold-load" class="threshold-input" min="0" step="10" value="0" style="padding:4px;font-size:11px;width:50px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<div style="font-size:8px;">Default - 0 W</div>' +
     '</div>' +
-    '<input type="text" id="load-forecast" placeholder="sensor.base_load_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
+    '<input type="text" id="load-forecast" placeholder="sensor.load_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="load-historical" placeholder="sensor.sigen_plant_total_load_power" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<input type="text" id="load-energy" placeholder="sensor.sigen_plant_total_load_consumption" style="padding:6px;font-size:12px;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<div style="display:flex;justify-content:center;align-items:center;"><input type="checkbox" id="invert-load" class="invert-toggle" style="cursor:pointer;width:18px;height:18px;accent-color:#2196F3;"></div>' +
@@ -4571,7 +4571,7 @@ class HaeoEventsCard extends HTMLElement {
     // No saved config — build defaults and persist them immediately so
     // _saveLoadEntitiesConfig() always reads real values (not empty placeholders)
     const defaults = {
-      base: { forecast: 'sensor.base_load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
+      base: { forecast: 'sensor.load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
       pv: { forecast: 'sensor.solar_power', historical: 'sensor.sigen_plant_pv_power', energy: 'sensor.sigen_plant_total_pv_generation' },
       grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy', dailyImport: 'sensor.sigen_plant_daily_grid_import_energy', dailyExport: 'sensor.sigen_plant_daily_grid_export_energy' },
       battery: { forecast: 'sensor.battery_active_power', historical: 'sensor.sigen_plant_battery_power', energy: 'sensor.sigen_plant_daily_battery_charge_energy', energyDischarge: 'sensor.sigen_plant_daily_battery_discharge_energy' },
@@ -5276,7 +5276,7 @@ class HaeoEventsCard extends HTMLElement {
           // EV, EV2, deferLoad are reset via the Optional Loads tab
           const loadCfg = this._loadLoadEntitiesConfig();
           const resetDefaults = {
-            base: { forecast: 'sensor.base_load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
+            base: { forecast: 'sensor.load_power', historical: 'sensor.sigen_plant_total_load_power', energy: 'sensor.sigen_plant_total_load_consumption' },
             pv: { forecast: 'sensor.solar_power', historical: 'sensor.sigen_plant_pv_power', energy: 'sensor.sigen_plant_total_pv_generation' },
             grid: { forecast: 'sensor.grid_active_power', historical: 'sensor.sigen_plant_grid_active_power', energy: 'sensor.sigen_plant_total_imported_energy', energyExport: 'sensor.sigen_plant_total_exported_energy', dailyImport: 'sensor.sigen_plant_daily_grid_import_energy', dailyExport: 'sensor.sigen_plant_daily_grid_export_energy' },
             battery: { forecast: 'sensor.battery_active_power', historical: 'sensor.sigen_plant_battery_power', energy: 'sensor.sigen_plant_daily_battery_charge_energy', energyDischarge: 'sensor.sigen_plant_daily_battery_discharge_energy' },
