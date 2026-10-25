@@ -3,6 +3,25 @@
 All notable changes to `em-events-card.js` are documented here.
 
 ---
+ 
+## v3.6.0
+ 
+⚠️ **COMPREHENSIVE SECURITY HARDENING**
+ 
+* **XSS Vulnerability Fixed** — Entity-derived values (sensor states, plan attributes) are now HTML-escaped before rendering to prevent Cross-Site Scripting attacks via `innerHTML`
+* **HTML Escape Helper Added** — New `_emec_escapeHtml()` function sanitizes all user-controllable entity values
+* **Primary XSS Fixes (Critical):**
+  - `sensor.import_formatted`, `sensor.export_formatted`, `sensor.net_formatted` states
+  - `sensor.daily_imported_energy`, `sensor.daily_exported_energy` states
+  - `sensor.energy_manager_plan` attributes (`blocks_summary`)
+  - `sensor.energy_manager_decision` (state and derived focus)
+* **Secondary XSS Fixes (Defensive):**
+  - Error messages in exception handlers (line 3041)
+  - Dynamic charging pill time and values (line 1822)
+  - EM Decision badge timestamps (line 1384)
+**Recommendation:** Update immediately. See SECURITY_ADVISORY_v3.6.0.md for details.
+ 
+---
 
 ## v3.5.1
 
