@@ -4,6 +4,19 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
+## [v3.3.0] - 2026-10-25
+### Security
+- Escape all entity-, attribute- and user-config-derived text before inserting it into HTML strings. This applies to the Event column and its tooltips (custom optional-load names), table headers, the legend, the currency symbol, error messages and the status badges.
+- Added a `_haeo_esc()` helper that escapes `&`, `<`, `>`, `"` and `'`.
+
+---
+
+## [v3.2.70] - 2026-10-23
+### Changed
+- Restored `sensor.load_power` as the default Base Load Future entity: placeholder, saved defaults and Reset to Defaults.
+
+---
+
 ## [v3.2.69] — 2026-06-17
 
 > **Note:** This entry consolidates all changes between v3.1.0 and v3.2.69. The intermediate point releases in this range were not individually logged, so the items below are summarised against the v3.1.0 baseline rather than attributed to specific intermediate version numbers.
