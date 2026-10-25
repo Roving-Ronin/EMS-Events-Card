@@ -20,17 +20,23 @@ Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annab
 
 - **📅 Future Decisions tab** — full MPC forecast horizon showing every 5-minute optimization decision
 - **📋 Past Events tab** — historical sensor data with configurable lookback (Today, Yesterday, 24h–7 days)
-- **🕐 BESS / 📊 EMHASS toggle** — switch between actual inverter data and EMHASS optimizer decisions in the Past tab
+- **🕐 BESS / 📊 EMHASS toggle** — switch between actual inverter data and EMHASS optimizer decisions in the Past tab (column headers switch between *EMHASS Plan / EMHASS Mode* and *BESS Data / Mode*)
+- **ALERTS bar** — force charge / force discharge, grid import / export start times, battery low, and high buy / high sell price alerts (thresholds set in the settings modal)
+- **STATUS bar** — optimizer **Mode** (from `sensor.mpc_optim_status`), **Focus** (derived from the current forecast row), SoC now (% | kWh), Morning / Peak SoC (% | kWh with time) and Plan Horizon
+- **FINANCES bar** — current buy and sell price and the optimizer net cost, as colour-coded badges
+- **🔄 EMHASS Updated badge** — elapsed time and clock time of the last plan run (uses `automation.last_triggered` where available, else the load forecast sensor's `last_changed`)
+- **⚙️ Settings modal** — override every sensor (MPC and BESS), per-sensor noise filters, alert thresholds, price decimal places and column options; stored in browser localStorage
 - **Colour-coded event rows** — instantly see what the optimizer is doing at each timestep
 - **HAEO-style flow labels** — descriptive events like `🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid`
-- **Status bar** — current SoC, morning/peak SoC forecast, buy/sell prices, net cost, grid alerts
-- **Daily summary rows** — kWh totals per day for Load, PV, Grid and Battery
+- **Daily summary rows** — cost/profit plus kWh import / export totals per day on both tabs
 - **Cost/Profit column** — per-row estimated cost or earnings
-- **Three-tier sensor fallback** — card YAML config → MPC/Sigenergy sensors → standard EMHASS sensors
+- **Currency detection** — symbol taken from Home Assistant's currency setting (or `currency_symbol` in the card config)
+- **Three-tier sensor fallback** — card config / settings → MPC/Sigenergy sensors → standard EMHASS sensors
 - **Auto-refresh** — updates at :01, :06, :11 ... past each hour to align with MPC optimization cycles
 - **Adaptive history rows** — Past tab uses actual recorded timestamps rather than fixed slots, handles sparse history correctly
 - **5-minute bucketing** — BESS mode aggregates high-frequency inverter data into 5-minute averages
 - **Auto unit detection** — power sensors in W, kW or MW are detected and normalised automatically
+- **Safe rendering** — all entity-derived values are HTML-escaped before being placed in the DOM
 - **Sensor debug panel** — expandable diagnostic showing exactly which sensor attributes were found
 
 ---
@@ -72,17 +78,35 @@ That's it for a standard Sigenergy + EMHASS MPC install. The card auto-detects s
 ---
 
 ## Sensor Configuration
+
+Sensors are resolved in priority order: **settings modal / card config → MPC & Sigenergy defaults → standard EMHASS defaults**.
+
+| Role | MPC default | Standard EMHASS default |
+|---|---|---|
+| Battery power | `sensor.mpc_batt_power` | `sensor.p_batt_forecast` |
+| Battery SoC | `sensor.mpc_batt_soc` | `sensor.soc_batt_forecast` |
+| Grid power | `sensor.mpc_grid_power` | `sensor.p_grid_forecast` |
+| PV power | `sensor.mpc_pv_power` | `sensor.p_pv_forecast` |
+| Load power | `sensor.mpc_load_power` | `sensor.p_load_forecast` |
+| Buy price | `sensor.mpc_general_price` | `sensor.unit_load_cost` |
+| Sell price | `sensor.mpc_feed_in_price` | `sensor.unit_prod_price` |
+| Net cost | `sensor.mpc_cost_fun` | `sensor.total_cost_fun_value` |
+| Optimizer status (STATUS bar Mode) | `sensor.mpc_optim_status` | `sensor.mpc_optim_status` |
+| Plan run automation (Updated badge) | `automation.emhass_generate_energy_plan` | `automation.emhass_run_mpc_optimizer` |
+
+The EV and Deferrable Load columns only appear when their sensors exist. Everything above can be changed from **⚙️ Settings** in the card; no YAML is required.
+
 ---
 
 ## Recorder Configuration
 
-For the **Past Events tab** to work, sensors must be recorded by HA. Add the following (or your inverter / power provider pricing sensors details to your `recorder.yaml`:
+For the **Past Events tab** to work, sensors must be recorded by HA. Add the following (or your inverter / power provider pricing sensor details) to your `recorder.yaml`:
 
 ```yaml
 recorder:
   include:
     entity_globs:
-      - sensor.mpc_*
+      - sensor.mpc_*          # includes sensor.mpc_optim_status
       - sensor.sigen_plant_*
       - sensor.amber_express_home_*
 ```
@@ -186,26 +210,9 @@ The Past Events tab has a toggle switch in the header bar:
 
 ---
 
-## Versioning
+## Changelog
 
-| Version | Changes |
-|---|---|
-| v2.1.5 | Fix BESS unit scaling (kW→W) after bucketing; fix battery kWh sign in BESS vs EMHASS mode |
-| v2.1.4 | BESS mode aggregates into 5-min buckets (average power, last SoC/price) |
-| v2.1.3 | Fix BESS "No Data" — toggle mode now determined before history API call so correct sensors are requested |
-| v2.1.2 | BESS/EMHASS toggle switch in Past tab; BESS actual inverter sensors with separate sign convention handling |
-| v2.1.1 | Sigenergy lifetime energy sensors as Tier 2 defaults; Mode column in Past tab |
-| v2.1.0 | Fix Past tab power values all zero — exact recorded timestamps used instead of snapped 5-min slots |
-| v2.0.9 | Fix Past tab rows all skipped — `_pwrMult` W→kW conversion made values fall below skip threshold |
-| v2.0.8 | Past tab uses actual recorded timestamps instead of fixed 5-min slots |
-| v2.0.7 | Fix Past tab blank — skip condition incorrectly gated on SoC=0 |
-| v2.0.6 | Separate `past_buy_price` / `past_sell_price` sensors — dense Amber history for past cost calculations |
-| v2.0.5 | Fix daily Cost/Profit sum sign; add 10W noise floor clamp |
-| v2.0.4 | Fix battery daily sum sign and colour in both tabs |
-| v2.0.3 | HAEO-style event labels; battery display negated (discharge = -kW red); classifier threshold 50W |
-| v2.0.2 | Fix battery sign convention (raw +ve = discharging confirmed by SoC trend) |
-| v2.0.1 | Three-tier sensor fallback; auto-detect attribute keys; sensor debug panel |
-| v2.0.0 | Initial release — Future Decisions + Past Events tabs, MPC sensor support |
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.7.0**.
 
 ---
 
@@ -213,7 +220,7 @@ The Past Events tab has a toggle switch in the header bar:
 
 - [EMHASS](https://github.com/davidusb-geek/emhass) — Energy Management for Home Assistant
 - [Sigenergy + EMHASS guide](https://sigenergy.annable.me/emhass/) — annable.me setup guide this card is designed for
-- [HAEO Events Card](https://github.com/) — the HAEO optimizer card this was modelled on
+- [HAEO Events Card](https://github.com/Roving-Ronin/EMS-Events-Card) — the HAEO optimizer card this was modelled on
 
 ---
 
