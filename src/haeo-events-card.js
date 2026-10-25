@@ -13,7 +13,14 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.2.70';
+const _HAEO_VERSION = 'v3.3.0';
+
+// Escape any entity-, attribute- or user-config-derived text before it is placed in an HTML string.
+function _haeo_esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
 let _HAEO_CUR = '$';
@@ -831,7 +838,7 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
     topHeaders.push(`<th colspan="${deferColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${deferLabel}</th>`);
     deferLoadsConfig.forEach(config => {
       const preset = _HAEO_DEFERRABLE_PRESETS.find(p => p.name === config.name);
-      const displayLabel = preset ? `${preset.emoji} ${preset.abbr}` : `${config.emoji} ${config.name}`;
+      const displayLabel = preset ? `${preset.emoji} ${preset.abbr}` : `${_haeo_esc(config.emoji)} ${_haeo_esc(config.name)}`;
       topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${displayLabel}</th>`);
     });
   }
@@ -840,7 +847,7 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
   enabledOptionalLoads.forEach(load => {
     const displayInfo = _haeo_getOptionalLoadDisplay(load);
     const optColspan = load.showKwh !== false ? 2 : 1;
-    const optLabel = load.showKwh !== false ? displayInfo.emoji + ' ' + displayInfo.abbr : displayInfo.emoji;
+    const optLabel = load.showKwh !== false ? _haeo_esc(displayInfo.emoji) + ' ' + _haeo_esc(displayInfo.abbr) : _haeo_esc(displayInfo.emoji);
     topHeaders.push(`<th colspan="${optColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${optLabel}</th>`);
   });
   
@@ -1663,7 +1670,7 @@ class HaeoEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
-    _HAEO_CUR = this._config.currency_symbol || '$';
+    _HAEO_CUR = _haeo_esc(this._config.currency_symbol || '$');
     
     // Load column settings from localStorage if available
     try {
@@ -1787,9 +1794,9 @@ class HaeoEventsCard extends HTMLElement {
     
     // Auto-detect currency from HA config if not overridden in card config
     if (!this._config.currency_symbol && hass.config && hass.config.currency) {
-      _HAEO_CUR = _haeo_curSymbol(hass.config.currency);
+      _HAEO_CUR = _haeo_esc(_haeo_curSymbol(hass.config.currency));
     } else if (this._config.currency_symbol) {
-      _HAEO_CUR = this._config.currency_symbol;
+      _HAEO_CUR = _haeo_esc(this._config.currency_symbol);
     }
     
     if (!this.shadowRoot.getElementById('tb-future')) {
@@ -2440,8 +2447,8 @@ class HaeoEventsCard extends HTMLElement {
     try {
       this._renderFutureInner(sbar, tbody);
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ Render error: ' + e.message + '</td></tr>';
-      sbar.innerHTML = '<span style="color:#f44336;">⚠️ ' + e.message + '</span>';
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ Render error: ' + _haeo_esc(e.message) + '</td></tr>';
+      sbar.innerHTML = '<span style="color:#f44336;">⚠️ ' + _haeo_esc(e.message) + '</span>';
     }
   }
 
@@ -2487,12 +2494,12 @@ class HaeoEventsCard extends HTMLElement {
     // lookup for those rather than exact epoch-ms matching.
     const battState = this._hass?.states[this._eid('haeo_battery')];
     if (!battState) {
-      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ ' + this._eid('haeo_battery') + ' not found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ ' + _haeo_esc(this._eid('haeo_battery')) + ' not found</td></tr>';
       return;
     }
     const primaryFc = battState.attributes?.forecast;
     if (!Array.isArray(primaryFc) || !primaryFc.length) {
-      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ No forecast data on ' + this._eid('haeo_battery') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="14" class="err">⚠️ No forecast data on ' + _haeo_esc(this._eid('haeo_battery')) + '</td></tr>';
       return;
     }
 
@@ -2757,15 +2764,15 @@ class HaeoEventsCard extends HTMLElement {
     // Update HAEO Updated badge in tab bar (centered between tabs)
     const haeoUpdatedBadge = this.shadowRoot.getElementById('haeo-updated-badge');
     if (haeoUpdatedBadge && haeoUpdatedStr) {
-      haeoUpdatedBadge.innerHTML = '🔄 HAEO Updated: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + haeoUpdatedStr + '</span>';
+      haeoUpdatedBadge.innerHTML = '🔄 HAEO Updated: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + _haeo_esc(haeoUpdatedStr) + '</span>';
     }
 
     sbar.innerHTML =
       '<span style="color:#2196f3;font-weight:bold;margin-right:12px;">STATUS:</span>' +
-      (mode ? '📌 Mode: <span class="pill" style="background-color:' + (modeColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + mode + '</span>' : '') +
-      (focus ? '🎯 Focus: <span class="pill" style="background-color:' + (focusColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + focus + '</span>' : '') +
+      (mode ? '📌 Mode: <span class="pill" style="background-color:' + (modeColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + _haeo_esc(mode) + '</span>' : '') +
+      (focus ? '🎯 Focus: <span class="pill" style="background-color:' + (focusColor || '#555') + ' !important;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + _haeo_esc(focus) + '</span>' : '') +
       (nowSoc   != null ? '🔋 SoC now: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + nowSoc.toFixed(1)  + '%</span>' : '') +
-      (dawnSoc  != null ? '☀️ <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + dawnSoc + '</span>' : '') +
+      (dawnSoc  != null ? '☀️ <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + _haeo_esc(dawnSoc) + '</span>' : '') +
       (exportLimit != null ? '📤 Export Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + exportLimit.toFixed(2) + ' kW</span>' : '') +
       (isGridImporting && importLimit != null ? '⚡ Import Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + importLimit.toFixed(2) + ' kW</span>' : '') +
       (isBattCharging && battChargeLimit != null ? '🔋 ESS Charge Limit: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + battChargeLimit.toFixed(2) + ' kW</span>' : '') +
@@ -3142,7 +3149,7 @@ class HaeoEventsCard extends HTMLElement {
 
       rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
         '<td>' + timeStr + '</td>' +
-        '<td><span title="' + detailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
+        '<td><span title="' + _haeo_esc(detailedDesc) + '">' + _haeo_esc(eventLabel) + '</span></td>' +
         '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
         '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
         // Total Load = base + deferLoad + all enabled optional loads
@@ -3768,7 +3775,7 @@ class HaeoEventsCard extends HTMLElement {
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + textColor + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td><span title="' + pastDetailedDesc.replace(/"/g, '&quot;') + '">' + eventLabel + '</span></td>' +
+          '<td><span title="' + _haeo_esc(pastDetailedDesc) + '">' + _haeo_esc(eventLabel) + '</span></td>' +
           '<td class="bgl">' + _haeo_fmtP(buyP, this._displaySettings?.priceDecimals || 4)   + '</td>' +
           '<td class="bgi">' + _haeo_fmtP(sellP, this._displaySettings?.priceDecimals || 4)  + '</td>' +
           // Total Load = base + deferLoad + all enabled optional loads
@@ -3838,7 +3845,7 @@ class HaeoEventsCard extends HTMLElement {
 
     } catch (e) {
       const tb2 = this.shadowRoot.getElementById('tb-past');
-      if (tb2) tb2.innerHTML = '<tr><td colspan="20" class="err">⚠️ ' + e.message + '</td></tr>';
+      if (tb2) tb2.innerHTML = '<tr><td colspan="20" class="err">⚠️ ' + _haeo_esc(e.message) + '</td></tr>';
       const st2 = this.shadowRoot.getElementById('st-past');
       if (st2) st2.textContent = 'Error — ' + e.message.slice(0, 60);
       this._pastState = 'ready';
@@ -4224,11 +4231,11 @@ class HaeoEventsCard extends HTMLElement {
         const color = this._getColorForLabel(label);
         // Generate detailed tooltip from label
         const tooltip = this._generateDescriptionFromLabel(label) || desc;
-        html += '<div class="legend-item" title="' + tooltip.replace(/"/g, '&quot;') + '">' +
+        html += '<div class="legend-item" title="' + _haeo_esc(tooltip) + '">' +
           '<div class="legend-item-color" style="background:' + color + ';"></div>' +
           '<div class="legend-item-content">' +
-          '<div class="legend-item-label">' + label + '</div>' +
-          '<div class="legend-item-desc">' + desc + '</div>' +
+          '<div class="legend-item-label">' + _haeo_esc(label) + '</div>' +
+          '<div class="legend-item-desc">' + _haeo_esc(desc) + '</div>' +
           '</div>' +
           '</div>';
       }
