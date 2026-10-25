@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v3.5.1';
+const _EMEC_VERSION = 'v3.6.0';
 
 let _EMEC_CUR = '$';
 
@@ -67,6 +67,21 @@ const _EMEC_COLGROUP =
   '<col style="width:56px;">' +
   '<col style="width:72px;">' +
   '</colgroup>';
+
+// ============================================================================
+// Security: HTML escape helper — prevents XSS via entity-derived values
+// ============================================================================
+function _emec_escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char]);
+}
 
 // EV Mode description mapper
 function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
@@ -1366,7 +1381,7 @@ class EmEventsCard extends HTMLElement {
     // Update EM Decision badge in header row (far right)
     const emDecisionBadge = this.shadowRoot.getElementById('em-decision-badge');
     if (emDecisionBadge && timeStr) {
-      emDecisionBadge.innerHTML = '🔄 EM Decision: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + timeStr + ' (' + decisionTime + ')</span>';
+      emDecisionBadge.innerHTML = '🔄 EM Decision: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' + _emec_escapeHtml(timeStr) + ' (' + _emec_escapeHtml(decisionTime) + ')</span>';
     }
   }
 
@@ -1804,7 +1819,7 @@ class EmEventsCard extends HTMLElement {
             const dynamicLimitKw = (dynamicLimitW / 1000).toFixed(1);
             const rowTs = new Date(row.ts);
             const timeStr = rowTs.toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', hour12:true }).toLowerCase();
-            dynamicChargingPill = '<span>🔌 Next: <span class="pill" style="background:#2196F3;color:#fff;" title="Cheap import tariff window coming. Battery will charge at this limit to take advantage of low rates">' + dynamicLimitKw + ' kW @ ' + timeStr + '</span></span>';
+            dynamicChargingPill = '<span>🔌 Next: <span class="pill" style="background:#2196F3;color:#fff;" title="Cheap import tariff window coming. Battery will charge at this limit to take advantage of low rates">' + _emec_escapeHtml(dynamicLimitKw) + ' kW @ ' + _emec_escapeHtml(timeStr) + '</span></span>';
             break;
           }
         }
@@ -1850,8 +1865,8 @@ class EmEventsCard extends HTMLElement {
 
     const html =
       '<span style="color:#2196F3;font-weight:bold;margin-right:10px;">STATUS:</span>' +
-      '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + modeLabel.replace(/_/g,' ') + '</span></span>' +
-      (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;" title="Primary strategy: Free Imports = cheap rate, Peak Export = high export price, Charging Battery = low import tariff">' + focusCap + '</span></span>' : '') +
+      '<span>' + modeIcon + ' Mode: <span class="pill" style="background-color:' + modeColor + ';">' + _emec_escapeHtml(modeLabel.replace(/_/g,' ')) + '</span></span>' +
+      (focusCap ? '<span>🎯 Focus: <span class="pill" style="background:#555;" title="Primary strategy: Free Imports = cheap rate, Peak Export = high export price, Charging Battery = low import tariff">' + _emec_escapeHtml(focusCap) + '</span></span>' : '') +
       (nowSoc != null ? '<span>🔋 SoC now: <span class="pill" style="background:#555;">' + nowSoc.toFixed(1) + '% | ' + (nowSoc / 100 * batteryCapKwh).toFixed(1) + ' kWh</span></span>' : '') +
       (dawnSoc != null ? '<span>' + dawnLabel + ' <span class="pill" style="background:#555;color:' + dawnColor + ';">' + dawnSoc.toFixed(1) + '%' + dawnKwh + ' (' + dawnTime + ')</span></span>' : '') +
       (exportLimitDisp ? '<span>📤 Export Limit: <span class="pill" style="background:#555;" title="Grid hard limit (6.3kW) vs current EM-set limit (based on economics)">' + exportLimitDisp + '</span></span>' : '') +
@@ -1886,11 +1901,11 @@ class EmEventsCard extends HTMLElement {
     
     const html =
       '<span style="color:#FF9800;font-weight:bold;margin-right:10px;">FINANCES:</span>' +
-      '<span>💲 Buy: <span class="pill" style="background:' + (nowBuyP <= 0.00 ? '#00FF00;color:#000;' : '#555;') + '">' + this._fmtPrice(nowBuyP, 'buy') + '</span></span>' +
-      '<span>💲 Sell: <span class="pill" style="background:' + (nowSellP <= 0.00 ? '#ff5252;color:#000;' : '#555;') + '">' + this._fmtPrice(nowSellP, 'sell') + '</span></span>' +
-      '<span>💰 Net: <span class="pill" style="background:' + netBgColor + ';color:#000;" title="Today\'s net cost. Positive (green) = credit owed to you. Negative (red) = cost to you">' + netFormatted + '</span></span>' +
-      '<span>📥 Imported: <span class="pill" style="background:#555;">' + importFormatted + ' | ' + dailyImportedEnergy + ' kWh</span></span>' +
-      '<span>📤 Exported: <span class="pill" style="background:#555;">' + exportFormatted + ' | ' + dailyExportedEnergy + ' kWh</span></span>';
+      '<span>💲 Buy: <span class="pill" style="background:' + (nowBuyP <= 0.00 ? '#00FF00;color:#000;' : '#555;') + '">' + _emec_escapeHtml(this._fmtPrice(nowBuyP, 'buy')) + '</span></span>' +
+      '<span>💲 Sell: <span class="pill" style="background:' + (nowSellP <= 0.00 ? '#ff5252;color:#000;' : '#555;') + '">' + _emec_escapeHtml(this._fmtPrice(nowSellP, 'sell')) + '</span></span>' +
+      '<span>💰 Net: <span class="pill" style="background:' + netBgColor + ';color:#000;" title="Today\'s net cost. Positive (green) = credit owed to you. Negative (red) = cost to you">' + _emec_escapeHtml(netFormatted) + '</span></span>' +
+      '<span>📥 Imported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(importFormatted) + ' | ' + _emec_escapeHtml(dailyImportedEnergy) + ' kWh</span></span>' +
+      '<span>📤 Exported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(exportFormatted) + ' | ' + _emec_escapeHtml(dailyExportedEnergy) + ' kWh</span></span>';
     
     return html;
   }
@@ -3023,7 +3038,7 @@ class EmEventsCard extends HTMLElement {
 
     } catch(e) {
       const tb2 = this.shadowRoot.getElementById('tb-past');
-      if (tb2) tb2.innerHTML = '<tr><td colspan="16" class="err">⚠️ ' + e.message + '</td></tr>';
+      if (tb2) tb2.innerHTML = '<tr><td colspan="16" class="err">⚠️ ' + _emec_escapeHtml(e.message) + '</td></tr>';
       const st2 = this.shadowRoot.getElementById('st-past');
       if (st2) st2.textContent = 'Error — ' + e.message.slice(0,60);
       this._pastState = 'ready';
