@@ -10,11 +10,11 @@ Current version: **v3.6.0**
 
 ### Future Decisions
 
-![Energy Manager - Future Decisions](EM-Card-Future.jpg)
+![Energy Manager - Future Decisions](EM-Card-Future.png)
 
 ### Past Events
 
-![Energy Manager - Past Events](EM-Card-Past-Events.jpg)
+![Energy Manager - Past Events](EM-Card-Past-Events.png)
 
 ---
 
