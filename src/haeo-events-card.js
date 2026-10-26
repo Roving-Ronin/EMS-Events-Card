@@ -2518,7 +2518,7 @@ class HaeoEventsCard extends HTMLElement {
     const battMap     = buildMap(loadEntityConfig.battery.forecast || this._eid('haeo_battery'),             _inv('battery'));
     const gridMap     = buildMap(loadEntityConfig.grid.forecast || this._eid('haeo_grid'),                   _inv('grid'));
     const loadMap     = buildMap(loadEntityConfig.base.forecast || this._eid('haeo_load'),                   _inv('base'));
-    const deferLoadMap= buildMap(loadEntityConfig.deferrable?.forecast || this._eid('haeo_deferrable_load'), _inv('deferLoad'));
+    const deferLoadMap= buildMap(loadEntityConfig.deferLoad?.forecast || this._eid('haeo_deferrable_load'), _inv('deferLoad'));
     const solarMap    = buildMap(loadEntityConfig.pv.forecast || this._eid('haeo_solar'),                    _inv('pv'));
     const socMap      = buildMap(this._eid('haeo_soc'),            1);
     const evPowerMap  = buildMap(loadEntityConfig.ev.forecast || this._eid('haeo_ev_power'),                 _inv('ev'));
@@ -2531,7 +2531,7 @@ class HaeoEventsCard extends HTMLElement {
     // Build forecast maps for each configured deferrable load
     // Build deferrable loads map using entity-based config
     const deferLoadMaps = [];
-    const deferLoadForecastEntity = loadEntityConfig.deferrable?.forecast || this._eid('haeo_deferrable_load');
+    const deferLoadForecastEntity = loadEntityConfig.deferLoad?.forecast || this._eid('haeo_deferrable_load');
     if (deferLoadForecastEntity) {
       deferLoadMaps[0] = buildMap(deferLoadForecastEntity, 1);
     } else {
@@ -3260,7 +3260,7 @@ class HaeoEventsCard extends HTMLElement {
         this._eid('haeo_soc'),
         this._eid('haeo_buy_price'),
         this._eid('haeo_sell_price'),
-        loadEntityConfig.deferrable?.historical || this._eid('past_deferrable_load'),
+        loadEntityConfig.deferLoad?.historical || this._eid('past_deferrable_load'),
         loadEntityConfig.ev.historical || this._eid('haeo_ev_power'),
         this._eid('haeo_ev_soc'),
         loadEntityConfig.ev2.historical || this._eid('haeo_ev2_power'),
