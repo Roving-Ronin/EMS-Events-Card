@@ -2,6 +2,14 @@
 
 All notable changes to the EMHASS Events Card. Newest first.
 
+## v2.8.0
+
+- New **Invert Flow** option (BESS / Past Events only): reverse the +/- sign of the BESS Load, PV, Grid or Battery sensor, for inverters such as Deye and GoodWe that report battery positive = discharging. Set per sensor in ⚙️ Settings, or in card YAML with `bess_load_invert`, `bess_pv_invert`, `bess_grid_invert`, `bess_batt_invert`. Default off; EMHASS (MPC) data is unaffected
+
+## v2.7.1
+
+- Cleanup: removed unused legend arrays and `_emhass_clampBessPG()`; corrected the card picker description and header comment
+
 ## v2.7.0
 
 - Security: all entity-derived values (optimizer status, currency, entity IDs, error messages, settings inputs, event labels) are now HTML-escaped before being written to the DOM
