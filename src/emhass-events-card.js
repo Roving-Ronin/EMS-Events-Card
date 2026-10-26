@@ -1,9 +1,11 @@
-// EMHASS Events Card v2.7.0
+// EMHASS Events Card v2.7.1
 // Combines Future Decisions (forecast) and Past Events (history) in one card
-// MODIFICATIONS: 
-//   - SoC % moved under Battery column (3 sub-cols: kW/kWh/SoC%)
-//   - EV column added (3 sub-cols: kW/kWh/SoC%)
-//   - Defer. Loads column added (3 sub-cols: kW/kWh/SoC%)
+// FEATURES:
+//   - Future Decisions + Past Events tabs (BESS / EMHASS data toggle)
+//   - ALERTS / STATUS / FINANCES bars and EMHASS Updated badge
+//   - Settings modal (sensor overrides, noise filters, alert thresholds, price decimals)
+//   - Optional EV and Deferrable Load columns (shown only when sensors exist)
+//   - All entity-derived values HTML-escaped (_emhass_esc)
 //
 // Modelled on haeo-events-card structure and style
 // Copy to /config/www/emhass-events-card.js
@@ -45,7 +47,7 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.7.0';
+const _EMHASS_VERSION = 'v2.7.1';
 
 // ── HTML escaping (v2.7.0) ──────────────────────────────────────────────────
 // Entity states/attributes, config values and error messages are untrusted and must
@@ -211,29 +213,6 @@ const _EMHASS_COLOURS = {
   orange:      { bg: 'rgba(255,165,0,0.35)',  txt: '#ffffff',   cost: '#ffcc66' },
 };
 
-// ── Legend ────────────────────────────────────────────────────────────────────
-const _EMHASS_LEG_L = [
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home',                               'Self Consumption — Solar only'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery',                 'Self Consumption — Charge Battery (Solar)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + ⚡ Grid',                    'Profit — Grid Export (Solar)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid',       'Profit — Grid Export + Charge Battery'],
-  ['#ccfff5','#333','🌞 Solar + 🔋 Battery → 🏠 Home',                 'Self Consumption — Solar + Battery, No Grid'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home',                    'Cost — Solar + Grid Import'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost — Solar + Grid Import + Charge Battery'],
-  ['rgba(30,150,80,0.55)','#fff','🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)','Profit — Forced Export (Solar + Battery)'],
-];
-
-const _EMHASS_LEG_R = [
-  ['#ccfff5','#333','🔋 Battery → 🏠 Home',                            'Self Consumption — Battery only'],
-  ['#ffffcc','#333','🔋 Battery → 🏠 Home + ⚡ Grid (Force)',          'Profit — Forced Export (Battery)'],
-  ['#ffe0e0','#333','🔋 Battery + ⚡ Grid → 🏠 Home',                  'Cost — Battery + Grid Import'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home',                  'Cost — Grid Import (Battery Idle, No Solar)'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost — Grid Import (Forced Battery Charge)'],
-  ['#ffe0e0','#333','🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Home',      'Cost — Solar + Battery + Grid Import'],
-  ['rgba(255,165,0,0.35)','#333','🚿 HWS / 🚗 EV / ❄️ HVAC',          'Deferrable load scheduled'],
-  ['','','',''],
-];
-
 // ── Classify future ───────────────────────────────────────────────────────────
 function _emhass_classifyFuture(pvW, loadW, battW, gridW) {
   const T = 50;
@@ -344,7 +323,6 @@ function _emhass_fmtP(v) {
 const _EMHASS_NOISE_W      = 10;
 const _EMHASS_NOISE_BESS_PG = 50;
 function _emhass_clamp(w) { return Math.abs(w) < _EMHASS_NOISE_W ? 0 : w; }
-function _emhass_clampBessPG(w) { return Math.abs(w) < _EMHASS_NOISE_BESS_PG ? 0 : w; }
 
 function _emhass_fmtCost(cost) {
   if (cost > 0.0001)  return { disp: '-' + _EMHASS_CUR + cost.toFixed(3),           col: null };
@@ -2197,6 +2175,6 @@ if (!window.customCards.find(c => c.type === 'emhass-events-card')) {
   window.customCards.push({
     type:        'emhass-events-card',
     name:        'EMHASS Events Card',
-    description: 'EMHASS optimizer future forecast and past events — v2.1.8-mod with EV & Defer. Loads columns',
+    description: 'EMHASS optimizer future forecast and past events — MPC forecast and past events with ALERTS, STATUS and FINANCES bars',
   });
 }
