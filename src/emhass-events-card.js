@@ -1,10 +1,11 @@
-// EMHASS Events Card v2.7.1
+// EMHASS Events Card v2.8.0
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // FEATURES:
 //   - Future Decisions + Past Events tabs (BESS / EMHASS data toggle)
 //   - ALERTS / STATUS / FINANCES bars and EMHASS Updated badge
 //   - Settings modal (sensor overrides, noise filters, alert thresholds, price decimals)
 //   - Optional EV and Deferrable Load columns (shown only when sensors exist)
+//   - Invert Flow (BESS sign reversal) in settings modal / YAML
 //   - All entity-derived values HTML-escaped (_emhass_esc)
 //
 // Modelled on haeo-events-card structure and style
@@ -47,7 +48,7 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.7.1';
+const _EMHASS_VERSION = 'v2.8.0';
 
 // ── HTML escaping (v2.7.0) ──────────────────────────────────────────────────
 // Entity states/attributes, config values and error messages are untrusted and must
@@ -444,6 +445,13 @@ function _emhass_buildSettingsModal() {
     row('140px 1fr 1fr') + '<div>⚡ Grid Power</div>'  + inp('s-p-grid', 'sensor.mpc_grid_power')  + inp('s-b-grid', 'sensor.sigen_plant_grid_active_power')  + '</div>' +
     row('140px 1fr 1fr') + '<div>🔋 Battery Power</div>'  + inp('s-p-batt', 'sensor.mpc_batt_power')  + inp('s-b-batt', 'sensor.sigen_plant_battery_power')     + '</div>' +
     row('140px 1fr 1fr') + '<div>🔋 Battery SoC</div>'    + inp('s-p-soc',  'sensor.mpc_batt_soc')    + inp('s-b-soc',  'sensor.sigen_plant_battery_state_of_charge') + '</div>' +
+
+    sec('🔄 Invert Flow (BESS / Past Events)') +
+    '<div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px;">Reverse the +/- sign of a BESS sensor. Use if your inverter reports battery positive = discharging (e.g. Deye, GoodWe) or grid positive = export. EMHASS data is not affected. Can also be set in card YAML: <code>bess_batt_invert: true</code></div>' +
+    '<div style="display:flex;gap:24px;flex-wrap:wrap;padding:6px 0;font-size:12px;">' +
+    [['i-b-load','🏠 Load'],['i-b-pv','🌞 PV'],['i-b-grid','⚡ Grid'],['i-b-batt','🔋 Battery']].map(x =>
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="' + x[0] + '" style="width:16px;height:16px;cursor:pointer;accent-color:#2196F3;">' + x[1] + '</label>').join('') +
+    '</div>' +
 
     sec('💲 Price Sensors') +
     row('140px 1fr 1fr') + '<div>💲 Buy Price</div>'  + inp('s-buy',      'sensor.mpc_general_price')              + inp('s-past-buy',  'sensor.amber_express_home_general_price') + '</div>' +
@@ -1153,6 +1161,8 @@ class EmhassEventsCard extends HTMLElement {
     t_noise_pv_mpc: 10, t_noise_grid_mpc: 10, t_noise_batt_mpc: 10,
     t_noise_pv_bess: 50, t_noise_grid_bess: 50, t_noise_batt_bess: 50,
     t_batt_min: 15, t_alert_buy: 0.50, t_alert_sell: 0.15, t_price_decimals: 4,
+    // Invert Flow (BESS / Past tab only)
+    i_b_load: false, i_b_pv: false, i_b_grid: false, i_b_batt: false,
   };
 
   _loadSettings() {
@@ -1180,6 +1190,13 @@ class EmhassEventsCard extends HTMLElement {
     this._noisePvBess        = parseFloat(s.t_noise_pv_bess)   || 50;
     this._noiseGridBess      = parseFloat(s.t_noise_grid_bess) || 50;
     this._noiseBattBess      = parseFloat(s.t_noise_batt_bess) || 50;
+    // Invert Flow (BESS only): setting OR card YAML (bess_{load,pv,grid,batt}_invert: true)
+    this._invBess = {
+      load: !!(s.i_b_load || this._config?.bess_load_invert),
+      pv:   !!(s.i_b_pv   || this._config?.bess_pv_invert),
+      grid: !!(s.i_b_grid || this._config?.bess_grid_invert),
+      batt: !!(s.i_b_batt || this._config?.bess_batt_invert),
+    };
     this._batteryMinPercent  = parseFloat(s.t_batt_min)    || 15;
     this._alertHighBuyPrice  = parseFloat(s.t_alert_buy)   || 0.50;
     this._alertHighSellPrice = parseFloat(s.t_alert_sell)  || 0.15;
@@ -1229,6 +1246,10 @@ class EmhassEventsCard extends HTMLElement {
     }
     const decimals = sr.getElementById('t-price-decimals');
     if (decimals) decimals.value = s.t_price_decimals || 4;
+    for (const [id, key] of [['i-b-load','i_b_load'],['i-b-pv','i_b_pv'],['i-b-grid','i_b_grid'],['i-b-batt','i_b_batt']]) {
+      const cb = sr.getElementById(id);
+      if (cb) cb.checked = !!s[key];
+    }
     const modal = sr.getElementById('settings-modal');
     if (modal) modal.style.display = 'flex';
   }
@@ -1259,6 +1280,10 @@ class EmhassEventsCard extends HTMLElement {
       t_alert_buy:  parseFloat(g('t-alert-buy'))   || 0.50,
       t_alert_sell: parseFloat(g('t-alert-sell'))  || 0.15,
       t_price_decimals: parseInt(sr.getElementById('t-price-decimals')?.value) || 4,
+      i_b_load: !!sr.getElementById('i-b-load')?.checked,
+      i_b_pv:   !!sr.getElementById('i-b-pv')?.checked,
+      i_b_grid: !!sr.getElementById('i-b-grid')?.checked,
+      i_b_batt: !!sr.getElementById('i-b-batt')?.checked,
     };
     this._saveSettings(s);
     this._applySettingsToCard(s);
@@ -1837,6 +1862,8 @@ class EmhassEventsCard extends HTMLElement {
       const pvEid   = useBess ? this._eid('bess_pv_power')     : this._eid('p_pv_forecast');
       const loadEid = useBess ? this._eid('bess_load_power')   : this._eid('p_load_forecast');
       const socEid  = useBess ? this._eid('bess_soc')          : this._eid('soc_forecast');
+      // Invert Flow (BESS only): -1 when the user flagged this sensor as sign-reversed
+      const sg = (k) => (useBess && this._invBess?.[k]) ? -1 : 1;
       const evEid   = this._eid('p_ev_forecast');
       const socEvEid = this._eid('soc_ev_forecast');
       const deferEid = this._eid('p_defer_forecast');
@@ -1948,11 +1975,11 @@ class EmhassEventsCard extends HTMLElement {
       const stepH5 = 5 / 60;
       for (const ts of Array.from(recordedTs).sort((a,b) => a-b)) {
         const dayKey = new Date(ts).toLocaleDateString('en-AU', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
-        const bW = clamp(parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0);
-        const gW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0)
+        const bW = clamp(sg('batt') * (parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0));
+        const gW = useBess ? clampBess(sg('grid') * (parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0))
                            : clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
-        const lW = clamp(parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0);
-        const pW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0)
+        const lW = clamp(sg('load') * (parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0));
+        const pW = useBess ? clampBess(sg('pv') * (parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0))
                            : clamp(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0);
         const buyP  = parseFloat(_emhass_getAt(lookup[buyEid],  ts)) || 0;
         const sellP = parseFloat(_emhass_getAt(lookup[sellEid], ts)) || 0;
@@ -2030,11 +2057,11 @@ class EmhassEventsCard extends HTMLElement {
             '</tr>');
         }
 
-        const battW = clamp(parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0);
-        const gridW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0)
+        const battW = clamp(sg('batt') * (parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0));
+        const gridW = useBess ? clampBess(sg('grid') * (parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0))
                               : clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
-        const loadW = clamp(parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0);
-        const pvW   = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0)
+        const loadW = clamp(sg('load') * (parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0));
+        const pvW   = useBess ? clampBess(sg('pv') * (parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0))
                               : clamp(parseFloat(_emhass_getAt(lookup[pvEid],   ts)) || 0);
         const evW   = evEid ? _emhass_clamp(parseFloat(_emhass_getAt(lookup[evEid], ts)) || 0) : 0;
         const deferW = deferEid ? _emhass_clamp(parseFloat(_emhass_getAt(lookup[deferEid], ts)) || 0) : 0;
