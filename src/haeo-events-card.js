@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.3.0';
+const _HAEO_VERSION = 'v3.3.1';
 
 // Escape any entity-, attribute- or user-config-derived text before it is placed in an HTML string.
 function _haeo_esc(v) {
