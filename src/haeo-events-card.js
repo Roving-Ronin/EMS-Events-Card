@@ -13,7 +13,7 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.3.1';
+const _HAEO_VERSION = 'v3.3.3';
 
 // Escape any entity-, attribute- or user-config-derived text before it is placed in an HTML string.
 function _haeo_esc(v) {
@@ -68,6 +68,8 @@ const _HAEO_DEFAULTS = {
   past_solar_power:   'sensor.sigen_plant_pv_power',            // always +ve
   past_grid_power:    'sensor.sigen_plant_grid_active_power',   // +ve=import, -ve=export
   past_deferrable_load: 'sensor.deferrable_loads_power',        // Deferrable loads power (PAST)
+  past_ev_power:      'sensor.sigen_ac_charger_charging_power',  // EV power (PAST, inverter)
+  past_ev2_power:     'sensor.sigen_dc_charger_output_power',    // EV2 power (PAST, inverter)
   // ── PAST tab: inverter energy sensors (total_increasing, Sigenergy Local Modbus defaults) ──
   past_load_energy:              'sensor.sigen_plant_total_load_consumption',        // Lifetime
   past_solar_energy:             'sensor.sigen_plant_total_pv_generation',            // Lifetime
@@ -75,6 +77,17 @@ const _HAEO_DEFAULTS = {
   past_grid_export_energy:       'sensor.sigen_plant_total_exported_energy',          // Lifetime
   past_battery_charge_energy:    'sensor.sigen_plant_daily_battery_charge_energy',    // Daily reset
   past_battery_discharge_energy: 'sensor.sigen_plant_daily_battery_discharge_energy', // Daily reset
+};
+
+// Past power keys → their slot in the card's saved load-entities config (see _eid)
+const _HAEO_PAST_KIND = {
+  past_battery_power: 'battery',
+  past_load_power:    'base',
+  past_solar_power:   'pv',
+  past_grid_power:    'grid',
+  past_ev_power:      'ev',
+  past_ev2_power:     'ev2',
+  past_deferrable_load: 'deferLoad',
 };
 
 // ── Colour scheme ─────────────────────────────────────────────────────────────
@@ -165,53 +178,6 @@ const _HAEO_EVENT_LABELS = {
   pv_to_loads_grid:                     '🌞 Solar → Loads + ⚡ Grid',
   pv_to_loads_only:                     '🌞 Solar → Loads Only'
 };
-
-// ── Deferrable Loads Presets ───────────────────────────────────────────────
-const _HAEO_DEFERRABLE_PRESETS = [
-  { name: 'Circuit',          displayName: 'Circuit',                  abbr: 'Circuit',   emoji: '⚡',  defaultForecast: 'sensor.circuit_power_X_power',          defaultSensor: 'sensor.circuit_power_X_active_power',   defaultEnergy: 'sensor.circuit_power_X_energy' },
-  { name: 'Air Conditioner',  displayName: 'Air Conditioner (HVAC)',   abbr: 'HVAC',      emoji: '🌡️', defaultForecast: 'sensor.air_conditioner_power',           defaultSensor: 'sensor.air_conditioner_active_power',   defaultEnergy: 'sensor.air_conditioner_energy' },
-  { name: 'Hot Water System', displayName: 'Hot Water System (HWS)',   abbr: 'HWS',       emoji: '🚿', defaultForecast: 'sensor.hot_water_system_power',          defaultSensor: 'sensor.hot_water_system_active_power',  defaultEnergy: 'sensor.hot_water_system_energy' },
-  { name: 'Clothes Dryer',    displayName: 'Clothes Dryer',            abbr: 'C. Dryer',  emoji: '👚', defaultForecast: 'sensor.clothes_dryer_power',             defaultSensor: 'sensor.clothes_dryer_active_power',     defaultEnergy: 'sensor.clothes_dryer_energy' },
-  { name: 'Washing Machine',  displayName: 'Washing Machine',          abbr: 'W. Machine',emoji: '🧺', defaultForecast: 'sensor.washing_machine_power',           defaultSensor: 'sensor.washing_machine_active_power',   defaultEnergy: 'sensor.washing_machine_energy' },
-  { name: 'Dishwasher',       displayName: 'Dishwasher',               abbr: 'Dishw.',    emoji: '🍽️', defaultForecast: 'sensor.dishwasher_power',                defaultSensor: 'sensor.dishwasher_active_power',        defaultEnergy: 'sensor.dishwasher_energy' },
-  { name: 'IT Hardware',      displayName: 'IT Hardware',              abbr: 'IT H/W',    emoji: '💻', defaultForecast: 'sensor.it_hardware_power',               defaultSensor: 'sensor.it_hardware_active_power',       defaultEnergy: 'sensor.it_hardware_energy' },
-  { name: 'Pool',             displayName: 'Pool Heater/Pump',         abbr: 'Pool',      emoji: '🏊', defaultForecast: 'sensor.pool_power',                      defaultSensor: 'sensor.pool_active_power',              defaultEnergy: 'sensor.pool_energy' },
-  { name: 'Generic Load',     displayName: 'Generic Load',             abbr: 'Generic',   emoji: '🔌', defaultForecast: 'sensor.generic_load_power',              defaultSensor: 'sensor.generic_load_active_power',      defaultEnergy: 'sensor.generic_load_energy' },
-];
-
-// ── Legend ────────────────────────────────────────────────────────────────────
-const _HAEO_LEG_L = [
-  ['#ccffcc','#333','🌞 Solar → 🏠 Base Load','Self Consumption - Solar'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Base Load + 🔋 Battery','Self Consumption - Charge Battery'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Base Load + 🚗 EV','Self Consumption - Solar to EV'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Base Load + 🔋 Battery + 🚗 EV','Self Consumption - Solar to Home Load + Battery + EV'],
-  [_HAEO_COLOURS.self_consumption.bg,_HAEO_COLOURS.self_consumption.txt,'🌞 Solar → 🏠 Base Load + ⚡ Grid','Profit - Grid Export (Solar)'],
-  [_HAEO_COLOURS.self_consumption.bg,_HAEO_COLOURS.self_consumption.txt,'🌞 Solar → 🏠 Base Load + 🔋 Battery + ⚡ Grid','Profit - Grid Export + Charge Battery'],
-  [_HAEO_COLOURS.self_consumption.bg,_HAEO_COLOURS.self_consumption.txt,'🌞 Solar → 🏠 Base Load + ⏰ Defer. Loads','Self Consumption - Solar to Deferrable Load'],
-  [_HAEO_COLOURS.self_consumption.bg,_HAEO_COLOURS.self_consumption.txt,'🌞 Solar → 🏠 Base Load + ⏰ Defer. Loads + 🔋 Battery','Self Consumption - Solar to Home Load + Deferrable Load + Battery'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🌞 Solar + 🔋 Battery → 🏠 Base Load','Self Consumption - Solar + Battery'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🌞 Solar + 🔋 Battery → 🏠 Base Load + 🚗 EV','Self Consumption - Solar + Battery to Home Load + EV'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🌞 Solar + 🔋 Battery + 🚗 EV → 🏠 Base Load','Self Consumption - Solar + Battery + EV'],
-  [_HAEO_COLOURS.forced_export.bg,_HAEO_COLOURS.forced_export.txt,'🌞 Solar + 🔋 Battery → 🏠 Base Load + ⚡ Grid (Force)','Profit - Grid Export (Forced Battery)'],
-  [_HAEO_COLOURS.cost.bg,_HAEO_COLOURS.cost.txt,'🌞 Solar + ⚡ Grid → 🏠 Base Load','Cost - Solar + Grid Import'],
-  [_HAEO_COLOURS.cost.bg,_HAEO_COLOURS.cost.txt,'🌞 Solar + ⚡ Grid → 🏠 Base Load + 🚗 EV','Cost - Solar + Grid to Home Load + EV'],
-  [_HAEO_COLOURS.cost.bg,_HAEO_COLOURS.cost.txt,'🌞 Solar + ⚡ Grid → 🏠 Base Load + 🔋 Battery (Force)','Cost - Solar + Grid Import + Charge Battery'],
-];
-
-const _HAEO_LEG_R = [
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🔋 Battery → 🏠 Base Load','Self Consumption - Battery'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🔋 Battery → 🏠 Base Load + 🚗 EV','Self Consumption - Battery to Home Load + EV'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🔋 Battery + 🚗 EV → 🏠 Base Load','Self Consumption - Battery + EV to Home Load'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'🔋 Battery → 🏠 Base Load + ⏰ Defer. Loads','Self Consumption - Battery to Home Load + Deferrable Load'],
-  [_HAEO_COLOURS.profit.bg,_HAEO_COLOURS.profit.txt,'🔋 Battery → 🏠 Base Load + ⚡ Grid (Force)','Profit - Grid Export (Forced)'],
-  [_HAEO_COLOURS.cost.bg,_HAEO_COLOURS.cost.txt,'🔋 Battery + ⚡ Grid → 🏠 Base Load','Cost - Battery + Grid Import'],
-  [_HAEO_COLOURS.cost.bg,_HAEO_COLOURS.cost.txt,'🔋 Battery + 🚗 EV + ⚡ Grid → 🏠 Base Load','Cost - Battery + EV + Grid to Home Load'],
-  [_HAEO_COLOURS.loss.bg,_HAEO_COLOURS.loss.txt,'⚡ Grid → 🏠 Base Load','Cost - Grid Import (Battery Idle | No Solar)'],
-  [_HAEO_COLOURS.loss.bg,_HAEO_COLOURS.loss.txt,'⚡ Grid → 🏠 Base Load + 🚗 EV','Cost - Grid Import to Home Load + EV'],
-  [_HAEO_COLOURS.loss.bg,_HAEO_COLOURS.loss.txt,'⚡ Grid → 🏠 Base Load + ⏰ Defer. Loads','Cost - Grid Import to Home Load + Deferrable Load'],
-  [_HAEO_COLOURS.loss.bg,_HAEO_COLOURS.loss.txt,'🚗 EV → 🏠 Base Load','Cost - EV to Home Load'],
-  [_HAEO_COLOURS.battery.bg,_HAEO_COLOURS.battery.txt,'❄️ 🚿 ⏰ Deferrable Loads','Placeholder - HVAC, HWS - Scheduled Loads'],
-];
 
 // ── Determine Mode and Focus from classification ────────────────────────────
 function _haeo_getModeAndFocus(label) {
@@ -725,18 +691,6 @@ function _haeo_getOptionalLoadDisplay(config) {
   return { name: '', abbr: '', emoji: emoji };
 }
 
-// ── Legend HTML ───────────────────────────────────────────────────────────────
-function _haeo_legTable(items) {
-  const rows = items.map(([bg, txt, label, desc]) => {
-    if (!label) return '<tr><td colspan="2" style="border:none;padding:2px 0;"></td></tr>';
-    return '<tr>' +
-      '<td style="background-color:' + bg + ';color:' + txt + ';padding:3px 8px;white-space:nowrap;border:none;font-size:11px;">' + label + '</td>' +
-      '<td style="padding:3px 8px;color:var(--primary-text-color);border:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;">' + desc + '</td>' +
-      '</tr>';
-  }).join('');
-  return '<table style="width:100%;border-collapse:collapse;table-layout:auto;border-spacing:0;">' + rows + '</table>';
-}
-
 function _haeo_buildLegend() {
   return '<div class="leg" style="font-size:11px;margin-top:12px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:6px;">' +
@@ -752,7 +706,7 @@ function _haeo_buildLegend() {
 // ── Shared column definitions ─────────────────────────────────────────────────
 // Time(52) | Event(auto flex) | Buy(68) | Sell(68) | Base Load kW(44) kWh(46) | Defer. Loads kW(44) kWh(46) | Solar kW(44) kWh(46) | Grid kW(44) kWh(46) | Batt kW(44) kWh(46) SoC(46) | EV kW(44) kWh(46) SoC(46) | EV2 kW(44) kWh(46) SoC(46) | Cost(72)
 // Build COLGROUP dynamically based on column settings and deferrable loads config
-function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], showKwhConfig = {}) {
+function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: false}, enabledOptionalLoads = [], showKwhConfig = {}) {
   let cols = [
     '<col style="width:52px;">',                    // Time
     '<col style="width:100%;">',                    // Event - takes all remaining space in fixed layout
@@ -775,10 +729,6 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
   if (colSettings.deferLoad !== false) {
     cols.push('<col style="width:56px;">');        // Def. Loads kW
     if (showKwhConfig.deferLoad !== false) cols.push('<col style="width:46px;">');  // Def. Loads kWh
-    deferLoadsConfig.forEach(config => {
-      cols.push('<col style="width:56px;">');
-      cols.push('<col style="width:46px;">');
-    });
   }
   
   // Add enabled optional loads columns (after Def. Loads, before Solar)
@@ -812,7 +762,7 @@ function _haeo_buildColgroup(colSettings = {deferLoad: false, ev: false, ev2: fa
 }
 
 // Build THEAD dynamically based on column settings and deferrable loads config
-function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, deferLoadsConfig = [], enabledOptionalLoads = [], tabType = 'future', showKwhConfig = {}) {
+function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false}, enabledOptionalLoads = [], tabType = 'future', showKwhConfig = {}) {
   let eventHeader = tabType === 'past' 
     ? '<span style="font-size:2.0em;">🔎</span> BESS Past Events' 
     : '<span style="font-size:2.0em;">🔮</span> HAEO Forecast Decisions';
@@ -836,11 +786,6 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
     const deferColspan = showKwhConfig.deferLoad !== false ? 2 : 1;
     const deferLabel = showKwhConfig.deferLoad !== false ? '⏰ Def. Loads' : '⏰';
     topHeaders.push(`<th colspan="${deferColspan}" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${deferLabel}</th>`);
-    deferLoadsConfig.forEach(config => {
-      const preset = _HAEO_DEFERRABLE_PRESETS.find(p => p.name === config.name);
-      const displayLabel = preset ? `${preset.emoji} ${preset.abbr}` : `${_haeo_esc(config.emoji)} ${_haeo_esc(config.name)}`;
-      topHeaders.push(`<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #1a1a1a;background-color:var(--secondary-background-color,#1a1a1a);">${displayLabel}</th>`);
-    });
   }
   
   // Add enabled optional loads headers (after Def. Loads, before Solar)
@@ -890,10 +835,6 @@ function _haeo_buildThead(colSettings = {deferLoad: false, ev: false, ev2: false
   if (colSettings.deferLoad !== false) {
     botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
     if (showKwhConfig.deferLoad !== false) botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
-    deferLoadsConfig.forEach(config => {
-      botHeaders.push('<th style="box-shadow:inset 2px 0 0 #666;text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kW</th>');
-      botHeaders.push('<th class="bgi" style="text-align:center;background-color:var(--secondary-background-color,#1a1a1a);">kWh</th>');
-    });
   }
   
   // Add enabled optional loads bottom headers (after Def. Loads, before Solar)
@@ -987,8 +928,6 @@ const _HAEO_STYLE = [
   '.defer-load-config-item { border: 1px solid var(--divider-color); border-radius: 4px; padding: 12px; background: rgba(0,0,0,0.05); }',
   '.defer-load-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }',
   '.defer-load-row-full { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }',
-  '.emoji-picker-btn { background: none; border: 1px solid var(--divider-color); border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 18px; color: var(--primary-text-color); }',
-  '.emoji-picker-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px; padding: 16px; z-index: 2000; max-height: 60vh; overflow-y: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }',
   '.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }',
   '.emoji-grid-item { padding: 8px; text-align: center; cursor: pointer; border-radius: 4px; font-size: 24px; }',
   '.entity-dropdown-list { position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: var(--card-background-color); border: 1px solid var(--divider-color); border-top: none; border-radius: 0 0 4px 4px; z-index: 100; }',
@@ -997,10 +936,10 @@ const _HAEO_STYLE = [
 ].join('\n');
 
 // ── HTML template ─────────────────────────────────────────────────────────────
-function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig = [], enabledOptionalLoads = []) {
-  const colgroup = _haeo_buildColgroup(colSettings, deferLoadsConfig, enabledOptionalLoads);
-  const thead_future = _haeo_buildThead(colSettings, deferLoadsConfig, enabledOptionalLoads, 'future');
-  const thead_past = _haeo_buildThead(colSettings, deferLoadsConfig, enabledOptionalLoads, 'past');
+function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, enabledOptionalLoads = []) {
+  const colgroup = _haeo_buildColgroup(colSettings, enabledOptionalLoads);
+  const thead_future = _haeo_buildThead(colSettings, enabledOptionalLoads, 'future');
+  const thead_past = _haeo_buildThead(colSettings, enabledOptionalLoads, 'past');
   
   const html = '<style>' + _HAEO_STYLE + '</style>' +
     '<ha-card><div class="card">' +
@@ -1422,7 +1361,6 @@ function _haeo_buildHTML(colSettings = {ev: true, ev2: true}, deferLoadsConfig =
     '</label>' +
     '<div id="legend-ev-filters" style="display:flex;gap:12px;flex-wrap:wrap;"></div>' +
     '<div id="legend-optload-filters" style="display:flex;gap:12px;flex-wrap:wrap;"></div>' +
-    '<div id="legend-defer-filters" style="display:flex;gap:12px;flex-wrap:wrap;"></div>' +
     '</div>' +
     '<div id="legend-categories-wrap"></div>' +
     '</div>' +
@@ -1505,83 +1443,6 @@ class HaeoEventsCard extends HTMLElement {
     return entities.sort();
   }
 
-  // Open emoji picker for optional load
-  _openEmojiPicker(idx) {
-    const emojis = [
-      '🌡️', '🚿', '👚', '🧺', '🍽️', '🖧', '🏊', '🔌',
-      '⚡', '🔥', '💧', '🌬️', '🧽', '🧹', '📺', '🎮',
-      '☀️', '🌙', '⏰', '🔔', '📱', '💻', '🖥️', '🎵',
-      '🚗', '🚙', '🏠', '🏡', '🏘️', '💡', '🔆'
-    ];
-    
-    const emojiInput = this.shadowRoot.getElementById(`optload-emoji-${idx}`);
-    const emojiBtn = this.shadowRoot.getElementById(`optload-emoji-btn-${idx}`);
-    if (!emojiInput || !emojiBtn) return;
-    
-    // Check if picker already exists
-    let existingPicker = this.shadowRoot.getElementById(`emoji-picker-${idx}`);
-    if (existingPicker) {
-      existingPicker.remove();
-      return;
-    }
-    
-    // Create picker container
-    const picker = document.createElement('div');
-    picker.id = `emoji-picker-${idx}`;
-    picker.style.cssText = `
-      position: absolute;
-      background: var(--card-background-color);
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
-      padding: 12px;
-      z-index: 1000;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 8px;
-      width: 280px;
-    `;
-    
-    // Add emojis to picker
-    emojis.forEach(emoji => {
-      const item = document.createElement('div');
-      item.textContent = emoji;
-      item.style.cssText = `
-        font-size: 24px;
-        cursor: pointer;
-        text-align: center;
-        padding: 8px;
-        border-radius: 4px;
-        transition: background 0.2s;
-      `;
-      item.addEventListener('mouseover', () => {
-        item.style.background = 'rgba(255,255,255,0.1)';
-      });
-      item.addEventListener('mouseout', () => {
-        item.style.background = 'transparent';
-      });
-      item.addEventListener('click', () => {
-        emojiInput.value = emoji;
-        picker.remove();
-      });
-      picker.appendChild(item);
-    });
-    
-    // Position picker below button
-    this.shadowRoot.appendChild(picker);
-    const btnRect = emojiBtn.getBoundingClientRect();
-    picker.style.top = (btnRect.bottom + 5) + 'px';
-    picker.style.left = btnRect.left + 'px';
-    
-    // Close picker when clicking outside
-    const closeHandler = (e) => {
-      if (!picker.contains(e.target) && e.target !== emojiBtn) {
-        picker.remove();
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-  }
-
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -1599,9 +1460,6 @@ class HaeoEventsCard extends HTMLElement {
       ev2: false
     };
     
-    // Initialize deferrable loads config (empty, will load from localStorage)
-    this._deferableLoadsConfig = [];
-
     // Initialize default threshold settings (in watts)
     this._thresholdSettings = {
       load: 0,
@@ -1613,39 +1471,22 @@ class HaeoEventsCard extends HTMLElement {
       ev2: 100
     };
     
-    // Initialize thresholds for each configured deferrable load
-    this._deferableLoadsConfig.forEach((config, idx) => {
-      this._thresholdSettings[`deferLoad${idx}`] = config.threshold || 50;
-    });
-
     // Initialize default color settings
     this._colorSettings = JSON.parse(JSON.stringify(_HAEO_COLOURS));  // Deep copy to avoid reference issues
-    // Each entry: { name, entityId, emoji, color, threshold }
-    this._deferableLoadsConfig = [];
-  }
-
-  // Detect if HA is in light mode and return appropriate text color for light backgrounds
-  _getTextColorForLightBg() {
-    // Check if in light mode by looking at computed background color brightness
-    const htmlStyle = getComputedStyle(document.documentElement);
-    const bgColor = htmlStyle.getPropertyValue('--card-background-color') || 
-                    htmlStyle.getPropertyValue('--ha-card-background') || '#fff';
-    
-    // Simple brightness check: if background is light, use black text
-    const rgb = bgColor.match(/\d+/g);
-    if (rgb && rgb.length >= 3) {
-      const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-      return brightness > 128 ? '#000' : 'var(--primary-text-color)';
-    }
-    
-    // Fallback: check if bgColor looks light (contains 'f' for white-ish)
-    return (bgColor.toLowerCase().includes('fff') || bgColor.toLowerCase().includes('ffe')) 
-      ? '#000' 
-      : 'var(--primary-text-color)';
   }
 
   // Resolve a sensor entity ID: config override → default → fallback (for EV1)
   _eid(key) {
+    // PAST power sensors: card config → the card's own saved "historical" setting → default.
+    // The history fetch and the row reads both go through this, so they can't disagree.
+    const _pastKind = _HAEO_PAST_KIND[key];
+    if (_pastKind && !this._config['entity_' + key]) {
+      let raw = null, ok = true;
+      try { raw = localStorage.getItem('haeo-events-card-load-entities'); } catch (e) { ok = false; }
+      if (!this._pastCfg || (ok && raw !== this._pastCfgRaw)) { this._pastCfg = this._loadLoadEntitiesConfig(); this._pastCfgRaw = raw; }
+      const h = this._pastCfg?.[_pastKind]?.historical;
+      if (h) return h;
+    }
     let eid = this._config['entity_' + key] || _HAEO_DEFAULTS[key];
     // EV1 fallback: try haeo_ev_power first, fall back to haeo_ev1_power if needed
     if (key === 'haeo_ev_power') {
@@ -1660,6 +1501,48 @@ class HaeoEventsCard extends HTMLElement {
       return (this._hass?.states[primary]) ? primary : fallback;
     }
     return eid;
+  }
+
+  // FUTURE tab sensor: card config → the card's own saved "forecast" setting → default
+  // (a dashboard-supplied entity isn't silently replaced by the card's auto-saved defaults)
+  _fcEid(loadEntityConfig, kind, key) {
+    if (this._config['entity_' + key]) return this._eid(key);
+    return loadEntityConfig?.[kind]?.forecast || this._eid(key);
+  }
+
+  // Annotate the settings form with the entity actually in use when the card config
+  // (e.g. from a dashboard) overrides a field, so what's shown matches what's read.
+  _showResolvedSensors() {
+    const sr = this.shadowRoot;
+    const rows = [
+      ['load-forecast', 'haeo_load'], ['pv-forecast', 'haeo_solar'], ['grid-forecast', 'haeo_grid'], ['battery-forecast', 'haeo_battery'],
+      ['load-historical', 'past_load_power'], ['pv-historical', 'past_solar_power'], ['grid-historical', 'past_grid_power'], ['battery-historical', 'past_battery_power'],
+      ['deferLoad-forecast', 'haeo_deferrable_load'], ['ev-forecast', 'haeo_ev_power'], ['ev2-forecast', 'haeo_ev2_power'],
+      ['deferLoad-historical', 'past_deferrable_load'], ['ev-historical', 'past_ev_power'], ['ev2-historical', 'past_ev2_power'],
+    ];
+    for (const [id, key] of rows) {
+      const el = sr.getElementById(id);
+      if (!el) continue;
+      let note = sr.getElementById(id + '-resolved');
+      const cfgEid = this._config['entity_' + key];
+      if (!cfgEid) { if (note) note.remove(); el.style.opacity = ''; el.title = ''; continue; }
+      if (!note) {
+        // Wrap input + note in one element so the form's grid columns stay intact
+        let wrap = el.parentElement;
+        if (!wrap || !wrap.classList.contains('resolved-wrap')) {
+          wrap = document.createElement('div'); wrap.className = 'resolved-wrap';
+          wrap.style.cssText = 'display:flex;flex-direction:column;min-width:0;';
+          el.insertAdjacentElement('beforebegin', wrap); wrap.appendChild(el);
+        }
+        note = document.createElement('div'); note.id = id + '-resolved';
+        note.style.cssText = 'font-size:10px;color:var(--secondary-text-color);margin-top:2px;word-break:break-all;';
+        wrap.appendChild(note);
+      }
+      const missing = this._hass && !this._hass.states[cfgEid];
+      note.textContent = '→ in use: ' + cfgEid + ' (from card config' + (missing ? ', not found in HA' : '') + ')';
+      el.style.opacity = '0.55';
+      el.title = 'The card config sets ' + cfgEid + ', which takes precedence over this field';
+    }
   }
 
   // Check if an EV sensor entity exists in hass
@@ -1739,13 +1622,10 @@ class HaeoEventsCard extends HTMLElement {
       this._displaySettings = { priceDecimals: 4, kwDecimals: 3, kwhDecimals: 3 };
     }
 
-    // _deferableLoadsConfig is kept as empty array — old preset system replaced by entity-based config
-    this._deferableLoadsConfig = [];
-
     if (!this.shadowRoot.getElementById('tb-future')) {
       const enabledOptionalLoads = this._getEnabledOptionalLoads();
       try {
-        const html = _haeo_buildHTML(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads);
+        const html = _haeo_buildHTML(this._columnSettings, enabledOptionalLoads);
         this.shadowRoot.innerHTML = html;
       } catch (e) {
       }
@@ -1801,7 +1681,7 @@ class HaeoEventsCard extends HTMLElement {
     
     if (!this.shadowRoot.getElementById('tb-future')) {
       try {
-        const html = _haeo_buildHTML(this._columnSettings, this._deferableLoadsConfig);
+        const html = _haeo_buildHTML(this._columnSettings);
         this.shadowRoot.innerHTML = html;
       } catch (e) {
       }
@@ -2515,15 +2395,15 @@ class HaeoEventsCard extends HTMLElement {
     const _inv = (key) => loadEntityConfig[key]?.invert ? -1 : 1;
 
     // Build forecast maps using saved or default entities
-    const battMap     = buildMap(loadEntityConfig.battery.forecast || this._eid('haeo_battery'),             _inv('battery'));
-    const gridMap     = buildMap(loadEntityConfig.grid.forecast || this._eid('haeo_grid'),                   _inv('grid'));
-    const loadMap     = buildMap(loadEntityConfig.base.forecast || this._eid('haeo_load'),                   _inv('base'));
-    const deferLoadMap= buildMap(loadEntityConfig.deferLoad?.forecast || this._eid('haeo_deferrable_load'), _inv('deferLoad'));
-    const solarMap    = buildMap(loadEntityConfig.pv.forecast || this._eid('haeo_solar'),                    _inv('pv'));
+    const battMap     = buildMap(this._fcEid(loadEntityConfig, 'battery', 'haeo_battery'),             _inv('battery'));
+    const gridMap     = buildMap(this._fcEid(loadEntityConfig, 'grid', 'haeo_grid'),                   _inv('grid'));
+    const loadMap     = buildMap(this._fcEid(loadEntityConfig, 'base', 'haeo_load'),                   _inv('base'));
+    const deferLoadMap= buildMap(this._fcEid(loadEntityConfig, 'deferLoad', 'haeo_deferrable_load'), _inv('deferLoad'));
+    const solarMap    = buildMap(this._fcEid(loadEntityConfig, 'pv', 'haeo_solar'),                    _inv('pv'));
     const socMap      = buildMap(this._eid('haeo_soc'),            1);
-    const evPowerMap  = buildMap(loadEntityConfig.ev.forecast || this._eid('haeo_ev_power'),                 _inv('ev'));
+    const evPowerMap  = buildMap(this._fcEid(loadEntityConfig, 'ev', 'haeo_ev_power'),                 _inv('ev'));
     const evSocMap    = buildMap(this._eid('haeo_ev_soc'),       1);
-    const ev2PowerMap = buildMap(loadEntityConfig.ev2.forecast || this._eid('haeo_ev2_power'),               _inv('ev2'));
+    const ev2PowerMap = buildMap(this._fcEid(loadEntityConfig, 'ev2', 'haeo_ev2_power'),               _inv('ev2'));
     const ev2SocMap   = buildMap(this._eid('haeo_ev2_soc'),      1);
     const buyMap      = buildMap(this._eid('haeo_buy_price'),      1);
     const sellMap     = buildMap(this._eid('haeo_sell_price'),     1);
@@ -2531,7 +2411,7 @@ class HaeoEventsCard extends HTMLElement {
     // Build forecast maps for each configured deferrable load
     // Build deferrable loads map using entity-based config
     const deferLoadMaps = [];
-    const deferLoadForecastEntity = loadEntityConfig.deferLoad?.forecast || this._eid('haeo_deferrable_load');
+    const deferLoadForecastEntity = this._fcEid(loadEntityConfig, 'deferLoad', 'haeo_deferrable_load');
     if (deferLoadForecastEntity) {
       deferLoadMaps[0] = buildMap(deferLoadForecastEntity, 1);
     } else {
@@ -2872,9 +2752,6 @@ class HaeoEventsCard extends HTMLElement {
         dailyCosts[dayStr] = 0;
         dailyKwh[dayStr] = { load: 0, deferLoad: 0, pv: 0, gridImp: 0, gridExp: 0, battChg: 0, battDis: 0, ev: 0, ev2: 0 };
         // Initialize keys for dynamic deferrable loads
-        this._deferableLoadsConfig.forEach((config, idx) => {
-          dailyKwh[dayStr][`deferLoad${idx}`] = 0;
-        });
         // Initialize keys for optional loads
         optionalLoadMaps.forEach((config, idx) => {
           dailyKwh[dayStr][`optload${idx}`] = 0;
@@ -2910,9 +2787,6 @@ class HaeoEventsCard extends HTMLElement {
       dk.ev2  += (mapGet(ev2PowerMap, ts)) * stepH;
       
       // Accumulate dynamic deferrable loads
-      deferLoadValues.forEach((val, idx) => {
-        dk[`deferLoad${idx}`] += val * stepH;
-      });
     }
 
     // Update finances bar with today's data and actual sensors
@@ -3199,7 +3073,7 @@ class HaeoEventsCard extends HTMLElement {
         '</tr>');
     }
 
-    tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="' + (16 + (this._deferableLoadsConfig.length * 2) + (columnSettings.ev !== false ? 3 : 0) + (columnSettings.ev2 !== false ? 3 : 0)) + '" class="msg">No future forecast rows available.</td></tr>';
+    tbody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="' + (16 + (columnSettings.ev !== false ? 3 : 0) + (columnSettings.ev2 !== false ? 3 : 0)) + '" class="msg">No future forecast rows available.</td></tr>';
     
     // Add tooltip handlers to event cells
     if (rows.length) {
@@ -3253,20 +3127,19 @@ class HaeoEventsCard extends HTMLElement {
 
       // Past power sensors — actual inverter measurements (with saved entity overrides)
       const powerSensors = [
-        loadEntityConfig.battery.historical || this._eid('past_battery_power'),
-        loadEntityConfig.base.historical || this._eid('past_load_power'),
-        loadEntityConfig.pv.historical || this._eid('past_solar_power'),
-        loadEntityConfig.grid.historical || this._eid('past_grid_power'),
+        this._eid('past_battery_power'),
+        this._eid('past_load_power'),
+        this._eid('past_solar_power'),
+        this._eid('past_grid_power'),
         this._eid('haeo_soc'),
         this._eid('haeo_buy_price'),
         this._eid('haeo_sell_price'),
-        loadEntityConfig.deferLoad?.historical || this._eid('past_deferrable_load'),
-        loadEntityConfig.ev.historical || this._eid('haeo_ev_power'),
+        this._eid('past_deferrable_load'),
+        this._eid('past_ev_power'),
         this._eid('haeo_ev_soc'),
-        loadEntityConfig.ev2.historical || this._eid('haeo_ev2_power'),
+        this._eid('past_ev2_power'),
         this._eid('haeo_ev2_soc'),
         // Add EV1 fallback sensors to lookup (in case primary doesn't exist)
-        this._config['entity_haeo_ev1_power'] || _HAEO_DEFAULTS['haeo_ev1_power'],
         this._config['entity_haeo_ev1_soc'] || _HAEO_DEFAULTS['haeo_ev1_soc'],
         // Add optional load historical entities
         ...enabledOptionalLoads.map(load => load.historicalEntity).filter(e => e)
@@ -3285,11 +3158,6 @@ class HaeoEventsCard extends HTMLElement {
       ];
       
       // Add configured deferrable load historical entities (for energy totals if available)
-      this._deferableLoadsConfig.forEach((config) => {
-        if (config.historicalEntityId) {
-          energySensors.push(config.historicalEntityId);
-        }
-      });
       
       // Add configured optional load energy entities
       enabledOptionalLoads.forEach((config) => {
@@ -3299,8 +3167,8 @@ class HaeoEventsCard extends HTMLElement {
       });
 
       // Check if EV sensors exist
-      const evSensorsExist = this._evSensorExists('haeo_ev_power') && this._evSensorExists('haeo_ev_soc');
-      const ev2SensorsExist = this._evSensorExists('haeo_ev2_power') && this._evSensorExists('haeo_ev2_soc');
+      const evSensorsExist = this._evSensorExists('past_ev_power') && this._evSensorExists('haeo_ev_soc');
+      const ev2SensorsExist = this._evSensorExists('past_ev2_power') && this._evSensorExists('haeo_ev2_soc');
       const deferLoadSensorExists = this._evSensorExists('past_deferrable_load');
 
       const result = await this._hass.callWS({
@@ -3327,8 +3195,8 @@ class HaeoEventsCard extends HTMLElement {
         load:    _haeo_powerMult(this._hass, this._eid('past_load_power')),
         solar:   _haeo_powerMult(this._hass, this._eid('past_solar_power')),
         deferLoad: _haeo_powerMult(this._hass, this._eid('past_deferrable_load')),
-        ev:      _haeo_powerMult(this._hass, this._eid('haeo_ev_power')),
-        ev2:     _haeo_powerMult(this._hass, this._eid('haeo_ev2_power')),
+        ev:      _haeo_powerMult(this._hass, this._eid('past_ev_power')),
+        ev2:     _haeo_powerMult(this._hass, this._eid('past_ev2_power')),
       };
 
       // Apply invert flow flags — negate the multiplier for any load with invert=true
@@ -3342,11 +3210,6 @@ class HaeoEventsCard extends HTMLElement {
       if (_invertConfig.deferLoad?.invert) this._pwrMult.deferLoad *= -1;
       
       // Add multipliers for each configured deferrable load
-      this._deferableLoadsConfig.forEach((config, idx) => {
-        if (config.historicalEntityId) {
-          this._pwrMult[`deferLoad${idx}`] = _haeo_powerMult(this._hass, config.historicalEntityId);
-        }
-      });
       
       this._engMult = {
         past_load_energy:              _haeo_energyMult(this._hass, this._eid('past_load_energy')),
@@ -3361,11 +3224,6 @@ class HaeoEventsCard extends HTMLElement {
       };
       
       // Add multipliers for each configured deferrable load energy
-      this._deferableLoadsConfig.forEach((config, idx) => {
-        if (config.historicalEntityId) {
-          this._engMult[`deferLoad${idx}_energy`] = _haeo_energyMult(this._hass, config.historicalEntityId);
-        }
-      });
 
       // Convert threshold from watts to kW for comparisons
       const _thresholdKw = (colName) => {
@@ -3412,18 +3270,8 @@ class HaeoEventsCard extends HTMLElement {
         const loadKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_load_power')],   ts)) || 0) * this._pwrMult.load;
         const solarKw= (parseFloat(_haeo_getAt(lookup[this._eid('past_solar_power')],  ts)) || 0) * this._pwrMult.solar;
         const deferLoadKw = (parseFloat(_haeo_getAt(lookup[this._eid('past_deferrable_load')], ts)) || 0) * this._pwrMult.deferLoad;
-        const evKw   = (parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev_power')],      ts)) || 0) * this._pwrMult.ev;
-        const ev2Kw  = (parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev2_power')],     ts)) || 0) * this._pwrMult.ev2;
-        
-        // Retrieve values for dynamic deferrable loads
-        const deferLoadValues = [];
-        this._deferableLoadsConfig.forEach((config, idx) => {
-          if (config.historicalEntityId && lookup[config.historicalEntityId]) {
-            deferLoadValues[idx] = (parseFloat(_haeo_getAt(lookup[config.historicalEntityId], ts)) || 0) * this._pwrMult[`deferLoad${idx}`];
-          } else {
-            deferLoadValues[idx] = 0;
-          }
-        });
+        const evKw   = (parseFloat(_haeo_getAt(lookup[this._eid('past_ev_power')],      ts)) || 0) * this._pwrMult.ev;
+        const ev2Kw  = (parseFloat(_haeo_getAt(lookup[this._eid('past_ev2_power')],     ts)) || 0) * this._pwrMult.ev2;
         
         const buyP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
         const sellP  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
@@ -3444,9 +3292,6 @@ class HaeoEventsCard extends HTMLElement {
             ev2Chg: 0, ev2Dis: 0
           };
           // Add dynamic deferrable load tracking
-          this._deferableLoadsConfig.forEach((config, idx) => {
-            dailyKwhObj[`deferLoad${idx}`] = 0;
-          });
           // Add optional loads tracking
           enabledOptionalLoads.forEach((config, idx) => {
             dailyKwhObj[`optload${idx}`] = 0;
@@ -3460,9 +3305,6 @@ class HaeoEventsCard extends HTMLElement {
         dk.deferLoad += deferLoadKw * stepH;
         
         // Accumulate dynamic deferrable loads
-        deferLoadValues.forEach((val, idx) => {
-          dk[`deferLoad${idx}`] += val * stepH;
-        });
         
         // Accumulate optional loads energy deltas
         const prevTs = ts - (5 * 60 * 1000);  // 5-minute interval in milliseconds
@@ -3524,9 +3366,6 @@ class HaeoEventsCard extends HTMLElement {
         if (columnSettings.deferLoad !== false) {
           row1 += '<td class="bgl"></td>';
           if (loadEntityConfig.deferLoad?.showKwh !== false) row1 += '<td class="bgi" style="text-align:right;">—</td>';
-          this._deferableLoadsConfig.forEach((config, idx) => {
-            row1 += '<td class="bgl"></td><td class="bgi" style="text-align:right;">' + fmtKd(dk[`deferLoad${idx}`]) + '</td>';
-          });
         }
         
         // Optional loads columns - display accumulated daily energy
@@ -3626,20 +3465,10 @@ class HaeoEventsCard extends HTMLElement {
         const soc     = parseFloat(_haeo_getAt(lookup[this._eid('haeo_soc')],           ts)) || 0;
         const buyP    = parseFloat(_haeo_getAt(lookup[this._eid('haeo_buy_price')],     ts)) || 0;
         const sellP   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_sell_price')],    ts)) || 0;
-        const evKw    = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev_power')],      ts)) || 0;
+        const evKw    = parseFloat(_haeo_getAt(lookup[this._eid('past_ev_power')],      ts)) || 0;
         const evSoc   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev_soc')],        ts)) || 0;
-        const ev2Kw   = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev2_power')],     ts)) || 0;
+        const ev2Kw   = parseFloat(_haeo_getAt(lookup[this._eid('past_ev2_power')],     ts)) || 0;
         const ev2Soc  = parseFloat(_haeo_getAt(lookup[this._eid('haeo_ev2_soc')],       ts)) || 0;
-        
-        // Retrieve values for dynamic deferrable loads
-        const deferLoadValues = [];
-        this._deferableLoadsConfig.forEach((config, idx) => {
-          if (config.historicalEntityId && lookup[config.historicalEntityId]) {
-            deferLoadValues[idx] = (parseFloat(_haeo_getAt(lookup[config.historicalEntityId], ts)) || 0) * this._pwrMult[`deferLoad${idx}`];
-          } else {
-            deferLoadValues[idx] = 0;
-          }
-        });
         
         // Power values already calculated in pre-pass loop (if pre-pass ran)
         
@@ -3717,16 +3546,6 @@ class HaeoEventsCard extends HTMLElement {
         const eSolar  = _haeo_getDelta(lookup[this._eid('past_solar_energy')],             ts, prevTs, this._engMult.past_solar_energy);
         const eDeferLoad = deferLoadKw * (5 / 60);  // Assume 5-minute intervals for Past Events
         
-        // Energy deltas for dynamic deferrable loads
-        const eDeferLoadValues = [];
-        deferLoadValues.forEach((val, idx) => {
-          if (this._engMult[`deferLoad${idx}_energy`]) {
-            eDeferLoadValues[idx] = _haeo_getDelta(lookup[this._deferableLoadsConfig[idx].historicalEntityId], ts, prevTs, this._engMult[`deferLoad${idx}_energy`]);
-          } else {
-            eDeferLoadValues[idx] = val * (5 / 60);  // Fallback: assume 5-minute intervals
-          }
-        });
-        
         // Energy deltas for optional loads
         enabledOptionalLoads.forEach((config, idx) => {
           if (config.energyEntity && lookup[config.energyEntity]) {
@@ -3756,13 +3575,7 @@ class HaeoEventsCard extends HTMLElement {
         const fmtE = (v) => v !== null && Math.abs(v) > 0.005 ? v.toFixed(_kwhDp) : '—';
         
         // Build deferrable load emoji label (top 2 or generic if 3+)
-        let deferLoadLabel = '';
-        const totalDeferLoad = deferLoadValues.reduce((sum, val) => sum + val, 0);
-        if (totalDeferLoad >= 0.1) {
-          deferLoadLabel = ' ⏰';
-        }
-        
-        const eventLabel = cls.label + deferLoadLabel;
+        const eventLabel = cls.label;
         
         // Collect event labels for dynamic legend (PAST tab)
         if (!this._pastEvents) this._pastEvents = {};
@@ -3860,6 +3673,7 @@ class HaeoEventsCard extends HTMLElement {
     this._populateLoadEntitiesForm();
     this._populateOptionalLoadsForm();
     this._populateEntitiesForm();
+    this._showResolvedSensors();
     
     // CRITICAL FIX: Delay color picker setup to ensure DOM elements exist
     requestAnimationFrame(() => {
@@ -3883,73 +3697,13 @@ class HaeoEventsCard extends HTMLElement {
     });
   }
 
-  _updateTableLayout() {
-    // Close settings modal
-    const modal = this.shadowRoot.getElementById('settings-modal');
-    if (modal) modal.style.display = 'none';
-    
-    const enabledOptionalLoads = this._getEnabledOptionalLoads();
-    // Rebuild colgroup and theads for both tabs
-    const _loadCfg = this._loadLoadEntitiesConfig();
-    const showKwhConfig = { deferLoad: _loadCfg.deferLoad?.showKwh ?? true, ev: _loadCfg.ev?.showKwh ?? true, ev2: _loadCfg.ev2?.showKwh ?? true };
-    const colgroup = _haeo_buildColgroup(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, showKwhConfig);
-    const thead_future = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'future', showKwhConfig);
-    const thead_past = _haeo_buildThead(this._columnSettings, this._deferableLoadsConfig, enabledOptionalLoads, 'past', showKwhConfig);
-
-    // Update single future table — replace colgroup and thead, preserve tbody
-    const futureTable = this.shadowRoot.getElementById('table-future');
-    if (futureTable) {
-      const oldCg = futureTable.querySelector('colgroup');
-      const oldTh = futureTable.querySelector('thead');
-      const tmpFuture = document.createElement('table');
-      tmpFuture.innerHTML = colgroup + thead_future;
-      if (oldCg) oldCg.replaceWith(tmpFuture.querySelector('colgroup'));
-      else futureTable.insertBefore(tmpFuture.querySelector('colgroup'), futureTable.firstChild);
-      if (oldTh) oldTh.replaceWith(tmpFuture.querySelector('thead'));
-      else futureTable.insertBefore(tmpFuture.querySelector('thead'), futureTable.querySelector('tbody'));
-    }
-
-    // Update single past table — replace colgroup and thead, preserve tbody
-    const pastTable = this.shadowRoot.getElementById('table-past');
-    if (pastTable) {
-      const oldCg = pastTable.querySelector('colgroup');
-      const oldTh = pastTable.querySelector('thead');
-      const tmpPast = document.createElement('table');
-      tmpPast.innerHTML = colgroup + thead_past;
-      if (oldCg) oldCg.replaceWith(tmpPast.querySelector('colgroup'));
-      else pastTable.insertBefore(tmpPast.querySelector('colgroup'), pastTable.firstChild);
-      if (oldTh) oldTh.replaceWith(tmpPast.querySelector('thead'));
-      else pastTable.insertBefore(tmpPast.querySelector('thead'), pastTable.querySelector('tbody'));
-    }
-    
-    // Clear _wired flags on old elements so _wireEvents re-attaches
-    const allElements = this.shadowRoot.querySelectorAll('[id]');
-    allElements.forEach(el => {
-      delete el._wired;
-    });
-    
-    // Rebuild data tables with same new column settings
-    if (this._activeTab === 'future') {
-      this._renderFuture();
-    } else {
-      this._loadPast();
-    }
-    
-    // Re-wire event handlers for new DOM elements
-    requestAnimationFrame(() => {
-      this._wireEvents();
-      this._setWrapHeight();
-    });
-  }
-
   _openLegendModal() {
     const modal = this.shadowRoot.getElementById('legend-modal');
     if (!modal) return;
     
-    // Populate dynamic EV/EV2, optional load, and deferrable load filters
+    // Populate dynamic EV/EV2 and optional load filters
     this._populateEVFilters();
     this._populateOptionalLoadFilters();
-    this._populateDeferLoadFilters();
     
     this._populateLegendModal();
     modal.style.display = 'flex';
@@ -4042,37 +3796,6 @@ class HaeoEventsCard extends HTMLElement {
       const displayInfo = _haeo_getOptionalLoadDisplay(config);
       const text = document.createElement('span');
       text.textContent = displayInfo.emoji + ' ' + displayInfo.abbr;
-      
-      label.appendChild(checkbox);
-      label.appendChild(text);
-      filterContainer.appendChild(label);
-    });
-  }
-
-  _populateDeferLoadFilters() {
-    const filterContainer = this.shadowRoot.getElementById('legend-defer-filters');
-    if (!filterContainer) return;
-    
-    filterContainer.innerHTML = '';
-    
-    this._deferableLoadsConfig.forEach((config, idx) => {
-      const label = document.createElement('label');
-      label.style.display = 'flex';
-      label.style.alignItems = 'center';
-      label.style.gap = '6px';
-      label.style.cursor = 'pointer';
-      label.style.fontSize = '12px';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = `filter-deferLoad${idx}`;
-      checkbox.className = 'legend-filter';
-      checkbox.checked = true;
-      checkbox.style.cursor = 'pointer';
-      checkbox.addEventListener('change', () => this._applyLegendFilters());
-      
-      const text = document.createElement('span');
-      text.textContent = config.emoji + ' ' + config.name;
       
       label.appendChild(checkbox);
       label.appendChild(text);
@@ -4185,20 +3908,6 @@ class HaeoEventsCard extends HTMLElement {
       categories[cat].push({ label, desc: finalDesc });
     }
     
-    // Add deferrable load standalone entries (only if enabled and not already in collected events)
-    if (deferLoadEnabled && this._deferableLoadsConfig && this._deferableLoadsConfig.length > 0) {
-      this._deferableLoadsConfig.forEach((config, idx) => {
-        const labelKey = config.emoji + ' ' + config.name;
-        // Only add if not already added from collected events
-        if (!eventsMap || !eventsMap[labelKey]) {
-          categories['Deferrable Loads'].push({
-            label: labelKey,
-            desc: 'Deferrable load power usage'
-          });
-        }
-      });
-    }
-    
     // Add optional load standalone entries (only if any are enabled)
     if (enabledOptionalLoads.length > 0) {
       enabledOptionalLoads.forEach((config, idx) => {
@@ -4248,7 +3957,6 @@ class HaeoEventsCard extends HTMLElement {
     const colSettings = this._columnSettings;
     const evEnabled = colSettings.ev !== false;
     const ev2Enabled = colSettings.ev2 !== false;
-    const deferLoadEnabled = colSettings.deferLoad !== false;
     
     const solarChecked = this.shadowRoot.getElementById('filter-solar')?.checked ?? true;
     const batteryChecked = this.shadowRoot.getElementById('filter-battery')?.checked ?? true;
@@ -4262,14 +3970,6 @@ class HaeoEventsCard extends HTMLElement {
     enabledOptionalLoads.forEach((config, idx) => {
       optionalLoadChecked[idx] = this.shadowRoot.getElementById(`filter-optload${idx}`)?.checked ?? true;
     });
-
-    // Get deferrable load filter states (only if enabled)
-    const deferLoadChecked = {};
-    if (deferLoadEnabled) {
-      this._deferableLoadsConfig.forEach((config, idx) => {
-        deferLoadChecked[idx] = this.shadowRoot.getElementById(`filter-deferLoad${idx}`)?.checked ?? true;
-      });
-    }
 
     const items = this.shadowRoot.querySelectorAll('.legend-item');
     items.forEach(item => {
@@ -4292,28 +3992,12 @@ class HaeoEventsCard extends HTMLElement {
         }
       });
       
-      // Check for deferrable load emojis
-      let hasDeferLoad = false;
-      let deferLoadIdx = -1;
-      if (deferLoadEnabled) {
-        this._deferableLoadsConfig.forEach((config, idx) => {
-          if (label.includes(config.emoji)) {
-            hasDeferLoad = true;
-            deferLoadIdx = idx;
-          }
-        });
-      }
-
       // Auto-hide if column is not enabled
       if (hasEV && !evEnabled) {
         item.style.display = 'none';
         return;
       }
       if (hasEV2 && !ev2Enabled) {
-        item.style.display = 'none';
-        return;
-      }
-      if (hasDeferLoad && !deferLoadEnabled) {
         item.style.display = 'none';
         return;
       }
@@ -4328,11 +4012,6 @@ class HaeoEventsCard extends HTMLElement {
       // Also check optional loads
       if (hasOptionalLoad && optionalLoadIdx >= 0) {
         shouldShow = shouldShow || optionalLoadChecked[optionalLoadIdx];
-      }
-      
-      // Also check deferrable loads
-      if (hasDeferLoad && deferLoadIdx >= 0) {
-        shouldShow = shouldShow || deferLoadChecked[deferLoadIdx];
       }
       
       item.style.display = shouldShow ? 'flex' : 'none';
@@ -4354,11 +4033,6 @@ class HaeoEventsCard extends HTMLElement {
     }
     
     // Check if it's a deferrable load emoji
-    for (const config of this._deferableLoadsConfig) {
-      if (label.includes(config.emoji)) {
-        return config.color?.bg || '#e1bee7'; // Use configured color or purple default
-      }
-    }
     
     // Helper to get color from _colorSettings first, then fall back to _HAEO_COLOURS
     const getEventColor = (colorKey) => {
@@ -5100,50 +4774,6 @@ class HaeoEventsCard extends HTMLElement {
     return enabled;
   }
 
-  // Build maps for optional loads forecast data (for FUTURE tab)
-  _buildOptionalLoadsForecastMaps() {
-    const enabledLoads = this._getEnabledOptionalLoads();
-    const maps = [];
-    
-    enabledLoads.forEach(load => {
-      const entity = this._hass.states[load.forecastEntity];
-      if (entity && entity.attributes && entity.attributes.forecast) {
-        const map = new Map();
-        (entity.attributes.forecast || []).forEach(item => {
-          if (item.time && item.value !== undefined) {
-            const ts = new Date(item.time).getTime();
-            const kw = (parseFloat(item.value) || 0) / 1000;
-            map.set(ts, kw);
-          }
-        });
-        maps.push({ load, map });
-      } else {
-        maps.push({ load, map: new Map() });
-      }
-    });
-    
-    return maps;
-  }
-
-  // Build maps for optional loads historical data (for PAST tab)
-  _buildOptionalLoadsHistoricalMaps() {
-    const enabledLoads = this._getEnabledOptionalLoads();
-    const maps = [];
-    
-    enabledLoads.forEach(load => {
-      const entity = this._hass.states[load.historicalEntity];
-      if (entity) {
-        const unit = entity.attributes?.unit_of_measurement || 'W';
-        const mult = unit === 'kW' ? 1 : unit === 'MW' ? 1000 : 0.001;
-        maps.push({ load, entity, mult });
-      } else {
-        maps.push({ load, entity: null, mult: 0.001 });
-      }
-    });
-    
-    return maps;
-  }
-
   // Populate optional loads form from saved config
   _populateOptionalLoadsForm() {
     const config = this._loadOptionalLoadsConfig();
@@ -5399,7 +5029,6 @@ class HaeoEventsCard extends HTMLElement {
       columns: this._columnSettings,
       colors: this._colorSettings,
       thresholds: this._thresholdSettings,
-      deferableLoads: this._deferableLoadsConfig,
       optionalLoads: this._loadOptionalLoadsConfig()
     };
     
@@ -5430,14 +5059,12 @@ class HaeoEventsCard extends HTMLElement {
         this._columnSettings = data.columns || this._columnSettings;
         this._colorSettings = data.colors || this._colorSettings;
         this._thresholdSettings = data.thresholds || this._thresholdSettings;
-        this._deferableLoadsConfig = data.deferableLoads || this._deferableLoadsConfig;
         
         // Save to localStorage and reload
         try {
           localStorage.setItem('haeo-events-card-columns', JSON.stringify(this._columnSettings));
           localStorage.setItem('haeo-events-card-colors', JSON.stringify(this._colorSettings));
           localStorage.setItem('haeo-events-card-thresholds', JSON.stringify(this._thresholdSettings));
-          localStorage.setItem('haeo-events-card-deferrable-loads', JSON.stringify(this._deferableLoadsConfig));
           if (data.optionalLoads) {
             localStorage.setItem('haeo-events-card-optional-loads', JSON.stringify(data.optionalLoads));
           }
