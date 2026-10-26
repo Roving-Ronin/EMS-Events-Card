@@ -97,6 +97,8 @@ Sensors are resolved in priority order: **settings modal / card config → MPC &
 
 The EV and Deferrable Load columns only appear when their sensors exist. Everything above can be changed from **⚙️ Settings** in the card; no YAML is required.
 
+**Precedence:** card config (YAML / dashboard) → saved override in ⚙️ Settings → built-in default. A saved override never replaces a sensor set in the card config. The settings modal shows which entity is in use for each field.
+
 ---
 
 ## Recorder Configuration
@@ -226,7 +228,7 @@ The Past Events tab has a toggle switch in the header bar:
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.8.0**.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.9.0**.
 
 ---
 
