@@ -1,4 +1,4 @@
-// EMHASS Events Card v2.6.7
+// EMHASS Events Card v2.7.0
 // Combines Future Decisions (forecast) and Past Events (history) in one card
 // MODIFICATIONS: 
 //   - SoC % moved under Battery column (3 sub-cols: kW/kWh/SoC%)
@@ -45,7 +45,16 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.6.7';
+const _EMHASS_VERSION = 'v2.7.0';
+
+// ── HTML escaping (v2.7.0) ──────────────────────────────────────────────────
+// Entity states/attributes, config values and error messages are untrusted and must
+// be escaped before being concatenated into any HTML string (innerHTML etc.).
+function _emhass_esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 let _EMHASS_CUR = '$'; // Currency symbol — set from config.currency_symbol or HA config
 
 // Map ISO 4217 currency codes to symbols
@@ -412,7 +421,7 @@ function _emhass_energyMult(hass, entityId) {
 
 // ── Settings modal HTML ───────────────────────────────────────────────────────
 function _emhass_buildSettingsModal() {
-  const inp = (id, ph, val='') => '<input type="text" id="' + id + '" placeholder="' + ph + '" value="' + val + '" style="padding:6px;font-size:11px;width:100%;box-sizing:border-box;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">';
+  const inp = (id, ph, val='') => '<input type="text" id="' + id + '" placeholder="' + _emhass_esc(ph) + '" value="' + _emhass_esc(val) + '" style="padding:6px;font-size:11px;width:100%;box-sizing:border-box;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">';
   const num = (id, val, min, step, def) => '<div style="display:flex;flex-direction:column;gap:2px;align-items:center;">' +
     '<input type="number" id="' + id + '" min="' + min + '" step="' + step + '" value="' + val + '" style="padding:4px;font-size:11px;width:60px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
     '<div style="font-size:8px;color:var(--secondary-text-color);">Default: ' + def + '</div></div>';
@@ -906,9 +915,9 @@ class EmhassEventsCard extends HTMLElement {
   setConfig(config) {
     this._config = config || {};
     // Set currency symbol from card YAML or HA config
-    _EMHASS_CUR = config?.currency_symbol
+    _EMHASS_CUR = _emhass_esc(config?.currency_symbol
       || _emhass_curSymbol(this._hass?.config?.currency)
-      || '$';
+      || '$');
     // Load and apply persisted settings from localStorage
     this._applySettingsToCard(this._loadSettings());
     if (!this.shadowRoot.getElementById('tb-future')) {
@@ -980,7 +989,7 @@ class EmhassEventsCard extends HTMLElement {
     this._hass = hass;
     // Update currency if HA config available and no override in card YAML
     if (!this._config?.currency_symbol) {
-      _EMHASS_CUR = _emhass_curSymbol(hass?.config?.currency) || _EMHASS_CUR;
+      _EMHASS_CUR = _emhass_esc(_emhass_curSymbol(hass?.config?.currency)) || _EMHASS_CUR;
     }
     if (!this.shadowRoot.getElementById('tb-future')) {
       this.shadowRoot.innerHTML = _emhass_buildHTML();
@@ -1382,7 +1391,7 @@ class EmhassEventsCard extends HTMLElement {
     const primaryFc = this._getPrimaryFc();
     if (!primaryFc || !primaryFc.length) {
       tbody.innerHTML = '<tr><td colspan="21" class="err">⚠️ No forecast data found on ' +
-        (this._eid('p_batt_forecast') || 'sensor.mpc_batt_power') + '</td></tr>';
+        _emhass_esc(this._eid('p_batt_forecast') || 'sensor.mpc_batt_power') + '</td></tr>';
       return;
     }
 
@@ -1506,7 +1515,7 @@ class EmhassEventsCard extends HTMLElement {
 
     // ── ALERTS bar ────────────────────────────────────────────────────────────
     if (alertBar) {
-      const p = (txt, bg) => '<span class="pill" style="background:' + bg + ';color:#fff;margin-right:4px;">' + txt + '</span>';
+      const p = (txt, bg) => '<span class="pill" style="background:' + _emhass_esc(bg) + ';color:#fff;margin-right:4px;">' + _emhass_esc(txt) + '</span>';
       let alertHtml = '';
       // Force charge/discharge take priority over generic grid import/export
       if (forceChargeTime)    alertHtml += p('🔋 Force charge from '    + forceChargeTime,    '#f44336');
@@ -1569,7 +1578,7 @@ class EmhassEventsCard extends HTMLElement {
         break;
       }
 
-      const pill = (val, bg, txt) => '<span class="pill" style="background:' + (bg||'#555') + ';color:' + (txt||'#fff') + ';">' + val + '</span>';
+      const pill = (val, bg, txt) => '<span class="pill" style="background:' + _emhass_esc(bg||'#555') + ';color:' + _emhass_esc(txt||'#fff') + ';">' + _emhass_esc(val) + '</span>';
 
       // Forecast horizon — from primaryFc length × 5 min
       const horizonH = primaryFc.length > 0 ? Math.round(primaryFc.length * 5 / 60) : null;
@@ -1582,7 +1591,7 @@ class EmhassEventsCard extends HTMLElement {
           ? '<span>🔋 SoC now: ' + pill(nowSoc.toFixed(1) + '%' + socKwhStr, '#555', socTxtCol) + '</span>'
           : '') +
         (dawnSoc != null
-          ? '<span>' + dawnLabel + ': ' + pill(dawnSoc.toFixed(1) + '%' + (battCapKwh ? ' | ' + (dawnSoc / 100 * battCapKwh).toFixed(1) + ' kWh' : '') + ' (' + dawnTime + ')', '#555', dawnTxtCol) + '</span>'
+          ? '<span>' + _emhass_esc(dawnLabel) + ': ' + pill(dawnSoc.toFixed(1) + '%' + (battCapKwh ? ' | ' + (dawnSoc / 100 * battCapKwh).toFixed(1) + ' kWh' : '') + ' (' + dawnTime + ')', '#555', dawnTxtCol) + '</span>'
           : '') +
         (horizonH ? '<span>📅 Plan Horizon: ' + pill(horizonH + 'h', '#555') + '</span>' : '');
     }
@@ -1604,8 +1613,8 @@ class EmhassEventsCard extends HTMLElement {
       const netTxt  = netCostRaw == null ? '#fff' : '#000';
 
       const fp = (label, val, bg, txt, title) =>
-        '<span>' + label + '<span class="pill" style="background:' + bg + ';color:' + txt + ';"' +
-        (title ? ' title="' + title + '"' : '') + '>' + val + '</span></span>';
+        '<span>' + _emhass_esc(label) + '<span class="pill" style="background:' + _emhass_esc(bg) + ';color:' + _emhass_esc(txt) + ';"' +
+        (title ? ' title="' + _emhass_esc(title) + '"' : '') + '>' + val + '</span></span>';
 
       financeBar.innerHTML =
         '<span class="bar-label" style="color:#ff9800;">FINANCES:</span>' +
@@ -1646,7 +1655,7 @@ class EmhassEventsCard extends HTMLElement {
         }
 
         updBadge.innerHTML = '🔄 EMHASS Updated: <span class="pill" style="background:#555;color:#fff;padding:2px 10px;border-radius:12px;font-weight:600;display:inline-block;">' +
-          elapsed + ' (' + localTime + ')' + '</span>';
+          _emhass_esc(elapsed) + ' (' + _emhass_esc(localTime) + ')' + '</span>';
         updBadge.style.display = 'flex';
       }
     }
@@ -1776,8 +1785,8 @@ class EmhassEventsCard extends HTMLElement {
 
       rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
         '<td>' + timeStr + '</td>' +
-        '<td class="evt-cell" data-note="' + (cls.note||'').replace(/"/g,'&quot;') + '">' + cls.label + '</td>' +
-        '<td class="bgl">' + (cls.mode || '') + '</td>' +
+        '<td class="evt-cell" data-note="' + _emhass_esc(cls.note) + '">' + _emhass_esc(cls.label) + '</td>' +
+        '<td class="bgl">' + _emhass_esc(cls.mode) + '</td>' +
         '<td class="bgl">' + _emhass_fmtP(buyP)  + '</td>' +
         '<td class="bgi">' + _emhass_fmtP(sellP) + '</td>' +
         '<td class="bgl">' + fmtKw(loadW)  + '</td>' +
@@ -1931,8 +1940,8 @@ class EmhassEventsCard extends HTMLElement {
           sel.value = '24'; this._pastState = 'idle';
           setTimeout(() => this._loadPast(), 500); return;
         }
-        tb.innerHTML = '<tr><td colspan="21" class="msg">⚠️ No ' + modeStr + ' sensor data for this period.<br>' +
-          '<small style="color:var(--secondary-text-color);">Checked: ' + primaryEid + ' — confirm sensor is recorded in HA recorder.</small></td></tr>';
+        tb.innerHTML = '<tr><td colspan="21" class="msg">⚠️ No ' + _emhass_esc(modeStr) + ' sensor data for this period.<br>' +
+          '<small style="color:var(--secondary-text-color);">Checked: ' + _emhass_esc(primaryEid) + ' — confirm sensor is recorded in HA recorder.</small></td></tr>';
         st.textContent = 'No data (' + modeStr + ')'; this._pastState = 'ready'; return;
       }
 
@@ -2100,8 +2109,8 @@ class EmhassEventsCard extends HTMLElement {
         const fmtSoc  = (s) => s > 0 ? s.toFixed(1) : '—';
 
         rows.push('<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
-          '<td>' + timeStr + '</td><td class="evt-cell" data-note="' + (cls.note||'').replace(/"/g,'&quot;') + '">' + cls.label + '</td>' +
-          '<td class="bgl" style="font-size:11px;color:var(--secondary-text-color);">' + (cls.mode || '') + '</td>' +
+          '<td>' + timeStr + '</td><td class="evt-cell" data-note="' + _emhass_esc(cls.note) + '">' + _emhass_esc(cls.label) + '</td>' +
+          '<td class="bgl" style="font-size:11px;color:var(--secondary-text-color);">' + _emhass_esc(cls.mode) + '</td>' +
           '<td class="bgl">' + _emhass_fmtP(buyP)  + '</td>' +
           '<td class="bgi">' + _emhass_fmtP(sellP) + '</td>' +
           '<td class="bgl">' + fmtKwP(loadW) + '</td><td class="bgi">' + fmtE(eLoad)  + '</td>' +
@@ -2137,7 +2146,7 @@ class EmhassEventsCard extends HTMLElement {
       const stEl = this.shadowRoot.getElementById('st-past');
       if (stEl) {
         stEl.innerHTML = rows.length + ' events from ' + entries.length + ' readings — ' +
-          (sel2 ? sel2.options[sel2.selectedIndex].text : '') + ' · ' + modeLabel +
+          _emhass_esc(sel2 ? sel2.options[sel2.selectedIndex].text : '') + ' · ' + modeLabel +
           (bessNote ? bessNote : '');
       }
       // Attach tooltips to past event cells
@@ -2152,7 +2161,7 @@ class EmhassEventsCard extends HTMLElement {
       const tb2 = this.shadowRoot.getElementById('tb-past');
       const st2 = this.shadowRoot.getElementById('st-past');
       const errMsg = e?.message || String(e);
-      if (tb2) tb2.innerHTML = '<tr><td colspan="21" class="err">⚠️ Error loading past data: ' + errMsg +
+      if (tb2) tb2.innerHTML = '<tr><td colspan="21" class="err">⚠️ Error loading past data: ' + _emhass_esc(errMsg) +
         '<br><small style="color:var(--secondary-text-color);">Check browser console (F12) for details. ' +
         'Common causes: sensor not recorded, HA recorder not running, WebSocket timeout.</small></td></tr>';
       if (st2) st2.textContent = 'Error — ' + errMsg.slice(0, 80);

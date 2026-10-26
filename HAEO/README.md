@@ -1,8 +1,8 @@
-# HAEO Events Card (`haeo-events-card.js`)
+# Home Assistant Energy Optimiser (HAEO) - Events Card
 
 A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser (HAEO)** integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's actual historical sensor readings in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
 
-**Current version:** `v3.2.69`
+**Current version:** `v3.3.0`
 
 ---
 
@@ -26,6 +26,7 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
   - **Smart alert pills** — Weather Affected, Curtail On, next Grid Import/Export window, and next Force Charge/Discharge window, each with a 12h time (and day name if not today)
   - Buy and Sell price per slot (configurable decimal precision: 2–5 places)
   - Load, PV, Grid and Battery kW and kWh columns (independently configurable decimal precision: 1–4 places)
+  - **Total Load column** (kW and kWh) — Base Load plus Deferrable, EV, EV2 and any enabled optional loads. Only shown when at least one of those loads is enabled
   - SoC % with colour warnings at low levels, plus optional kWh-equivalent display when a battery capacity (`number.battery_capacity`) entity is configured
   - 💰 Cost/Profit per slot and daily totals — calculated from per-slot deltas of `sensor.grid_net_cost`
   - 📊 FINANCES bar: Daily Buy/Sell prices, Daily Net (cost/credit), Imported/Exported energy totals
@@ -39,14 +40,16 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
   - Range selector: Today / Yesterday / Last 24h / 48h / 72h / 96h / 7 days
   - Auto-switches to Last 24h if Today has no data yet
 
+- **Invert Flow** — per-sensor switch for inverters whose sign convention is the opposite of the card's (e.g. a battery where positive = discharging). Applied before event classification on both tabs
+
 - **Colour coding** — row backgrounds reflect the event type; kW/kWh values are individually coloured:
   - Grid: export = green (earning), import = red (costing)
   - Battery: charging from solar = green, charging from grid = amber, discharging = red
   - Values below display threshold (±100W grid/battery, 50W PV) show as `—` in default text colour
 
 - **Settings Modal** — intuitive configuration interface accessible via the ⚙️ icon:
-  - **Base Sensors tab** — configure HAEO and inverter sensor entities, plus deferrable load monitoring (formerly "Loads")
-  - **Optional Loads tab** — enable/disable and name optional load entities
+  - **Base Sensors tab** — configure the Base Load, Solar, Grid and Battery entities (Future, Past Power and Past Energy), filter thresholds and Invert Flow
+  - **Optional Loads tab** — Deferrable Loads, EV and EV2 rows, plus up to 10 optional loads chosen from a preset list
   - **Entities & Options tab** — configure all sensors, weather entity, curtailment switch, and display options (no YAML required)
   - **Colours - Self Consumption / Profit / Cost tabs** — customize row background and text colours per event category
   - **Backup tab** — export/import settings as JSON
@@ -57,7 +60,6 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
   - kWh value decimal places: 1–4 (default 3)
   - Weather entity (for the Weather Affected alert pill)
   - Curtailment switch entity (for the Curtail On alert pill)
-  - Daily Grid Import/Export sensor configuration
 
 - **Two sensor groups** — Future tab uses HAEO optimizer sensors (forecast attributes); Past tab uses inverter power sensors (actual measurements). Both groups are fully configurable via the Settings modal.
 
@@ -135,59 +137,39 @@ Click the **⚙️** icon in the top-right of the card to open the Settings moda
 
 ![Energy Manager - Future Decisions](HAEO-Card-Settings-Loads.png)
 
-Configure **sensor entities** in one place:
+Configure the four core sensor groups. Each row has an **Enable** column, a **Filter (W)** threshold, the entity for each tab, and an **Invert Flow** switch:
 
-**HAEO Sensors (Future tab — forecast data):**
-- Battery Active Power (kW)
-- Grid Active Power (kW)
-- Load Power (kW)
-- Solar Power (kW)
-- Battery SoC (%)
-- Grid Import Price ($/kWh)
-- Grid Export Price ($/kWh)
-- Grid Net Cost (cumulative $)
-- Grid Export Limit, Grid Import Limit (kW) — optional, drives the status bar limit pills
-- Battery Max Charge / Max Discharge Power (kW) — optional, drives the ESS limit pills
+| Row | Future Decisions entity (HAEO) | Past Events entity (Power) | Past Events entity (Energy) |
+|---|---|---|---|
+| 🏠 Base Load | `sensor.load_power` | inverter load power | inverter total load energy |
+| 🌞 Solar | `number.solar_forecast` | inverter PV power | inverter total PV generation |
+| ⚡ Grid | `sensor.grid_active_power` | inverter grid power | total imported and total exported energy (two fields), plus Daily Grid Import / Export (two fields, used by the FINANCES bar) |
+| 🔋 Battery | `sensor.battery_active_power` | inverter battery power | daily charge and daily discharge energy (two fields) |
 
-**Inverter Power Sensors (Past tab — actual measurements):**
-- Battery Power (kW)
-- Load Power (kW)
-- Solar Power (kW)
-- Grid Power (kW)
-
-**Inverter Energy Sensors (Past tab — kWh history):**
-- Load Energy (Lifetime total kWh)
-- Solar Energy (Lifetime total kWh)
-- Grid Import Energy (Lifetime total kWh)
-- Grid Export Energy (Lifetime total kWh)
-- Battery Charge Energy (Daily kWh)
-- Battery Discharge Energy (Daily kWh)
-
-**Daily Grid Sensors (Finances bar):**
-- Daily Grid Import Energy (today's total import in kWh)
-- Daily Grid Export Energy (today's total export in kWh)
-
-Configure which **deferrable loads** to monitor and display in the card:
-- Enable/disable EV and EV2 columns for one or two EV car deferred load monitoring
-- **Deferred Load Entity** — single toggle switch controlling when a load can be deferred
-- Enable/disable columns for deferred load monitoring
-- Each enabled load gets its own **kW/kWh column pair** in the table
-- Deferred loads show only when the optimizer decides to defer them (when threshold exceeded)
-
-Use this tab for loads that can be shifted in time (e.g., EV charging, water heater, pool pump) — the optimizer will defer them to windows when solar generation is high or tariffs are low. Use this if you only have a single deferrable load or group all of your deferrable loads into a single group; if you want to individually track deferrable loads, use the 'Optional Loads' feature.
+- **Future Decisions entities** are HAEO output sensors with a `forecast` attribute. They are not auto-detected: the defaults apply unless you enter your own.
+- **Past Events entities** are your inverter integration's live sensors (Sigenergy Local Modbus defaults are provided).
+- **Filter (W)** — values below this threshold display as `—`. It doesn't affect event classification.
+- **Invert Flow** — tick this if your inverter reports the opposite sign (positive = discharging, for example).
+- **🔍 Auto-Detect** — finds Past Events power and energy sensors for you (from your HA states and the Energy Dashboard). It doesn't change the Future entities.
+- **Reset to Defaults** — resets the Base Sensors tab only (Base Load, Solar, Grid, Battery). The Optional Loads tab has its own reset.
 
 ### Optional Loads Tab
 
 ![Energy Manager - Future Decisions](HAEO-Card-Settings-Optional-Loads.png)
 
-Enable/disable and name **individual optional load entities**. Each enabled load gets its own **kW/kWh column pair** in the table.
+Configure the loads that appear in their own columns next to Base Load. Each enabled load gets a **kW and kWh column pair**, which feed the Total Load column.
 
-- Add/enable optional loads by entity ID
-- Give each a display name (e.g., "Hot Water", "Pool Pump", "Car Charger")
-- Optional loads show in the table whenever they're active
-- Supports multiple optional loads — each with independent monitoring
+**Fixed rows (top):**
+- **⏰ Deferrable Loads** — a single group of deferrable loads (Future, Past Power and Past Energy entities)
+- **EV** and **EV2** — each with Future and Past Power entities and a stacked Past Energy charge / discharge field
 
-If you configure these loads in HAEO as loads that can be curtailed, the optimizer will factor them into its scheduling decisions. Use this tab to **monitor those loads visually in the card** and track their contribution to the daily energy and cost calculations. Separate from the base load and deferred loads, allowing you to see their individual impact on the forecast and actual energy usage.
+**Optional loads (up to 10):** pick a load from the pull-down (including **Circuit**, which uses slot-numbered defaults), or enter a custom name. Each row has Enable, Symbol (emoji), Name, Filter (W), Show kWh and Future / Past Power / Past Energy entities. Presets fill in default entity names such as `sensor.<name>_power` (Future), `sensor.<name>_active_power` (Past Power) and `sensor.<name>_energy` (Past Energy).
+
+- **Show kWh** — untick to hide that load's kWh column. The column header then shows only the emoji.
+- **Invert Flow** — available for the fixed EV, EV2 and Deferrable rows.
+- **Reset to Defaults** — resets this tab only (Deferrable, EV, EV2 and all optional load rows).
+
+Use this tab to monitor loads visually in the card and to include their contribution in the Total Load and daily energy totals. If you configure these loads in HAEO as loads that can be curtailed, the optimizer factors them into its scheduling decisions.
 
 ### Entities & Options Tab
 
@@ -199,10 +181,10 @@ Configure **sensor entities** and **display options** in one place:
 - **Weather Entity** — drives the 🌧️ Weather Affected alert pill when conditions are rainy, pouring, cloudy, fog, or partly cloudy (optional)
 - **Curtailment Switch** — drives the ⚠️ Curtail On alert pill when the switch is on (optional)
 
-**💰 Price & Value Display Options:**
-- **Buy/Sell Decimal Places** — controls precision for tariff prices: 2, 3, 4 (default), or 5 decimal places. Applies to Buy/Sell columns in both Future and Past tabs, and the FINANCES bar
-- **kW Decimal Places** — controls precision for Load/PV/Grid/Battery kW columns: 1–4 decimal places (default 3)
-- **kWh Decimal Places** — controls precision for Load/PV/Grid/Battery kWh columns: 1–4 decimal places (default 3)
+**🔢 Decimal Places / Rounding:**
+- **Buy/Sell Price Decimals** — controls precision for tariff prices: 2, 3, 4 (default), or 5 decimal places. Applies to Buy/Sell columns in both Future and Past tabs, and the FINANCES bar
+- **kW Column Decimals** — controls precision for Load/PV/Grid/Battery kW columns: 1–4 decimal places (default 3)
+- **kWh Column Decimals** — controls precision for Load/PV/Grid/Battery kWh columns: 1–4 decimal places (default 3)
 
 All fields have sensible defaults for the **Sigenergy Local Modbus** integration. Override any field to support other inverter integrations. Changes save automatically to browser localStorage.
 
@@ -269,7 +251,8 @@ Useful for:
 | Event | Classified activity label |
 | Buy 💲/kWh | Grid import price for this slot (decimal places configurable: 2-5) |
 | Sell 💲/kWh | Grid export price for this slot (decimal places configurable: 2-5) |
-| Load kW / kWh | Home consumption — always positive |
+| Total Load kW / kWh | Base Load plus Deferrable, EV, EV2 and enabled optional loads — only shown when one of those is enabled |
+| Load kW / kWh | Home consumption (Base Load) — always positive |
 | PV kW / kWh | Solar generation — `—` below 50W |
 | Grid kW / kWh | Positive = import (red), Negative = export (green) — `—` below 100W |
 | Battery kW / kWh | Negative = discharging (red), Positive = charging (green/amber) — `—` below 100W |
@@ -414,11 +397,12 @@ Events are now identified by structured classification keys (e.g. `pv_to_baseloa
 - **Auto-refresh** — the card watches the optimizer's battery sensor (`last_changed` timestamp) and refreshes automatically when the sensor state updates. This ensures the Future Decisions tab reflects the latest optimizer forecast
 - **Cost/Profit (Future tab)** — `sensor.grid_net_cost` is a cumulative running total; the card computes per-slot deltas (`value[i] - value[i-1]`) for accurate per-row and daily totals. Only shown when grid flow exceeds 0.05 kW
 - **Cost/Profit (Past tab)** — calculated from grid kW × buy/sell price × slot duration; only shown when grid flow exceeds 0.10 kW
-- **Display thresholds** — Grid and Battery kW/kWh values below the configured threshold show as `—`. Thresholds are configurable in Settings → Base Sensors tab:
+- **Display thresholds** — Grid and Battery kW/kWh values below the configured threshold show as `—`. Thresholds are configurable in Settings → Base Sensors and Optional Loads tabs:
   - **Load:** default 0W (always shows)
   - **Grid:** default ±100W (configurable, suppresses inverter noise)
   - **Battery:** default ±100W (configurable, suppresses inverter noise)
-  - **Deferred Load:** default 50W (configurable)
+  - **Deferrable Loads:** default 5W (configurable)
+  - **EV / EV2:** default 100W (configurable)
   - **Optional Loads:** default 10W (configurable per load)
   
   These thresholds suppress sensor noise without affecting event classification logic
@@ -441,8 +425,8 @@ Events are now identified by structured classification keys (e.g. `pv_to_baseloa
 - Open browser DevTools (F12) and check the Console tab for errors
 
 ### Prices or kW/kWh values showing wrong decimal places?
-- Open Settings → Entities & Options → Price & Value Display
-- Verify the "Buy/Sell Decimals", "kW Decimals", and "kWh Decimals" dropdowns are set correctly
+- Open Settings → Entities & Options → Decimal Places / Rounding
+- Verify the "Buy/Sell Price Decimals", "kW Column Decimals", and "kWh Column Decimals" dropdowns are set correctly
 - Hard-refresh the page
 
 ### Sensors not found in Settings?
@@ -451,7 +435,7 @@ Events are now identified by structured classification keys (e.g. `pv_to_baseloa
 - Verify the entity's `unit_of_measurement` is set correctly (W/kW for power, Wh/kWh for energy)
 
 ### Status bar limit pills or HAEO Updated badge not showing?
-- Limit pills (Export/Import/ESS Charge/ESS Discharge) only appear when the relevant `number.*` entity is configured in Settings → Base Sensors and the corresponding grid/battery flow is currently active
+- Limit pills (Export/Import/ESS Charge/ESS Discharge) read HAEO's default entities (`number.grid_export_limit`, `number.grid_import_limit`, `number.battery_max_charge_power`, `number.battery_max_discharge_power`). These names are fixed in the card and aren't configurable. A pill only appears when the entity exists and the corresponding grid/battery flow is currently active
 - The HAEO Updated badge requires `sensor.optimizer_status` to exist with a `last_run` attribute
 
 ---
