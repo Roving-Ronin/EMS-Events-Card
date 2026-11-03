@@ -3,6 +3,16 @@
 All notable changes to `em-events-card.js` are documented here.
 
 ---
+
+## v3.6.1
+
+🔒 **SECURITY FOLLOW-UP to v3.6.0**
+
+* **EV Status pill** — `summary.ev_charging_mode` (from `sensor.energy_manager_plan`) is now HTML-escaped before rendering in the status bar
+* **Event labels** — Event/classification labels are now HTML-escaped where the FUTURE and PAST rows are rendered; this covers EV mode values (`ev_mode`, `ev_ready_by_time`) appended to the label
+* **Escape helper hardened** — `_emec_escapeHtml()` now converts every value to a string before escaping, so array/object attribute values can no longer bypass escaping; `null`/`undefined` render as empty
+
+---
  
 ## v3.6.0
  

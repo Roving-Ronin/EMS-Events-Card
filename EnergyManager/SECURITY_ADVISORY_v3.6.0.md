@@ -66,7 +66,7 @@ All entity-derived values are now escaped before being inserted into HTML string
 
 **Immediate action required:**
 
-1. **Update to EM Events Card v3.6.0 or later**
+1. **Update to EM Events Card v3.6.1 or later**
 2. **Verify entity permissions** — Ensure trusted users/automations only have write access to:
    - `sensor.energy_manager_plan`
    - `sensor.energy_manager_decision`
@@ -85,7 +85,7 @@ To verify the fix is in place:
 
 1. Check that `_emec_escapeHtml()` function exists in the card code (added early in the file)
 2. Confirm that `_buildSbar()`, `_buildFinancialsBar()`, and error handling use this function for entity values
-3. Version should display as **v3.6.0** or later in the card footer
+3. Version should display as **v3.6.1** or later in the card footer
 
 ---
 
@@ -97,11 +97,25 @@ To verify the fix is in place:
 
 ---
 
+## v3.6.1 Follow-up
+
+Two further entity-derived values from `sensor.energy_manager_plan` were found to reach `innerHTML` unescaped in v3.6.0, and are fixed in **v3.6.1**:
+
+- `ev_charging_mode` (summary attribute), shown in the EV Status pill
+- `ev_mode` / `ev_ready_by_time` (per-row inputs), appended to the event label in the FUTURE and PAST tables
+
+In addition, `_emec_escapeHtml()` previously returned non-string values unchanged, so an array or object attribute could bypass escaping. It now converts every value to a string first.
+
+**Recommendation:** Update to v3.6.1.
+
+---
+
 ## Timeline
 
 - **v3.5.1** — Initial release with EV Charger and Solar Forecast features
 - **v3.5.2** — First security fix (primary XSS vectors only)
 - **v3.6.0** — Comprehensive security hardening (primary + secondary XSS vectors)
+- **v3.6.1** — EV status/mode vectors escaped; escape helper hardened for non-string values
 
 ---
 

@@ -72,7 +72,8 @@ const _EMEC_COLGROUP =
 // Security: HTML escape helper — prevents XSS via entity-derived values
 // ============================================================================
 function _emec_escapeHtml(text) {
-  if (typeof text !== 'string') return text;
+  // Always coerce to string: arrays/objects from entity attributes would otherwise
+  // bypass escaping and be stringified later with their HTML intact.
   const map = {
     '&': '&amp;',
     '<': '&lt;',
@@ -80,7 +81,7 @@ function _emec_escapeHtml(text) {
     '"': '&quot;',
     "'": '&#39;'
   };
-  return text.replace(/[&<>"']/g, (char) => map[char]);
+  return String(text ?? '').replace(/[&<>"']/g, (char) => map[char]);
 }
 
 // EV Mode description mapper
@@ -97,10 +98,10 @@ function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
       if (readyByTime && readyByMaxPrice !== undefined) {
         const timeStr = readyByTime.substring(0, 5); // HH:MM from HH:MM:SS
         const priceStr = '$' + parseFloat(readyByMaxPrice).toFixed(2);
-        return `Ready by ${_emec_escapeHtml(timeStr)} @${_emec_escapeHtml(priceStr)}`;
+        return `Ready by ${timeStr} @${priceStr}`; // escaped where rendered (cls.label)
       }
       return 'Ready by (unconfigured)';
-    default: return _emec_escapeHtml(evMode);
+    default: return evMode; // escaped where rendered (cls.label)
   }
 }
 
