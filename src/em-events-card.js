@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v3.6.0';
+const _EMEC_VERSION = 'v3.6.1';
 
 let _EMEC_CUR = '$';
 
@@ -72,7 +72,8 @@ const _EMEC_COLGROUP =
 // Security: HTML escape helper — prevents XSS via entity-derived values
 // ============================================================================
 function _emec_escapeHtml(text) {
-  if (typeof text !== 'string') return text;
+  // Always coerce to string: arrays/objects from entity attributes would otherwise
+  // bypass escaping and be stringified later with their HTML intact.
   const map = {
     '&': '&amp;',
     '<': '&lt;',
@@ -80,7 +81,7 @@ function _emec_escapeHtml(text) {
     '"': '&quot;',
     "'": '&#39;'
   };
-  return text.replace(/[&<>"']/g, (char) => map[char]);
+  return String(text ?? '').replace(/[&<>"']/g, (char) => map[char]);
 }
 
 // EV Mode description mapper
@@ -97,10 +98,10 @@ function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
       if (readyByTime && readyByMaxPrice !== undefined) {
         const timeStr = readyByTime.substring(0, 5); // HH:MM from HH:MM:SS
         const priceStr = '$' + parseFloat(readyByMaxPrice).toFixed(2);
-        return `Ready by ${timeStr} @${priceStr}`;
+        return `Ready by ${timeStr} @${priceStr}`; // escaped where rendered (cls.label)
       }
       return 'Ready by (unconfigured)';
-    default: return evMode;
+    default: return evMode; // escaped where rendered (cls.label)
   }
 }
 
@@ -1785,7 +1786,7 @@ class EmEventsCard extends HTMLElement {
     if (summary?.ev_connected) {
       const evChargingMode = summary?.ev_charging_mode || 'unknown';
       const evModePretty = evChargingMode.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      evStatusPill = '<span>🚗 EV Status: <span class="pill" style="background:#4CAF50;color:#fff;">' + 'Connected | ' + evModePretty + '</span></span>';
+      evStatusPill = '<span>🚗 EV Status: <span class="pill" style="background:#4CAF50;color:#fff;">' + 'Connected | ' + _emec_escapeHtml(evModePretty) + '</span></span>';
     }
 
     if (provider === 'Globird' && this._hass) {
@@ -2208,7 +2209,7 @@ class EmEventsCard extends HTMLElement {
     // Build base row with all columns through Battery
     let rowHtml = '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
       '<td>' + timeStr + '</td>' +
-      '<td><span title="' + (cls.note || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
+      '<td><span title="' + (cls.note || '').replace(/"/g, '&quot;') + '">' + _emec_escapeHtml(cls.label) + '</span></td>' +
       '<td class="bgl">' + this._fmtPrice(buyP, 'buy')  + '</td>' +
       '<td class="bgi" style="opacity:1;font-size:12px;">' + sellDisp + '</td>' +
       '<td class="bgl">' + fmtLKw(loadKw) + '</td>' +
@@ -2935,7 +2936,7 @@ class EmEventsCard extends HTMLElement {
         // Build row HTML for Past tab
         let rowHtml = '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td><span title="">' + cls.label + '</span></td>' +
+          '<td><span title="">' + _emec_escapeHtml(cls.label) + '</span></td>' +
           '<td class="bgl">' + this._fmtPrice(buyP, 'buy')    + '</td>' +
           '<td class="bgi" style="opacity:1;font-size:12px;">' + this._fmtPrice(sellP, 'sell') + (capHit ? ' ⚠' : '') + '</td>' +
           '<td class="bgl">' + fmtKw(loadKw) + '</td>' +

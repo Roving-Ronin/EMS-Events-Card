@@ -2,9 +2,9 @@
 
 A custom Home Assistant card for the **Energy Manager** addon. Displays energy planning decisions in two tabs — **Future Decisions** (forecast timeline) and **Past Decisions** (historical 5-min readings) — in a single scrollable table with fixed headers and a colour-coded legend.
 
-Current version: **v3.6.0**
+Current version: **v3.6.1**
 
-⚠️ **Security Notice** — v3.6.0 includes **critical XSS vulnerability fixes**. All entity-derived values are now HTML-escaped before rendering to prevent injection attacks. Users on v3.5.1 or earlier should update immediately. See [SECURITY_ADVISORY_v3.6.0.md](./SECURITY_ADVISORY_v3.6.0.md) for details.
+⚠️ **Security Notice** — v3.6.0 includes **critical XSS vulnerability fixes**. All entity-derived values are now HTML-escaped before rendering to prevent injection attacks. Users on v3.5.1 or earlier should update immediately; v3.6.1 closes two further EV-related vectors. See [SECURITY_ADVISORY_v3.6.0.md](./SECURITY_ADVISORY_v3.6.0.md) for details.
 
 ---
 
