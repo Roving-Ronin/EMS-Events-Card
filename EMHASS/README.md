@@ -26,6 +26,7 @@ Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annab
 - **FINANCES bar** — current buy and sell price and the optimizer net cost, as colour-coded badges
 - **🔄 EMHASS Updated badge** — elapsed time and clock time of the last plan run (uses `automation.last_triggered` where available, else the load forecast sensor's `last_changed`)
 - **⚙️ Settings modal** — override every sensor (MPC and BESS), per-sensor noise filters, alert thresholds, price decimal places and column options; stored in browser localStorage
+- **🔄 Invert Flow (BESS)** — reverse the sign of the BESS battery, grid, PV or load sensor for inverters that use the opposite convention (e.g. Deye, GoodWe)
 - **Colour-coded event rows** — instantly see what the optimizer is doing at each timestep
 - **HAEO-style flow labels** — descriptive events like `🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid`
 - **Daily summary rows** — cost/profit plus kWh import / export totals per day on both tabs
@@ -95,6 +96,8 @@ Sensors are resolved in priority order: **settings modal / card config → MPC &
 | Plan run automation (Updated badge) | `automation.emhass_generate_energy_plan` | `automation.emhass_run_mpc_optimizer` |
 
 The EV and Deferrable Load columns only appear when their sensors exist. Everything above can be changed from **⚙️ Settings** in the card; no YAML is required.
+
+**Precedence:** card config (YAML / dashboard) → saved override in ⚙️ Settings → built-in default. A saved override never replaces a sensor set in the card config. The settings modal shows which entity is in use for each field.
 
 ---
 
@@ -194,6 +197,19 @@ The Mode column describes the optimizer's inferred control action, derived from 
 
 ---
 
+## Invert Flow (BESS sensors)
+
+Some inverters (e.g. Deye, GoodWe) report battery power as **positive = discharging**, the opposite of Sigenergy. Tick **Invert Flow** for the affected sensor in **⚙️ Settings → Invert Flow (BESS / Past Events)**, or set it in card YAML:
+
+```yaml
+type: custom:emhass-events-card
+bess_batt_invert: true   # also: bess_grid_invert, bess_pv_invert, bess_load_invert
+```
+
+Inversion applies to the BESS data in the Past tab only and is off by default. EMHASS (MPC) sensors are never inverted.
+
+---
+
 ## Past Events Tab — BESS / EMHASS Toggle
 
 The Past Events tab has a toggle switch in the header bar:
@@ -212,7 +228,7 @@ The Past Events tab has a toggle switch in the header bar:
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.7.0**.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.9.0**.
 
 ---
 

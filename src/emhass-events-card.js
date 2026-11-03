@@ -1,9 +1,13 @@
-// EMHASS Events Card v2.7.0
+// EMHASS Events Card v2.9.0
 // Combines Future Decisions (forecast) and Past Events (history) in one card
-// MODIFICATIONS: 
-//   - SoC % moved under Battery column (3 sub-cols: kW/kWh/SoC%)
-//   - EV column added (3 sub-cols: kW/kWh/SoC%)
-//   - Defer. Loads column added (3 sub-cols: kW/kWh/SoC%)
+// FEATURES:
+//   - Future Decisions + Past Events tabs (BESS / EMHASS data toggle)
+//   - ALERTS / STATUS / FINANCES bars and EMHASS Updated badge
+//   - Settings modal (sensor overrides, noise filters, alert thresholds, price decimals)
+//   - Optional EV and Deferrable Load columns (shown only when sensors exist)
+//   - Invert Flow (BESS sign reversal) in settings modal / YAML
+//   - Settings modal shows the entity actually in use (card config > saved override > default)
+//   - All entity-derived values HTML-escaped (_emhass_esc)
 //
 // Modelled on haeo-events-card structure and style
 // Copy to /config/www/emhass-events-card.js
@@ -45,7 +49,7 @@
 //   energy_batt_charge:    sensor.sigen_plant_total_charged_energy_of_the_ess  # MUST be lifetime/total
 //   energy_batt_discharge: sensor.sigen_plant_total_discharged_energy_of_the_ess # MUST be lifetime/total
 
-const _EMHASS_VERSION = 'v2.7.0';
+const _EMHASS_VERSION = 'v2.9.0';
 
 // ── HTML escaping (v2.7.0) ──────────────────────────────────────────────────
 // Entity states/attributes, config values and error messages are untrusted and must
@@ -211,29 +215,6 @@ const _EMHASS_COLOURS = {
   orange:      { bg: 'rgba(255,165,0,0.35)',  txt: '#ffffff',   cost: '#ffcc66' },
 };
 
-// ── Legend ────────────────────────────────────────────────────────────────────
-const _EMHASS_LEG_L = [
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home',                               'Self Consumption — Solar only'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery',                 'Self Consumption — Charge Battery (Solar)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + ⚡ Grid',                    'Profit — Grid Export (Solar)'],
-  ['#ccffcc','#333','🌞 Solar → 🏠 Home + 🔋 Battery + ⚡ Grid',       'Profit — Grid Export + Charge Battery'],
-  ['#ccfff5','#333','🌞 Solar + 🔋 Battery → 🏠 Home',                 'Self Consumption — Solar + Battery, No Grid'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home',                    'Cost — Solar + Grid Import'],
-  ['#ffe0e0','#333','🌞 Solar + ⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost — Solar + Grid Import + Charge Battery'],
-  ['rgba(30,150,80,0.55)','#fff','🌞 Solar + 🔋 Battery → 🏠 Home + ⚡ Grid (Force)','Profit — Forced Export (Solar + Battery)'],
-];
-
-const _EMHASS_LEG_R = [
-  ['#ccfff5','#333','🔋 Battery → 🏠 Home',                            'Self Consumption — Battery only'],
-  ['#ffffcc','#333','🔋 Battery → 🏠 Home + ⚡ Grid (Force)',          'Profit — Forced Export (Battery)'],
-  ['#ffe0e0','#333','🔋 Battery + ⚡ Grid → 🏠 Home',                  'Cost — Battery + Grid Import'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home',                  'Cost — Grid Import (Battery Idle, No Solar)'],
-  ['rgba(180,50,50,0.35)','#fff','⚡ Grid → 🏠 Home + 🔋 Battery (Force)','Cost — Grid Import (Forced Battery Charge)'],
-  ['#ffe0e0','#333','🌞 Solar + 🔋 Battery + ⚡ Grid → 🏠 Home',      'Cost — Solar + Battery + Grid Import'],
-  ['rgba(255,165,0,0.35)','#333','🚿 HWS / 🚗 EV / ❄️ HVAC',          'Deferrable load scheduled'],
-  ['','','',''],
-];
-
 // ── Classify future ───────────────────────────────────────────────────────────
 function _emhass_classifyFuture(pvW, loadW, battW, gridW) {
   const T = 50;
@@ -344,7 +325,6 @@ function _emhass_fmtP(v) {
 const _EMHASS_NOISE_W      = 10;
 const _EMHASS_NOISE_BESS_PG = 50;
 function _emhass_clamp(w) { return Math.abs(w) < _EMHASS_NOISE_W ? 0 : w; }
-function _emhass_clampBessPG(w) { return Math.abs(w) < _EMHASS_NOISE_BESS_PG ? 0 : w; }
 
 function _emhass_fmtCost(cost) {
   if (cost > 0.0001)  return { disp: '-' + _EMHASS_CUR + cost.toFixed(3),           col: null };
@@ -466,6 +446,13 @@ function _emhass_buildSettingsModal() {
     row('140px 1fr 1fr') + '<div>⚡ Grid Power</div>'  + inp('s-p-grid', 'sensor.mpc_grid_power')  + inp('s-b-grid', 'sensor.sigen_plant_grid_active_power')  + '</div>' +
     row('140px 1fr 1fr') + '<div>🔋 Battery Power</div>'  + inp('s-p-batt', 'sensor.mpc_batt_power')  + inp('s-b-batt', 'sensor.sigen_plant_battery_power')     + '</div>' +
     row('140px 1fr 1fr') + '<div>🔋 Battery SoC</div>'    + inp('s-p-soc',  'sensor.mpc_batt_soc')    + inp('s-b-soc',  'sensor.sigen_plant_battery_state_of_charge') + '</div>' +
+
+    sec('🔄 Invert Flow (BESS / Past Events)') +
+    '<div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:6px;">Reverse the +/- sign of a BESS sensor. Use if your inverter reports battery positive = discharging (e.g. Deye, GoodWe) or grid positive = export. EMHASS data is not affected. Can also be set in card YAML: <code>bess_batt_invert: true</code></div>' +
+    '<div style="display:flex;gap:24px;flex-wrap:wrap;padding:6px 0;font-size:12px;">' +
+    [['i-b-load','🏠 Load'],['i-b-pv','🌞 PV'],['i-b-grid','⚡ Grid'],['i-b-batt','🔋 Battery']].map(x =>
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="' + x[0] + '" style="width:16px;height:16px;cursor:pointer;accent-color:#2196F3;">' + x[1] + '</label>').join('') +
+    '</div>' +
 
     sec('💲 Price Sensors') +
     row('140px 1fr 1fr') + '<div>💲 Buy Price</div>'  + inp('s-buy',      'sensor.mpc_general_price')              + inp('s-past-buy',  'sensor.amber_express_home_general_price') + '</div>' +
@@ -913,7 +900,8 @@ class EmhassEventsCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = config || {};
+    this._baseConfig = { ...(config || {}) };  // config exactly as supplied (YAML / dashboard)
+    this._config = { ...(config || {}) };      // working copy (saved overrides are layered on, never over config)
     // Set currency symbol from card YAML or HA config
     _EMHASS_CUR = _emhass_esc(config?.currency_symbol
       || _emhass_curSymbol(this._hass?.config?.currency)
@@ -1175,6 +1163,8 @@ class EmhassEventsCard extends HTMLElement {
     t_noise_pv_mpc: 10, t_noise_grid_mpc: 10, t_noise_batt_mpc: 10,
     t_noise_pv_bess: 50, t_noise_grid_bess: 50, t_noise_batt_bess: 50,
     t_batt_min: 15, t_alert_buy: 0.50, t_alert_sell: 0.15, t_price_decimals: 4,
+    // Invert Flow (BESS / Past tab only)
+    i_b_load: false, i_b_pv: false, i_b_grid: false, i_b_batt: false,
   };
 
   _loadSettings() {
@@ -1202,6 +1192,13 @@ class EmhassEventsCard extends HTMLElement {
     this._noisePvBess        = parseFloat(s.t_noise_pv_bess)   || 50;
     this._noiseGridBess      = parseFloat(s.t_noise_grid_bess) || 50;
     this._noiseBattBess      = parseFloat(s.t_noise_batt_bess) || 50;
+    // Invert Flow (BESS only): setting OR card YAML (bess_{load,pv,grid,batt}_invert: true)
+    this._invBess = {
+      load: !!(s.i_b_load || this._config?.bess_load_invert),
+      pv:   !!(s.i_b_pv   || this._config?.bess_pv_invert),
+      grid: !!(s.i_b_grid || this._config?.bess_grid_invert),
+      batt: !!(s.i_b_batt || this._config?.bess_batt_invert),
+    };
     this._batteryMinPercent  = parseFloat(s.t_batt_min)    || 15;
     this._alertHighBuyPrice  = parseFloat(s.t_alert_buy)   || 0.50;
     this._alertHighSellPrice = parseFloat(s.t_alert_sell)  || 0.15;
@@ -1220,8 +1217,13 @@ class EmhassEventsCard extends HTMLElement {
       energy_batt_charge: s.s_e_bc, energy_batt_discharge: s.s_e_bd,
       energy_capacity: s.s_e_cap,
     };
+    // Precedence: card config (YAML / dashboard) → saved override (this modal) → built-in default.
+    // A saved override never replaces an entity supplied by the card config, and clearing a
+    // field reverts it to the default.
     for (const [key, val] of Object.entries(sensorMap)) {
+      if (this._baseConfig?.[key]) continue;
       if (val && val.trim()) this._config[key] = val.trim();
+      else delete this._config[key];
     }
   }
 
@@ -1251,6 +1253,11 @@ class EmhassEventsCard extends HTMLElement {
     }
     const decimals = sr.getElementById('t-price-decimals');
     if (decimals) decimals.value = s.t_price_decimals || 4;
+    this._showResolvedSensors();
+    for (const [id, key] of [['i-b-load','i_b_load'],['i-b-pv','i_b_pv'],['i-b-grid','i_b_grid'],['i-b-batt','i_b_batt']]) {
+      const cb = sr.getElementById(id);
+      if (cb) cb.checked = !!s[key];
+    }
     const modal = sr.getElementById('settings-modal');
     if (modal) modal.style.display = 'flex';
   }
@@ -1281,6 +1288,10 @@ class EmhassEventsCard extends HTMLElement {
       t_alert_buy:  parseFloat(g('t-alert-buy'))   || 0.50,
       t_alert_sell: parseFloat(g('t-alert-sell'))  || 0.15,
       t_price_decimals: parseInt(sr.getElementById('t-price-decimals')?.value) || 4,
+      i_b_load: !!sr.getElementById('i-b-load')?.checked,
+      i_b_pv:   !!sr.getElementById('i-b-pv')?.checked,
+      i_b_grid: !!sr.getElementById('i-b-grid')?.checked,
+      i_b_batt: !!sr.getElementById('i-b-batt')?.checked,
     };
     this._saveSettings(s);
     this._applySettingsToCard(s);
@@ -1319,6 +1330,72 @@ class EmhassEventsCard extends HTMLElement {
     reader.readAsText(file);
   }
 
+  // Settings field id → config key (sensor overrides)
+  static get _SENSOR_FIELDS() {
+    return {
+      's-p-load': 'p_load_forecast', 's-p-pv': 'p_pv_forecast', 's-p-grid': 'p_grid_forecast',
+      's-p-batt': 'p_batt_forecast', 's-p-soc': 'soc_forecast',
+      's-b-load': 'bess_load_power', 's-b-pv': 'bess_pv_power', 's-b-grid': 'bess_grid_power',
+      's-b-batt': 'bess_batt_power', 's-b-soc': 'bess_soc',
+      's-buy': 'buy_price', 's-sell': 'sell_price', 's-net-cost': 'net_cost',
+      's-past-buy': 'past_buy_price', 's-past-sell': 'past_sell_price',
+      's-e-load': 'energy_load', 's-e-solar': 'energy_solar',
+      's-e-gimp': 'energy_grid_import', 's-e-gexp': 'energy_grid_export',
+      's-e-bc': 'energy_batt_charge', 's-e-bd': 'energy_batt_discharge', 's-e-cap': 'energy_capacity',
+    };
+  }
+
+  // Where a sensor resolves from when the field is empty: card config or built-in default
+  _sensorSource(key) {
+    const fromConfig = this._baseConfig?.[key];
+    if (fromConfig) return { eid: fromConfig, src: 'card config' };
+    return { eid: _EMHASS_MPC[key] || _EMHASS_STD[key] || null, src: 'default' };
+  }
+
+  // Annotate the settings form with the entity actually in use, so what is shown matches what
+  // is read (same approach as the HAEO card).
+  //  - Card config sets the sensor: note under the field + dimmed input (config takes precedence)
+  //  - Otherwise, an empty field shows the resolved default as its placeholder
+  // All text is written with textContent / placeholder / title (never innerHTML).
+  _showResolvedSensors() {
+    const sr = this.shadowRoot;
+    for (const [id, key] of Object.entries(this.constructor._SENSOR_FIELDS)) {
+      const el = sr.getElementById(id);
+      if (!el) continue;
+      if (el.dataset.origPh === undefined) el.dataset.origPh = el.placeholder || '';
+      let note = sr.getElementById(id + '-resolved');
+      const cfgEid = this._baseConfig?.[key];
+      if (cfgEid) {
+        if (!note) {
+          // Wrap input + note in one element so the form's grid columns stay intact
+          let wrap = el.parentElement;
+          if (!wrap || !wrap.classList.contains('resolved-wrap')) {
+            wrap = document.createElement('div'); wrap.className = 'resolved-wrap';
+            wrap.style.cssText = 'display:flex;flex-direction:column;min-width:0;';
+            el.insertAdjacentElement('beforebegin', wrap); wrap.appendChild(el);
+          }
+          note = document.createElement('div'); note.id = id + '-resolved';
+          note.style.cssText = 'font-size:10px;color:var(--secondary-text-color);margin-top:2px;word-break:break-all;';
+          wrap.appendChild(note);
+        }
+        const missing = this._hass && !this._hass.states[cfgEid];
+        note.textContent = '→ in use: ' + cfgEid + ' (from card config' + (missing ? ', not found in HA' : '') + ')';
+        el.style.opacity = '0.55';
+        el.placeholder = el.dataset.origPh;
+        el.title = 'The card config sets ' + cfgEid + ', which takes precedence over this field';
+        continue;
+      }
+      if (note) note.remove();
+      el.style.opacity = '';
+      const { eid } = this._sensorSource(key);
+      if (!eid) { el.placeholder = el.dataset.origPh; el.title = ''; continue; }
+      const missing = this._hass && !this._hass.states[eid];
+      el.placeholder = 'Using ' + eid + ' (default' + (missing ? ', not found' : '') + ')';
+      el.title = el.value ? 'Override: ' + el.value + ' (blank = ' + eid + ' default)'
+                          : 'Using ' + eid + ' (default)' + (missing ? ' — entity not found in HA' : '');
+    }
+  }
+
   _applyInverterPreset(brand) {
     const presets = {
       sigenergy: { load: 'sensor.sigen_plant_consumed_power', pv: 'sensor.sigen_plant_pv_power', grid: 'sensor.sigen_plant_grid_active_power', batt: 'sensor.sigen_plant_battery_power', soc: 'sensor.sigen_plant_battery_state_of_charge' },
@@ -1332,11 +1409,29 @@ class EmhassEventsCard extends HTMLElement {
     const p = presets[brand];
     if (!p) return;
     const sr = this.shadowRoot;
-    if (sr.getElementById('s-b-load'))  sr.getElementById('s-b-load').value  = p.load;
-    if (sr.getElementById('s-b-pv'))    sr.getElementById('s-b-pv').value    = p.pv;
-    if (sr.getElementById('s-b-grid'))  sr.getElementById('s-b-grid').value  = p.grid;
-    if (sr.getElementById('s-b-batt'))  sr.getElementById('s-b-batt').value  = p.batt;
-    if (sr.getElementById('s-b-soc'))   sr.getElementById('s-b-soc').value   = p.soc;
+    // Only fill EMPTY fields, and only with entities that exist — never replace a working
+    // config-supplied sensor with a brand guess. Report what changed.
+    const filled = [], skipped = [];
+    for (const [id, k] of [['s-b-load', 'load'], ['s-b-pv', 'pv'], ['s-b-grid', 'grid'], ['s-b-batt', 'batt'], ['s-b-soc', 'soc']]) {
+      const el = sr.getElementById(id);
+      if (!el) continue;
+      const fieldKey = this.constructor._SENSOR_FIELDS[id];
+      const { eid: current } = this._sensorSource(fieldKey);
+      if (el.value) { skipped.push(k + ' (override set)'); continue; }
+      if (current && this._hass?.states[current]) { skipped.push(k + ' (using ' + current + ')'); continue; }
+      if (!this._hass?.states[p[k]]) { skipped.push(k + ' (' + p[k] + ' not found)'); continue; }
+      el.value = p[k]; filled.push(p[k]);
+    }
+    this._showResolvedSensors();
+    let note = sr.getElementById('inverter-brand-note');
+    const sel = sr.getElementById('inverter-brand');
+    if (!note && sel?.parentElement) {
+      note = document.createElement('div'); note.id = 'inverter-brand-note';
+      note.style.cssText = 'font-size:11px;color:var(--secondary-text-color);margin:-6px 0 10px 0;text-align:right;';
+      sel.parentElement.parentElement.insertAdjacentElement('afterend', note);
+    }
+    if (note) note.textContent = (filled.length ? 'Filled: ' + filled.join(', ') : 'Nothing filled') +
+      (skipped.length ? ' · Kept: ' + skipped.join(', ') : '');
   }
 
   _renderLegend() {
@@ -1859,6 +1954,8 @@ class EmhassEventsCard extends HTMLElement {
       const pvEid   = useBess ? this._eid('bess_pv_power')     : this._eid('p_pv_forecast');
       const loadEid = useBess ? this._eid('bess_load_power')   : this._eid('p_load_forecast');
       const socEid  = useBess ? this._eid('bess_soc')          : this._eid('soc_forecast');
+      // Invert Flow (BESS only): -1 when the user flagged this sensor as sign-reversed
+      const sg = (k) => (useBess && this._invBess?.[k]) ? -1 : 1;
       const evEid   = this._eid('p_ev_forecast');
       const socEvEid = this._eid('soc_ev_forecast');
       const deferEid = this._eid('p_defer_forecast');
@@ -1970,11 +2067,11 @@ class EmhassEventsCard extends HTMLElement {
       const stepH5 = 5 / 60;
       for (const ts of Array.from(recordedTs).sort((a,b) => a-b)) {
         const dayKey = new Date(ts).toLocaleDateString('en-AU', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
-        const bW = clamp(parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0);
-        const gW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0)
+        const bW = clamp(sg('batt') * (parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0));
+        const gW = useBess ? clampBess(sg('grid') * (parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0))
                            : clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
-        const lW = clamp(parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0);
-        const pW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0)
+        const lW = clamp(sg('load') * (parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0));
+        const pW = useBess ? clampBess(sg('pv') * (parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0))
                            : clamp(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0);
         const buyP  = parseFloat(_emhass_getAt(lookup[buyEid],  ts)) || 0;
         const sellP = parseFloat(_emhass_getAt(lookup[sellEid], ts)) || 0;
@@ -2052,11 +2149,11 @@ class EmhassEventsCard extends HTMLElement {
             '</tr>');
         }
 
-        const battW = clamp(parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0);
-        const gridW = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0)
+        const battW = clamp(sg('batt') * (parseFloat(_emhass_getAt(lookup[battEid], ts)) || 0));
+        const gridW = useBess ? clampBess(sg('grid') * (parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0))
                               : clamp(parseFloat(_emhass_getAt(lookup[gridEid], ts)) || 0);
-        const loadW = clamp(parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0);
-        const pvW   = useBess ? clampBess(parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0)
+        const loadW = clamp(sg('load') * (parseFloat(_emhass_getAt(lookup[loadEid], ts)) || 0));
+        const pvW   = useBess ? clampBess(sg('pv') * (parseFloat(_emhass_getAt(lookup[pvEid], ts)) || 0))
                               : clamp(parseFloat(_emhass_getAt(lookup[pvEid],   ts)) || 0);
         const evW   = evEid ? _emhass_clamp(parseFloat(_emhass_getAt(lookup[evEid], ts)) || 0) : 0;
         const deferW = deferEid ? _emhass_clamp(parseFloat(_emhass_getAt(lookup[deferEid], ts)) || 0) : 0;
@@ -2197,6 +2294,6 @@ if (!window.customCards.find(c => c.type === 'emhass-events-card')) {
   window.customCards.push({
     type:        'emhass-events-card',
     name:        'EMHASS Events Card',
-    description: 'EMHASS optimizer future forecast and past events — v2.1.8-mod with EV & Defer. Loads columns',
+    description: 'EMHASS optimizer future forecast and past events — MPC forecast and past events with ALERTS, STATUS and FINANCES bars',
   });
 }

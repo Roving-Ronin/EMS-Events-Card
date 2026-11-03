@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v3.6.1';
+const _EMEC_VERSION = 'v3.6.2';
 
 let _EMEC_CUR = '$';
 
@@ -82,6 +82,20 @@ function _emec_escapeHtml(text) {
     "'": '&#39;'
   };
   return String(text ?? '').replace(/[&<>"']/g, (char) => map[char]);
+}
+
+// Robustness: return a copy of a plan attribute with number-like strings
+// (e.g. "2.5") converted to numbers, so numeric code (.toFixed, comparisons)
+// never throws or misbehaves if the integration sends a value as text.
+function _emec_numify(v) {
+  if (Array.isArray(v)) return v.map(_emec_numify);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = _emec_numify(v[k]);
+    return out;
+  }
+  if (typeof v === 'string' && /^\s*-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?\s*$/.test(v)) return Number(v);
+  return v;
 }
 
 // EV Mode description mapper
@@ -1169,7 +1183,7 @@ class EmEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
-    _EMEC_CUR = this._config.currency_symbol || '$';
+    _EMEC_CUR = _emec_escapeHtml(this._config.currency_symbol || '$');
     
     // Load color settings from localStorage if available
     try {
@@ -2263,8 +2277,8 @@ class EmEventsCard extends HTMLElement {
     }
 
     const attr     = planState.attributes;
-    const plan     = attr.energy_plan;
-    const bs       = attr.blocks_summary;
+    const plan     = _emec_numify(attr.energy_plan);
+    const bs       = _emec_numify(attr.blocks_summary);
     const summary  = plan?.summary;
     const provider = this._hass?.states['input_select.electricity_provider']?.state || 'Amber Electric';
 

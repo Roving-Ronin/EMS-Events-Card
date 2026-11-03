@@ -2,6 +2,20 @@
 
 All notable changes to the EMHASS Events Card. Newest first.
 
+## v2.9.0
+
+- Settings modal now shows the sensor actually in use (same approach as the HAEO card). Fields set by the card config show "→ in use: `<entity>` (from card config)" under a dimmed input; empty fields show the resolved default as their placeholder, flagged "not found" if the entity doesn't exist in HA
+- **Precedence change:** card config (YAML / dashboard) now always beats a saved override, so a dashboard-supplied sensor is never silently replaced. Clearing an override field now reverts to the default immediately instead of after a page reload
+- Inverter brand dropdown only fills empty fields, skips guessed entities that don't exist in HA, and reports what it filled and kept
+
+## v2.8.0
+
+- New **Invert Flow** option (BESS / Past Events only): reverse the +/- sign of the BESS Load, PV, Grid or Battery sensor, for inverters such as Deye and GoodWe that report battery positive = discharging. Set per sensor in ⚙️ Settings, or in card YAML with `bess_load_invert`, `bess_pv_invert`, `bess_grid_invert`, `bess_batt_invert`. Default off; EMHASS (MPC) data is unaffected
+
+## v2.7.1
+
+- Cleanup: removed unused legend arrays and `_emhass_clampBessPG()`; corrected the card picker description and header comment
+
 ## v2.7.0
 
 - Security: all entity-derived values (optimizer status, currency, entity IDs, error messages, settings inputs, event labels) are now HTML-escaped before being written to the DOM

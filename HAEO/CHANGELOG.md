@@ -4,6 +4,42 @@ All notable changes to `haeo-events-card.js` are documented here.
 
 ---
 
+## [v3.3.4] - 2026-11-03
+### Fixed
+- Status bar pills no longer show "NaN" when an optional entity is missing or unavailable. The Export Limit, Import Limit, ESS Charge Limit and ESS Disch. Limit pills, and the SoC now pill, are now hidden in that case. The Buy and Sell prices in the finance bar show "—".
+- When the live grid or battery power sensor is unavailable, the status logic now falls back to the forecast value as intended. Previously the unparsed `NaN` value blocked the fallback.
+- Added a `_haeo_num()` helper that returns a finite number, or `null` for missing, `unavailable`, `unknown` or non-numeric states.
+
+---
+
+## [v3.3.3] - 2026-10-26
+### Fixed
+- **Past EV / EV2 columns:** the Past tab read the HAEO Future sensors (`sensor.ev_active_power`, `sensor.ev2_active_power`), so Past EV and EV2 showed 0 on a default setup. Added the Past entities `past_ev_power` and `past_ev2_power`. They follow the usual card config → saved value → default order, with defaults `sensor.sigen_ac_charger_charging_power` and `sensor.sigen_dc_charger_output_power`.
+- The settings "→ in use" note now also covers the EV, EV2 and Deferrable rows.
+
+### Changed
+- Card YAML: to override the Past EV sensors, use `entity_past_ev_power` / `entity_past_ev2_power`. `entity_haeo_ev_power` now only affects the Future tab.
+- The Past tab no longer falls back to the HAEO EV1 power sensor; the Future tab keeps that fallback.
+- Past EV columns now appear when your inverter's EV sensor exists (plus the HAEO EV SoC sensor).
+- Backup export no longer writes `deferableLoads`, and import no longer writes the old localStorage key. Older backup files still import.
+
+### Removed
+- Unused code: six unused functions and the emoji-picker CSS, two legend constants and the old Deferrable presets array.
+- The old deferrable-load config system (`_deferableLoadsConfig`) and its empty legend filter. The live Future deferrable-load code and the EV / EV2 legend filters are unchanged.
+
+---
+
+## [v3.3.2]
+- Not released separately; its changes are included in v3.3.3.
+
+---
+
+## [v3.3.1] - 2026-10-26
+### Fixed
+- Deferrable load entities set in card config are now read from the `deferLoad` key (previously `deferrable`), so Future and Past deferrable-load overrides take effect.
+
+---
+
 ## [v3.3.0] - 2026-10-25
 ### Security
 - Escape all entity-, attribute- and user-config-derived text before inserting it into HTML strings. This applies to the Event column and its tooltips (custom optional-load names), table headers, the legend, the currency symbol, error messages and the status badges.
