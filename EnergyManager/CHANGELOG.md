@@ -4,6 +4,14 @@ All notable changes to `em-events-card.js` are documented here.
 
 ---
 
+## v3.6.2
+
+* **Currency symbol escaped**: the `currency_symbol` card option is now HTML-escaped, matching the HAEO and EMHASS cards
+* **Plan values tolerate text numbers**: number-like strings in `sensor.energy_manager_plan` attributes (e.g. `"2.5"`) are converted to numbers when the plan is read. Previously a value sent as text could make `.toFixed()` throw, which stopped the card rendering
+* Added `_emec_numify()` helper; the Home Assistant state object is copied, not modified
+
+---
+
 ## v3.6.1
 
 🔒 **SECURITY FOLLOW-UP to v3.6.0**

@@ -13,13 +13,20 @@
 //     rows: auto
 
 
-const _HAEO_VERSION = 'v3.3.3';
+const _HAEO_VERSION = 'v3.3.4';
 
 // Escape any entity-, attribute- or user-config-derived text before it is placed in an HTML string.
 function _haeo_esc(v) {
   return String(v == null ? '' : v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Parse an entity state to a finite number, or null when missing/unavailable/non-numeric.
+// (parseFloat() returns NaN for those, and `?? null` does not catch NaN.)
+function _haeo_num(state) {
+  const n = parseFloat(state);
+  return Number.isFinite(n) ? n : null;
 }
 
 // Global currency symbol — initialized to '$', overridden by setConfig or auto-detected from HA
@@ -2456,17 +2463,17 @@ class HaeoEventsCard extends HTMLElement {
     const deferLoadSensorExists = this._evSensorExists('haeo_deferrable_load');
 
     // ── Status bar ──
-    const nowSoc  = parseFloat(this._hass?.states[this._eid('haeo_soc')]?.state) ?? null;
-    const nowBuy  = parseFloat(this._hass?.states[this._eid('haeo_buy_price')]?.state) ?? null;
-    const nowSell = parseFloat(this._hass?.states[this._eid('haeo_sell_price')]?.state) ?? null;
-    const exportLimit = parseFloat(this._hass?.states[this._eid('haeo_export_limit')]?.state) ?? null;
-    const importLimit = parseFloat(this._hass?.states[this._eid('haeo_import_limit')]?.state) ?? null;
-    const battChargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_charge_limit')]?.state) ?? null;
-    const battDischargeLimit = parseFloat(this._hass?.states[this._eid('haeo_batt_discharge_limit')]?.state) ?? null;
+    const nowSoc  = _haeo_num(this._hass?.states[this._eid('haeo_soc')]?.state);
+    const nowBuy  = _haeo_num(this._hass?.states[this._eid('haeo_buy_price')]?.state);
+    const nowSell = _haeo_num(this._hass?.states[this._eid('haeo_sell_price')]?.state);
+    const exportLimit = _haeo_num(this._hass?.states[this._eid('haeo_export_limit')]?.state);
+    const importLimit = _haeo_num(this._hass?.states[this._eid('haeo_import_limit')]?.state);
+    const battChargeLimit = _haeo_num(this._hass?.states[this._eid('haeo_batt_charge_limit')]?.state);
+    const battDischargeLimit = _haeo_num(this._hass?.states[this._eid('haeo_batt_discharge_limit')]?.state);
 
     // Current activity: use live sensors, fallback to forecast if unavailable
-    const liveGridKw = parseFloat(this._hass?.states[this._eid('haeo_grid')]?.state) ?? null;
-    const liveBattKw = parseFloat(this._hass?.states[this._eid('haeo_battery')]?.state) ?? null;
+    const liveGridKw = _haeo_num(this._hass?.states[this._eid('haeo_grid')]?.state);
+    const liveBattKw = _haeo_num(this._hass?.states[this._eid('haeo_battery')]?.state);
     const currentGridKw = liveGridKw != null ? liveGridKw : mapGet(gridMap, nowTs);
     const currentBattKw = liveBattKw != null ? liveBattKw : mapGet(battMap, nowTs);
     const isGridImporting = currentGridKw > 0.05;  // 50W threshold
