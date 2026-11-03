@@ -1,0 +1,101 @@
+name: Bug report
+description: Report a problem with the EM, HAEO or EMHASS Events Card
+labels: ['type/bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **NOTE:** Before you start, please check the following.
+
+        - Read the README for the card you are using ([Energy Manager](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md), [HAEO](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md), [EMHASS](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md)) to ensure the correct setup.
+        - Make sure no [similar issues (including closed ones)](https://github.com/Roving-Ronin/EMS-Events-Card/issues?q=is%3Aissue+label%3Atype%2Fbug) exist.
+        - Make sure you are on the latest release, and have refreshed your browser cache (Ctrl+F5 / Cmd+Shift+R) after updating.
+
+        Thanks for taking the time to help improve this project!
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if an issue already exists for the bug you encountered.
+      options:
+        - label: I have searched the existing issues
+          required: true
+  - type: dropdown
+    id: card
+    attributes:
+      label: Which card?
+      description: Which card is affected?
+      options:
+        - EM Events Card (Energy Manager)
+        - HAEO Events Card
+        - EMHASS Events Card
+        - More than one / Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behaviour
+      description: A concise description of what you're experiencing. Screenshots of the card are very helpful.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behaviour.
+      placeholder: |
+        1. With this card configuration...
+        2. Open the dashboard / switch to Past Events / open Card Settings...
+        3. See error...
+    validations:
+      required: false
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected Behaviour
+      description: A concise description of what you expected to happen.
+      placeholder: Tell us what you should see!
+    validations:
+      required: true
+  - type: input
+    id: card-version
+    attributes:
+      label: Card Version
+      description: Shown in the card's legend footer (e.g. v3.6.0).
+    validations:
+      required: true
+  - type: input
+    id: backend-version
+    attributes:
+      label: Energy Manager / HAEO / EMHASS Version
+      description: The version of the integration or add-on that feeds the card (if known).
+    validations:
+      required: false
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant Version
+      description: The version of Home Assistant you have installed (Settings → About).
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / App
+      description: e.g. Chrome 130 on Windows, HA Companion app on iOS.
+    validations:
+      required: false
+  - type: textarea
+    id: config
+    attributes:
+      label: Card Configuration
+      description: Paste the card's YAML (dashboard → edit card → Show code editor). This will be automatically formatted into code, so no need for backticks.
+      render: yaml
+  - type: textarea
+    id: logs
+    attributes:
+      label: Browser Console Errors
+      description: Open the browser developer tools (F12 → Console) with the dashboard loaded, and paste any red errors mentioning the card. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: false

@@ -1,11 +1,11 @@
 name: Feature request
-description: Suggest an idea for this project
+description: Suggest an idea for the EM, HAEO or EMHASS Events Card
 labels: ['type/feature']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to assist with improving this project!
+        Thanks for taking the time to help improve this project!
   - type: checkboxes
     attributes:
       label: Is there an existing issue for this?
@@ -13,39 +13,40 @@ body:
       options:
         - label: I have searched the existing issues
           required: true
+  - type: dropdown
+    id: card
+    attributes:
+      label: Which card?
+      description: Which card should this feature apply to?
+      options:
+        - EM Events Card (Energy Manager)
+        - HAEO Events Card
+        - EMHASS Events Card
+        - All cards
+    validations:
+      required: true
   - type: textarea
     id: current-behavior
     attributes:
-      label: Current Behavior
-      description: A concise description of what you're experiencing.
+      label: Current Behaviour
+      description: A concise description of what the card does now.
       placeholder: Tell us what you see!
     validations:
       required: true
   - type: textarea
     id: expected-behaviour
     attributes:
-      label: Expected behaviour
-      description: A concise description of what you expected to happen.
-      placeholder: Tell us what you should see!
+      label: Desired Behaviour
+      description: A concise description of what you would like the card to do. Mock-ups or screenshots are welcome.
+      placeholder: Tell us what you would like to see!
     validations:
       required: true
   - type: textarea
     attributes:
       label: Possible Solutions
-      description: If you have an idea on how to implement this please let us know.
+      description: If you have an idea on how to implement this, e.g. which sensor or attribute holds the data, please let us know.
     validations:
       required: false
-  - type: dropdown
-    id: mode
-    attributes:
-      label: Mode
-      description: What card style does this feature apply to?
-      options:
-        - lite
-        - full
-        - Both
-    validations:
-      required: true
   - type: textarea
     attributes:
       label: Context / Reason

@@ -1,0 +1,12 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: EM Events Card documentation
+    url: https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md
+    about: Setup and configuration for the Energy Manager Events Card.
+  - name: HAEO Events Card documentation
+    url: https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md
+    about: Setup and configuration for the HAEO Events Card.
+  - name: EMHASS Events Card documentation
+    url: https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md
+    about: Setup and configuration for the EMHASS Events Card.
