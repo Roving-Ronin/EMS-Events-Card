@@ -1785,7 +1785,7 @@ class EmEventsCard extends HTMLElement {
     if (summary?.ev_connected) {
       const evChargingMode = summary?.ev_charging_mode || 'unknown';
       const evModePretty = evChargingMode.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      evStatusPill = '<span>🚗 EV Status: <span class="pill" style="background:#4CAF50;color:#fff;">' + 'Connected | ' + evModePretty + '</span></span>';
+      evStatusPill = '<span>🚗 EV Status: <span class="pill" style="background:#4CAF50;color:#fff;">' + 'Connected | ' + _emec_escapeHtml(evModePretty) + '</span></span>';
     }
 
     if (provider === 'Globird' && this._hass) {
@@ -2208,7 +2208,7 @@ class EmEventsCard extends HTMLElement {
     // Build base row with all columns through Battery
     let rowHtml = '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
       '<td>' + timeStr + '</td>' +
-      '<td><span title="' + (cls.note || '').replace(/"/g, '&quot;') + '">' + cls.label + '</span></td>' +
+      '<td><span title="' + (cls.note || '').replace(/"/g, '&quot;') + '">' + _emec_escapeHtml(cls.label) + '</span></td>' +
       '<td class="bgl">' + this._fmtPrice(buyP, 'buy')  + '</td>' +
       '<td class="bgi" style="opacity:1;font-size:12px;">' + sellDisp + '</td>' +
       '<td class="bgl">' + fmtLKw(loadKw) + '</td>' +
@@ -2935,7 +2935,7 @@ class EmEventsCard extends HTMLElement {
         // Build row HTML for Past tab
         let rowHtml = '<tr style="background-color:' + c.bg + ';color:' + c.txt + ';">' +
           '<td>' + timeStr + '</td>' +
-          '<td><span title="">' + cls.label + '</span></td>' +
+          '<td><span title="">' + _emec_escapeHtml(cls.label) + '</span></td>' +
           '<td class="bgl">' + this._fmtPrice(buyP, 'buy')    + '</td>' +
           '<td class="bgi" style="opacity:1;font-size:12px;">' + this._fmtPrice(sellP, 'sell') + (capHit ? ' ⚠' : '') + '</td>' +
           '<td class="bgl">' + fmtKw(loadKw) + '</td>' +
