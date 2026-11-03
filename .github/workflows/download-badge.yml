@@ -14,7 +14,7 @@ jobs:
   badge:
     runs-on: ubuntu-latest
     steps:
-      - name: Count downloads of em-events-card.js across all releases
+      - name: Count downloads of cards.js across all releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

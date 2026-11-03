@@ -1,0 +1,93 @@
+name: Pull Requests
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: JavaScript syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Parse each card file as an ES module
+        run: |
+          fail=0
+          tmp=$(mktemp -d)
+          for f in src/*.js; do
+            # Copy to .mjs so Node parses it as an ES module (cards.js uses import)
+            cp "$f" "$tmp/$(basename "$f" .js).mjs"
+            if node --check "$tmp/$(basename "$f" .js).mjs"; then
+              echo "✅ $f"
+            else
+              echo "::error file=$f::Syntax error in $f"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  version:
+    name: Check card version and changelog
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check changed cards were version-bumped
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="origin/$BASE_REF"
+          changed=$(git diff --name-only "$base"...HEAD)
+          echo "Changed files:"; echo "$changed" | sed 's/^/  /'
+          fail=0
+
+          # card file | version constant | changelog
+          while IFS='|' read -r file const changelog; do
+            if ! echo "$changed" | grep -qx "$file"; then
+              continue
+            fi
+            echo "--- $file changed"
+
+            new=$(grep -oP "const ${const} = '\Kv[0-9]+\.[0-9]+\.[0-9]+" "$file" || true)
+            old=$(git show "$base:$file" 2>/dev/null | grep -oP "const ${const} = '\Kv[0-9]+\.[0-9]+\.[0-9]+" || true)
+            echo "    $const: ${old:-<none>} -> ${new:-<none>}"
+
+            if [ -z "$new" ]; then
+              echo "::error file=$file::Could not find $const = 'vX.Y.Z' in $file"
+              fail=1
+            elif [ "$new" = "$old" ]; then
+              echo "::error file=$file::$file changed but $const is still $old. Bump the version."
+              fail=1
+            elif [ -n "$old" ] && [ "$(printf '%s\n%s\n' "${old#v}" "${new#v}" | sort -V | tail -1)" != "${new#v}" ]; then
+              echo "::error file=$file::$const went backwards ($old -> $new)."
+              fail=1
+            fi
+
+            if ! echo "$changed" | grep -qx "$changelog"; then
+              echo "::error file=$changelog::$file changed but $changelog was not updated."
+              fail=1
+            fi
+
+            if [ -n "$new" ] && ! grep -q "$new" README.md; then
+              echo "::warning file=README.md::$new not found in README.md. Update the card table."
+            fi
+          done <<'EOF'
+          src/em-events-card.js|_EMEC_VERSION|EnergyManager/CHANGELOG.md
+          src/haeo-events-card.js|_HAEO_VERSION|HAEO/CHANGELOG.md
+          src/emhass-events-card.js|_EMHASS_VERSION|EMHASS/CHANGELOG.md
+          EOF
+
+          exit $fail
