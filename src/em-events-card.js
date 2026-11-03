@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v3.6.0';
+const _EMEC_VERSION = 'v3.6.1';
 
 let _EMEC_CUR = '$';
 
@@ -97,10 +97,10 @@ function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
       if (readyByTime && readyByMaxPrice !== undefined) {
         const timeStr = readyByTime.substring(0, 5); // HH:MM from HH:MM:SS
         const priceStr = '$' + parseFloat(readyByMaxPrice).toFixed(2);
-        return `Ready by ${timeStr} @${priceStr}`;
+        return `Ready by ${_emec_escapeHtml(timeStr)} @${_emec_escapeHtml(priceStr)}`;
       }
       return 'Ready by (unconfigured)';
-    default: return evMode;
+    default: return _emec_escapeHtml(evMode);
   }
 }
 
