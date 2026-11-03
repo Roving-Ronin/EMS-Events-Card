@@ -3,6 +3,35 @@
 All notable changes to `em-events-card.js` are documented here.
 
 ---
+ 
+## v3.6.3
+ 
+⚠️ **CRITICAL BUG FIX + SMART UX — Column Toggles with Auto-Defaults & Full Reset**
+ 
+* **Fixed column visibility bug** — Curtailed/EV checkbox settings were being overwritten on every render
+* **Root causes** — Two separate forced overwrites:
+  1. **Curtailed** — forced to match `input_boolean.enable_curtailing` HA automation state
+  2. **EV** — forced based on whether EV data exists in EM plan
+* **Solution — Tristate logic** (undefined/true/false):
+  - `undefined` = **Auto mode**: show Curtailed if enabled in HA, show EV if data exists (smart defaults)
+  - `true` = **Force show**: user explicitly enabled, show even if HA disabled/no data
+  - `false` = **Force hide**: user explicitly disabled, hide even if HA enabled/data exists
+  - When user never touches checkbox: auto-behavior applies (sensible defaults)
+  - When user toggles checkbox: their choice is saved to localStorage and persists
+* **How it works**:
+  - First time user opens card: columns show/hide automatically based on HA state
+  - User unchecks Curtailed: saved to localStorage, stays hidden even if HA enables it
+  - User checks EV Charger: saved to localStorage, shows even without EV data in plan
+  - On reload: uses localStorage choice if set, otherwise falls back to auto-behavior
+* **Fixed Reset to Defaults button** — Now properly resets column visibility settings (not just thresholds)
+  - Clears `_columnSettings` back to `undefined` (auto-mode)
+  - Clears localStorage for column settings
+  - Syncs all checkboxes to match new state
+  - Tables rebuild with smart auto-defaults applied
+* **Impact** — Best of both worlds: smart defaults + full user control + proper reset
+* **Verified** — Curtailed and EV toggles work correctly, persist across reloads, and reset cleanly
+
+---
 
 ## v3.6.2
 
