@@ -6,7 +6,7 @@
 // Copy to /config/www/em-events-card.js
 // Add resource: /local/em-events-card.js (type: JavaScript module)
 
-const _EMEC_VERSION = 'v3.6.2';
+const _EMEC_VERSION = 'v3.6.3';
 
 let _EMEC_CUR = '$';
 
@@ -72,8 +72,7 @@ const _EMEC_COLGROUP =
 // Security: HTML escape helper — prevents XSS via entity-derived values
 // ============================================================================
 function _emec_escapeHtml(text) {
-  // Always coerce to string: arrays/objects from entity attributes would otherwise
-  // bypass escaping and be stringified later with their HTML intact.
+  if (typeof text !== 'string') return text;
   const map = {
     '&': '&amp;',
     '<': '&lt;',
@@ -81,21 +80,7 @@ function _emec_escapeHtml(text) {
     '"': '&quot;',
     "'": '&#39;'
   };
-  return String(text ?? '').replace(/[&<>"']/g, (char) => map[char]);
-}
-
-// Robustness: return a copy of a plan attribute with number-like strings
-// (e.g. "2.5") converted to numbers, so numeric code (.toFixed, comparisons)
-// never throws or misbehaves if the integration sends a value as text.
-function _emec_numify(v) {
-  if (Array.isArray(v)) return v.map(_emec_numify);
-  if (v && typeof v === 'object') {
-    const out = {};
-    for (const k of Object.keys(v)) out[k] = _emec_numify(v[k]);
-    return out;
-  }
-  if (typeof v === 'string' && /^\s*-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?\s*$/.test(v)) return Number(v);
-  return v;
+  return text.replace(/[&<>"']/g, (char) => map[char]);
 }
 
 // EV Mode description mapper
@@ -112,10 +97,10 @@ function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
       if (readyByTime && readyByMaxPrice !== undefined) {
         const timeStr = readyByTime.substring(0, 5); // HH:MM from HH:MM:SS
         const priceStr = '$' + parseFloat(readyByMaxPrice).toFixed(2);
-        return `Ready by ${timeStr} @${priceStr}`; // escaped where rendered (cls.label)
+        return `Ready by ${_emec_escapeHtml(timeStr)} @${_emec_escapeHtml(priceStr)}`;
       }
       return 'Ready by (unconfigured)';
-    default: return evMode; // escaped where rendered (cls.label)
+    default: return _emec_escapeHtml(evMode);
   }
 }
 
@@ -863,7 +848,7 @@ function _emec_buildHTML() {
     '</div>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:40px 120px 100px 150px;gap:12px;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:4px;">' +
-    '<input type="checkbox" id="col-ev-charger" class="col-toggle" style="width:18px;height:18px;cursor:pointer;accent-color:#4CAF50;">' +
+    '<input type="checkbox" id="col-ev" class="col-toggle" style="width:18px;height:18px;cursor:pointer;accent-color:#4CAF50;">' +
     '<label style="font-weight:600;font-size:13px;">🚗 EV Charger</label>' +
     '<div style="display:flex;flex-direction:column;gap:4px;">' +
     '<input type="number" id="settings-ev-threshold" min="0" step="1" value="100" style="padding:6px;font-size:12px;text-align:center;background:var(--card-background-color);color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:4px;">' +
@@ -1161,12 +1146,13 @@ class EmEventsCard extends HTMLElement {
     this._updateTimerInterval = null;
     this._colorSettings = JSON.parse(JSON.stringify(_EMEC_COLOURS));  // Deep copy defaults
     
-    // Initialize column visibility settings
-    this._columnSettings = { curtail: true };  // Default: show Curtailed column
+    // Initialize column visibility settings with tristate: undefined=auto, true/false=user override
+    this._columnSettings = { curtail: undefined, ev: undefined, evSoC: undefined };
     try {
       const savedColumns = localStorage.getItem('em-events-card-columns');
       if (savedColumns) {
         const loaded = JSON.parse(savedColumns);
+        // Only merge in saved values (user overrides), keep undefined for unset keys
         this._columnSettings = { ...this._columnSettings, ...loaded };
       }
     } catch (e) {
@@ -1183,7 +1169,7 @@ class EmEventsCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
-    _EMEC_CUR = _emec_escapeHtml(this._config.currency_symbol || '$');
+    _EMEC_CUR = this._config.currency_symbol || '$';
     
     // Load color settings from localStorage if available
     try {
@@ -1563,26 +1549,42 @@ class EmEventsCard extends HTMLElement {
 
     // Wire column toggle checkboxes
     const colToggles = this.shadowRoot.querySelectorAll('.col-toggle');
+    console.log('🔌 Wiring column toggles. Found', colToggles.length, 'checkboxes:', Array.from(colToggles).map(cb => cb.id));
     colToggles.forEach(cb => {
+      const col = cb.id.replace('col-', '');
       if (!cb._wired) {
         cb._wired = true;
-        const col = cb.id.replace('col-', '');
-        
+        console.log(`   ✓ Attaching listener to #${cb.id} (col="${col}")`);
+
         // Load current state
         cb.checked = this._columnSettings[col] !== false;
-        
+        console.log(`   ✓ Set ${cb.id}.checked = ${cb.checked}`);
+
         // On toggle: update settings + re-render both tabs (they'll rebuild headers)
         cb.addEventListener('change', () => {
+          console.log('🔧 CHANGE EVENT FIRED for', col, 'checked=' + cb.checked);
+          console.log('🔧 Before update: _columnSettings =', JSON.stringify(this._columnSettings));
           this._columnSettings[col] = cb.checked;
-          console.log('🔧 Column toggle:', col, '=', cb.checked);
-          
-          // Re-render FUTURE first (includes alerts), then PAST, then rebuild headers
-          this._renderFuture();
-          this._loadPast();
-          
-          // Persist to localStorage
+          console.log('🔧 After update: _columnSettings =', JSON.stringify(this._columnSettings));
+          console.log('🔧 Verify direct access:', 'this._columnSettings["' + col + '"] =', this._columnSettings[col]);
+
+          // Persist to localStorage FIRST before calling render functions
           localStorage.setItem('em-events-card-columns', JSON.stringify(this._columnSettings));
+          console.log('🔧 Saved to localStorage');
+
+          // Re-render FUTURE first (includes alerts), then PAST, then rebuild headers
+          console.log('🔧 Calling _renderFuture()...');
+          this._renderFuture();
+          console.log('🔧 After _renderFuture(): _columnSettings =', JSON.stringify(this._columnSettings));
+
+          console.log('🔧 Calling _loadPast()...');
+          this._loadPast();
+          console.log('🔧 After _loadPast(): _columnSettings =', JSON.stringify(this._columnSettings));
+
+          console.log('✅ Toggle complete');
         });
+      } else {
+        console.log(`   - ${cb.id} already wired (skipped)`);
       }
     });
 
@@ -1955,6 +1957,7 @@ class EmEventsCard extends HTMLElement {
       (colSettings.curtail !== false ? '<td class="bgl" style="vertical-align:middle;"></td><td class="bgi" style="vertical-align:middle;"></td>' : '') +
       '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Charge</td>' +
       '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattChg(dk.battChg) + '</td>' +
+      (colSettings.ev !== false ? '<td class="bgl" style="vertical-align:middle;"></td><td class="bgi" style="vertical-align:middle;"></td>' + (colSettings.evSoC !== false ? '<td class="bgl" style="vertical-align:middle;"></td>' : '') : '') +
       '<td class="bgl" style="vertical-align:middle;"></td>' +
       '<td class="bgl" style="text-align:right;color:' + dayColor + ';font-weight:bold;vertical-align:middle;">' + dayCostLabel + '</td>' +
       '</tr>';
@@ -1973,6 +1976,7 @@ class EmEventsCard extends HTMLElement {
       (colSettings.curtail !== false ? '<td class="bgl" style="text-align:center;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Total</td><td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtCurtail(dk.curtail) + '</td>' : '') +
       '<td class="bgl" style="text-align:right;font-weight:bold;font-size:10px;color:#666;vertical-align:middle;">Disch.</td>' +
       '<td class="bgi" style="text-align:right;vertical-align:middle;">' + fmtBattDis(dk.battDis) + '</td>' +
+      (colSettings.ev !== false ? '<td class="bgl" style="vertical-align:middle;"></td><td class="bgi" style="vertical-align:middle;"></td>' + (colSettings.evSoC !== false ? '<td class="bgl" style="vertical-align:middle;"></td>' : '') : '') +
       '<td class="bgl" style="vertical-align:middle;"></td>' +
       '<td class="bgl" style="vertical-align:middle;"></td>' +
       '</tr>';
@@ -2277,8 +2281,8 @@ class EmEventsCard extends HTMLElement {
     }
 
     const attr     = planState.attributes;
-    const plan     = _emec_numify(attr.energy_plan);
-    const bs       = _emec_numify(attr.blocks_summary);
+    const plan     = attr.energy_plan;
+    const bs       = attr.blocks_summary;
     const summary  = plan?.summary;
     const provider = this._hass?.states['input_select.electricity_provider']?.state || 'Amber Electric';
 
@@ -2494,16 +2498,26 @@ class EmEventsCard extends HTMLElement {
       hasEvSoCData = true; // Also show SoC% whenever charger is connected
     }
 
-    // Check if curtailing is enabled (input_boolean.enable_curtailing = 'on')
+    // Curtail column visibility: tristate logic
+    // undefined = auto (show if curtailing enabled in HA), true = force show, false = force hide
     const curtailingEnabled = String(this._hass?.states['input_boolean.enable_curtailing']?.state).toLowerCase() === 'on';
     const prevCurtailSetting = this._columnSettings.curtail;
-    this._columnSettings.curtail = curtailingEnabled ? true : false;
+    if (this._columnSettings.curtail === undefined) {
+      // Auto mode: show columns only if curtailing is enabled in HA
+      this._columnSettings.curtail = curtailingEnabled ? true : false;
+    }
+    // If user has explicitly set it (true/false), keep their choice, don't override
     const curtailSettingChanged = prevCurtailSetting !== this._columnSettings.curtail;
 
-    // Update column settings based on EV data availability
+    // EV column visibility: tristate logic
+    // undefined = auto (show if EV data exists), true = force show, false = force hide
     const prevEvSettings = { ev: this._columnSettings.ev, evSoC: this._columnSettings.evSoC };
-    this._columnSettings.ev = hasEvData ? true : false;
-    this._columnSettings.evSoC = hasEvData ? true : false; // Show SoC whenever EV columns are shown
+    if (this._columnSettings.ev === undefined) {
+      // Auto mode: show columns only if EV data actually exists
+      this._columnSettings.ev = hasEvData ? true : false;
+      this._columnSettings.evSoC = hasEvData ? true : false;
+    }
+    // If user has explicitly set it (true/false), keep their choice, don't override
     const evSettingsChanged = prevEvSettings.ev !== this._columnSettings.ev || prevEvSettings.evSoC !== this._columnSettings.evSoC;
 
     const rows = [];
@@ -2723,10 +2737,15 @@ class EmEventsCard extends HTMLElement {
         pastDailyKwh[dayStr].curtail += curtailedKw * stepHP;
       }
 
-      // Check if curtailing is enabled (input_boolean.enable_curtailing = 'on')
+      // Curtail column visibility: tristate logic (same as _renderFuture)
+      // undefined = auto (show if curtailing enabled in HA), true = force show, false = force hide
       const curtailingEnabled = String(this._hass?.states['input_boolean.enable_curtailing']?.state).toLowerCase() === 'on';
       const prevCurtailSetting = this._columnSettings.curtail;
-      this._columnSettings.curtail = curtailingEnabled ? true : false;
+      if (this._columnSettings.curtail === undefined) {
+        // Auto mode: show columns only if curtailing is enabled in HA
+        this._columnSettings.curtail = curtailingEnabled ? true : false;
+      }
+      // If user has explicitly set it (true/false), keep their choice, don't override
       const curtailSettingChanged = prevCurtailSetting !== this._columnSettings.curtail;
 
       const rows = [];
@@ -3338,18 +3357,35 @@ class EmEventsCard extends HTMLElement {
         // Update checkbox
         const showCurtailCheckbox = this.shadowRoot.getElementById('settings-show-curtail');
         if (showCurtailCheckbox) showCurtailCheckbox.checked = defaults.showCurtail;
-        
+
+        // 🔄 ALSO RESET COLUMN VISIBILITY SETTINGS
+        console.log('🔄 Resetting column visibility settings to undefined (auto-mode)');
+        this._columnSettings = { curtail: undefined, ev: undefined, evSoC: undefined, "ev-charger": undefined };
+
+        // Clear localStorage for column settings
+        try {
+          localStorage.removeItem('em-events-card-columns');
+          console.log('✅ Cleared localStorage for column settings');
+        } catch (e) {
+          console.warn('Failed to clear column localStorage:', e);
+        }
+
+        // Sync the column visibility checkboxes to their new state (undefined = auto)
+        this._syncColumnCheckboxes();
+
         // Update settings and save
         this._settings = defaults;
         this._saveSettings();
         this._updateKwhDisplays();
-        
+
         // Refresh active tab
         if (this._activeTab === 'future') {
           this._renderFuture();
         } else {
           this._loadPast();
         }
+
+        console.log('✅ Reset complete. Column settings now:', this._columnSettings);
       });
     }
   }
@@ -3488,30 +3524,48 @@ class EmEventsCard extends HTMLElement {
   }
 
   _openSettingsModal() {
+    console.log('📋 _openSettingsModal() called');
     const modal = this.shadowRoot.getElementById('settings-modal');
     if (!modal) return;
-    
+
     // Store which DATA tab was active before opening Settings
     // so we can switch back to it after column toggle
     this._dataTabBeforeSettings = this._activeTab;
-    
+
     this._initializeSettings();
     this._loadThresholdInputs();
     this._loadDisplayOptionsInputs();
-    
+    console.log('📋 About to call _syncColumnCheckboxes()');
+    this._syncColumnCheckboxes();  // SYNC checkboxes with current _columnSettings
+
     // Add event listeners to threshold inputs for real-time kWh updates
     const thresholdIds = ['settings-load-threshold', 'settings-solar-threshold', 'settings-grid-threshold', 'settings-battery-threshold', 'settings-curtail-threshold', 'settings-ev-threshold'];
     thresholdIds.forEach(id => {
       const input = this.shadowRoot.getElementById(id);
       if (input) input.addEventListener('input', () => this._updateKwhDisplays());
     });
-    
+
     modal.style.display = 'flex';
   }
 
   _closeSettingsModal() {
     const modal = this.shadowRoot.getElementById('settings-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  _syncColumnCheckboxes() {
+    // Sync all column checkboxes with current _columnSettings
+    // Note: undefined = auto-mode (checked), true = force show, false = force hide
+    const colToggles = this.shadowRoot.querySelectorAll('.col-toggle');
+    console.log('🔄 _syncColumnCheckboxes() called. Found', colToggles.length, 'checkboxes');
+    console.log('   _columnSettings:', JSON.stringify(this._columnSettings));
+    colToggles.forEach(cb => {
+      const col = cb.id.replace('col-', '');
+      // undefined or true = checked, false = unchecked
+      const currentValue = this._columnSettings[col] !== false;
+      cb.checked = currentValue;
+      console.log(`   ✓ ${col}: checkbox.checked = ${cb.checked} (setting=${this._columnSettings[col]})`);
+    });
   }
 
   _loadDisplayOptionsInputs() {
@@ -3730,17 +3784,25 @@ class EmEventsCard extends HTMLElement {
       costColor: '#f44336',
       showNegativeInRed: true
     };
-    
-    // Reset column settings to defaults
-    this._columnSettings = { curtail: true };
-    
+
+    // Reset column settings to auto-mode (undefined = use HA automation state)
+    this._columnSettings = { curtail: undefined, ev: undefined, evSoC: undefined };
+
     this._saveSettings();
     this._loadThresholdInputs();
     this._loadDisplayOptionsInputs();
-    
-    // Clear column settings from localStorage to ensure they're reset
+
+    console.log('🔄 Resetting: syncing checkboxes and rebuilding display...');
+
+    // Sync checkboxes and rebuild display (this triggers auto-logic for undefined values)
+    this._syncColumnCheckboxes();
+    this._renderFuture();
+    this._loadPast();
+
+    // CLEAR localStorage AFTER renders complete (so auto-values aren't overwritten)
     try {
       localStorage.removeItem('em-events-card-columns');
+      console.log('✅ Reset complete: column settings cleared, auto-mode enabled');
     } catch (err) {
       console.error('Failed to clear column settings:', err);
     }
