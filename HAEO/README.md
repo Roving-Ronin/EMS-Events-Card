@@ -1,18 +1,18 @@
 # Home Assistant Energy Optimiser (HAEO) - Events Card
 
-A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser (HAEO)** integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's actual historical sensor readings in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
+A custom Home Assistant Lovelace card for the [Home Assistant Energy Optimiser (HAEO)][haeo-url] integration. Displays the optimizer's forecast decisions in a **Future Decisions** tab and your inverter's actual historical sensor readings in a **Past Events** tab — both in a single, scrollable table with grouped kW and kWh columns.
 
-**Current version:** `v3.3.4`
+**Current version:** ![version][haeo-version-badge]
 
 ---
 
 ### Future Decisions
 
-![Energy Manager - Future Decisions](HAEO-Card-Future-Decisions.png)
+![HAEO - Future Decisions](HAEO-Card-Future-Decisions.png)
 
 ### Past Events
 
-![Energy Manager - Past Events](HAEO-Card-Past-Events.png)
+![HAEO - Past Events](HAEO-Card-Past-Events.png)
 
 ---
 
@@ -73,7 +73,7 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 ## Requirements
 
-- Home Assistant with the [HAEO (Home Assistant Energy Optimiser)](https://github.com/energypatrikf/home-assistant-energy-optimizer) integration installed and running
+- Home Assistant with the [HAEO (Home Assistant Energy Optimiser)][haeo-url] integration installed and running
 - An inverter integration providing real-time power sensors and `total_increasing` energy sensors (Sigenergy Local Modbus defaults provided; any integration can be configured)
 - HA recorder enabled (for Past Events history queries)
 - Optional: `sensor.optimizer_status` (with a `last_run` attribute) to power the "HAEO Updated" freshness badge
@@ -81,37 +81,9 @@ A custom Home Assistant Lovelace card for the **Home Assistant Energy Optimiser 
 
 ---
 
-## HACS Installation (Preferred)
+## Installation
 
-    In Home Assistant open HACS → Frontend
-    Click the ⋮ menu → Custom repositories
-    Add https://github.com/Roving-Ronin/ems-events-cards with category Dashboard
-    Search for Energy Management Systems - Events Cards and click Download
-    Hard-refresh your browser (Ctrl+Shift+R / Cmd+Shift+R)
-
-All three card types will be available immediately — add whichever you need to your dashboard.
-
----
-
-## Manual Installation
-
-1. Copy `haeo-events-card.js` to your HA config directory:
-   ```
-   /config/www/haeo-events-card.js
-   ```
-
-2. Add it as a Lovelace resource. In HA go to **Settings → Dashboards → ⋮ → Manage resources** and add:
-   - **URL:** `/local/haeo-events-card.js`
-   - **Type:** JavaScript module
-
-   Or add it manually to your `configuration.yaml` / `ui-lovelace.yaml`:
-   ```yaml
-   resources:
-     - url: /local/haeo-events-card.js
-       type: module
-   ```
-
-3. Hard-refresh your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`) to load the new resource.
+This card is part of the [EMS Events Card](https://github.com/Roving-Ronin/EMS-Events-Card) bundle. Install it from the **Marketplace** (Home Assistant 2026.11 and newer) or **HACS** (2026.10 and older); see the [main README](../README.md#installation-methods) for one-click buttons and steps.
 
 ---
 
@@ -135,7 +107,7 @@ Click the **⚙️** icon in the top-right of the card to open the Settings moda
 
 ### Base Sensors Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Loads.png)
+![HAEO - Settings - Base Sensors](HAEO-Card-Settings-Loads.png)
 
 Configure the four core sensor groups. Each row has an **Enable** column, a **Filter (W)** threshold, the entity for each tab, and an **Invert Flow** switch:
 
@@ -155,7 +127,7 @@ Configure the four core sensor groups. Each row has an **Enable** column, a **Fi
 
 ### Optional Loads Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Optional-Loads.png)
+![HAEO - Settings - Optional Loads](HAEO-Card-Settings-Optional-Loads.png)
 
 Configure the loads that appear in their own columns next to Base Load. Each enabled load gets a **kW and kWh column pair**, which feed the Total Load column.
 
@@ -173,7 +145,7 @@ Use this tab to monitor loads visually in the card and to include their contribu
 
 ### Entities & Options Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Entities.png)
+![HAEO - Settings - Entities & Options](HAEO-Card-Settings-Entities.png)
 
 Configure **sensor entities** and **display options** in one place:
 
@@ -190,7 +162,7 @@ All fields have sensible defaults for the **Sigenergy Local Modbus** integration
 
 ### Colours - Self Consumption Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-SelfConsumption.png)
+![HAEO - Settings - Colours - Self Consumption](HAEO-Card-Settings-Colours-SelfConsumption.png)
 
 Customize row background and text colours for **self-consumption events** (solar covering home, battery discharging, no grid):
 
@@ -202,7 +174,7 @@ Examples: 🌞 Solar → Home, 🔋 Battery → Home, Solar + Battery scenarios.
 
 ### Colours - Profit Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-Profit.png)
+![HAEO - Settings - Colours - Profit](HAEO-Card-Settings-Colours-Profit.png)
 
 Customize row background and text colours for **profit events** (grid export at peak tariff):
 
@@ -214,7 +186,7 @@ Examples: Forced battery discharge to grid, solar export scenarios, EV discharge
 
 ### Colours - Cost Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Colours-Cost.png)
+![HAEO - Settings - Colours - Cost](HAEO-Card-Settings-Colours-Cost.png)
 
 Customize row background and text colours for **cost events** (grid import at any tariff, forced battery charge):
 
@@ -226,7 +198,7 @@ Examples: Grid import, forced battery charge from grid, grid import + load scena
 
 ### Backup Tab
 
-![Energy Manager - Future Decisions](HAEO-Card-Settings-Backup.png)
+![HAEO - Settings - Backup](HAEO-Card-Settings-Backup.png)
 
 **Export** your card settings as JSON for backup or sharing:
 - Click "Export Settings" to download a `.json` file with all your configuration
@@ -442,6 +414,15 @@ Events are now identified by structured classification keys (e.g. `pv_to_baseloa
 
 ## Related
 
-- [HAEO Integration](https://github.com/energypatrikf/home-assistant-energy-optimizer)
+- [HAEO Integration][haeo-url]
 - [Sigenergy Local Modbus Integration](https://github.com/TypQxQ/Sigenergy-Local-Modbus)
-- [Energy Manager Card](../EM) — equivalent card for the EMHASS energy manager
+- [EM Events Card](../EnergyManager/) — equivalent card for Energy Manager
+- [EMHASS Events Card](../EMHASS/) — equivalent card for EMHASS
+
+<!-- Card version (from versions.json) -->
+
+[haeo-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.haeo&label=&style=flat-square&color=grey
+
+<!-- References -->
+
+[haeo-url]: https://github.com/hass-energy/haeo
