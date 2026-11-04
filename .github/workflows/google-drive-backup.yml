@@ -4,9 +4,11 @@ name: Backup to Google Drive
 # with rclone, then applies retention: always keep the newest 10 backups, and
 # trash any older ones that are more than 90 days old.
 #
-# Requires one repository secret:
-#   RCLONE_CONF  the contents of an rclone.conf containing a Google Drive
-#                remote named "gdrive" (see the setup notes in the README/PR).
+# Requires three repository secrets (from your own Google Cloud OAuth client,
+# published "In production", scope drive.file):
+#   GDRIVE_CLIENT_ID      OAuth client ID
+#   GDRIVE_CLIENT_SECRET  OAuth client secret
+#   GDRIVE_REFRESH_TOKEN  refresh token from the OAuth Playground
 
 on:
   push:
@@ -35,14 +37,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check the secret is set
+      - name: Check the secrets are set
         env:
-          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         run: |
-          if [ -z "$RCLONE_CONF" ]; then
-            echo "::error::RCLONE_CONF secret is missing or empty."
-            exit 1
-          fi
+          fail=0
+          for s in GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_REFRESH_TOKEN; do
+            if [ -z "${!s}" ]; then
+              echo "::error::$s secret is missing or empty."
+              fail=1
+            fi
+          done
+          exit $fail
 
       - name: Install rclone
         run: |
@@ -51,13 +59,27 @@ jobs:
 
       - name: Write rclone config
         env:
-          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         run: |
           mkdir -p ~/.config/rclone
-          printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          # Expired placeholder access token: rclone refreshes it from the refresh token
+          TOKEN=$(jq -cn --arg rt "$GDRIVE_REFRESH_TOKEN" \
+            '{access_token:"", token_type:"Bearer", refresh_token:$rt, expiry:"2000-01-01T00:00:00Z"}')
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [gdrive]
+          type = drive
+          client_id = ${GDRIVE_CLIENT_ID}
+          client_secret = ${GDRIVE_CLIENT_SECRET}
+          scope = drive.file
+          token = ${TOKEN}
+          EOF
           chmod 600 ~/.config/rclone/rclone.conf
-          rclone listremotes | grep -qx 'gdrive:' || {
-            echo "::error::rclone.conf has no remote named 'gdrive'."
+          # Fail early, with a clear message, if Google rejects the credentials
+          # (also creates the backup folder on the first run)
+          rclone mkdir "$REMOTE_DIR" || {
+            echo "::error::Google Drive sign-in failed. Check the 3 secrets, and that the OAuth app is 'In production'."
             exit 1
           }
 
