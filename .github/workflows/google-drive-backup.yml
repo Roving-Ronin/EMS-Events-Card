@@ -1,90 +1,100 @@
-name: Secure Backup to Google Drive with Retention
+name: Backup to Google Drive
+
+# Uploads a full git bundle (all branches, tags and history) to Google Drive
+# with rclone, then applies retention: always keep the newest 10 backups, and
+# trash any older ones that are more than 90 days old.
+#
+# Requires one repository secret:
+#   RCLONE_CONF  the contents of an rclone.conf containing a Google Drive
+#                remote named "gdrive" (see the setup notes in the README/PR).
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gdrive-backup
+  cancel-in-progress: false
+
+env:
+  REMOTE_DIR: "gdrive:GitHub-Backups/${{ github.event.repository.name }}"
+  PREFIX: "Github-${{ github.event.repository.name }}-"
+  KEEP_MIN: 10
+  KEEP_DAYS: 90
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout full history
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Validate Secret Configurations
+      - name: Check the secret is set
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
         run: |
-          if [ -z "${{ secrets.GDRIVE_CREDENTIALS }}" ]; then
-            echo "❌ ERROR: GDRIVE_CREDENTIALS secret is missing or empty!"
+          if [ -z "$RCLONE_CONF" ]; then
+            echo "::error::RCLONE_CONF secret is missing or empty."
             exit 1
           fi
-          if [ -z "${{ secrets.GDRIVE_FOLDER_ID }}" ]; then
-            echo "❌ ERROR: GDRIVE_FOLDER_ID secret is missing or empty!"
+
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Write rclone config
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+        run: |
+          mkdir -p ~/.config/rclone
+          printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          rclone listremotes | grep -qx 'gdrive:' || {
+            echo "::error::rclone.conf has no remote named 'gdrive'."
             exit 1
+          }
+
+      - name: Create git bundle
+        run: |
+          # Make every remote branch a local branch so the bundle restores cleanly
+          for b in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v '^HEAD$'); do
+            git show-ref --verify --quiet "refs/heads/$b" || git branch --quiet "$b" "origin/$b"
+          done
+          NAME="${PREFIX}$(TZ=Australia/Sydney date +'%Y-%m-%d_%H%M%S').bundle"
+          git bundle create "$NAME" HEAD --branches --tags
+          git bundle verify "$NAME"
+          ls -lh "$NAME"
+          echo "BUNDLE=$NAME" >> "$GITHUB_ENV"
+
+      - name: Upload to Google Drive
+        run: |
+          rclone copyto "$BUNDLE" "$REMOTE_DIR/$BUNDLE" --progress=false --stats-one-line -v
+
+      - name: Apply retention (keep newest 10, trash others older than 90 days)
+        run: |
+          CUTOFF=$(date -u -d "-${KEEP_DAYS} days" +%s)
+          rclone lsjson "$REMOTE_DIR" --files-only > listing.json
+          echo "Backups in Drive: $(jq --arg p "$PREFIX" '[.[] | select(.Name | startswith($p))] | length' listing.json)"
+
+          jq -r --arg p "$PREFIX" --argjson keep "$KEEP_MIN" --argjson cutoff "$CUTOFF" '
+            [ .[] | select((.Name | startswith($p)) and (.Name | endswith(".bundle"))) ]
+            | sort_by(.ModTime) | reverse
+            | .[$keep:]
+            | .[] | select((.ModTime | sub("\\.[0-9]+"; "") | fromdateiso8601) < $cutoff)
+            | .Name' listing.json > to-delete.txt
+
+          if [ ! -s to-delete.txt ]; then
+            echo "Nothing to remove."
+            exit 0
           fi
-          echo "✅ Configuration validation successful."
-
-      - name: Create Dated Zip Archive
-        id: info
-        run: |
-          DATE=$(date +'%Y-%m-%d')
-          REPO_NAME="${{ github.event.repository.name }}"
-          ZIP_NAME="Github-${REPO_NAME}-${DATE}.zip"
-          
-          git bundle create "$REPO_NAME.bundle" --all
-          zip "$ZIP_NAME" "$REPO_NAME.bundle"
-          rm "$REPO_NAME.bundle"
-          
-          # Store the zip filename so subsequent steps can find it
-          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
-
-      - name: Upload Zip to Google Drive
-        uses: Jodebu/upload-to-drive@master
-        with:
-          target: '${{ steps.info.outputs.zip_name }}' 
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          folder: ${{ secrets.GDRIVE_FOLDER_ID }}
-
-      - name: Install Google API Dependencies
-        run: |
-          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
-
-      - name: Apply Complex Retention Rules (90 Days or 10 Backups)
-        shell: python
-        run: |
-          import json, os, datetime
-          from google.oauth2 import service_account
-          from googleapiclient.discovery import build
-
-          # 1. Parse Credentials & Authenticate with Google Drive API
-          gdrive_creds = json.loads('''${{ secrets.GDRIVE_CREDENTIALS }}''')
-          folder_id = "${{ secrets.GDRIVE_FOLDER_ID }}"
-          
-          scopes = ['https://googleapis.com']
-          creds = service_account.Credentials.from_service_account_info(gdrive_creds, scopes=scopes)
-          service = build('drive', 'v3', credentials=creds)
-
-          # 2. Query all ZIP files inside your specific backup folder
-          query = f"'{folder_id}' in parents and name contains 'Github-' and name contains '.zip' and trashed = false"
-          results = service.files().list(q=query, fields="files(id, name, createdTime)", orderBy="createdTime desc").execute()
-          files = results.get('files', [])
-
-          print(f"Found {len(files)} total backups in Google Drive.")
-
-          # 3. Calculate retention policy parameters
-          cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=90)
-          
-          # Iterate backwards starting with the oldest backups
-          for index, file in enumerate(files):
-              # Skip evaluating if it falls within the absolute minimum count safeguard (10 backups)
-              if index < 10:
-                  continue
-              
-              # Parse file creation date (Google API returns ISO timestamp strings)
-              created_time = datetime.datetime.fromisoformat(file['createdTime'].replace('Z', '+00:00'))
-              
-              # If the file is older than 90 days AND we already have more than 10 backups preserved, trash it
-              if created_time < cutoff_date:
-                  print(f"Retention breach: Trashing old backup '{file['name']}' (ID: {file['id']})")
-                  service.files().update(fileId=file['id'], body={'trashed': True}).execute()
+          while IFS= read -r f; do
+            echo "Trashing $f"
+            rclone deletefile "$REMOTE_DIR/$f"   # Drive moves it to Trash by default
+          done < to-delete.txt
