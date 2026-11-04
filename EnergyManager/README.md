@@ -1,10 +1,10 @@
 # Energy Manager - Events Card
 
-A custom Home Assistant card for the **Energy Manager** addon. Displays energy planning decisions in two tabs — **Future Decisions** (forecast timeline) and **Past Decisions** (historical 5-min readings) — in a single scrollable table with fixed headers and a colour-coded legend.
+A custom Home Assistant card for the Home Assistant **[Energy Manager][energy-manager-url]** addon. Displays energy planning decisions in two tabs — **Future Decisions** (forecast timeline) and **Past Decisions** (historical 5-min readings) — in a single scrollable table with fixed headers and a colour-coded legend.
 
-Current version: **v3.6.3**
+Current version: ![version][em-version-badge]
 
-⚠️ **Security Notice** — Versions prior to v3.6.2 includes **critical XSS vulnerabilities**. All entity-derived values are now HTML-escaped before rendering to prevent injection attacks. Users on versions prior to v3.6.3 should update immediately; See [SECURITY_ADVISORY_v3.6.0.md](./SECURITY_ADVISORY_v3.6.0.md) for details.
+⚠️ **Security Notice** — v3.6.0 includes **critical XSS vulnerability fixes**. All entity-derived values are now HTML-escaped before rendering to prevent injection attacks. Users on v3.5.1 or earlier should update immediately; v3.6.1 closes two further EV-related vectors. See [SECURITY_ADVISORY_v3.6.0.md](./SECURITY_ADVISORY_v3.6.0.md) for details.
 
 ---
 
@@ -23,7 +23,7 @@ Current version: **v3.6.3**
 - **Future Decisions tab** — reads `sensor.energy_manager_plan` and renders the forecast timeline showing mode, power flows, pricing, SoC and cost/profit per slot
 - **Past Decisions tab** — fetches inverter sensor history via WebSocket and renders 5-min historical readings with the same column layout
 - **EV Charger Support** — displays EV charging with configurable charging modes (Solar Only, Cheapest, Scheduled, Ready by time/price) and real-time SoC tracking in both tabs
-- **Solar Forecast Column (PAST tab)** — historical solar forecast data alongside actual readings for analyzing forecast accuracy
+- **Solar Forecast Column (PAST tab)** — historical solar forecast data alongside actual readings for analysing forecast accuracy
 - **Tab-Aware Column Structure** — FUTURE and PAST tabs have distinct column layouts (PAST includes Solar Forecast, FUTURE does not)
 - **Conditional Columns** — Curtailed and EV Charger columns dynamically show/hide based on EM settings without page reload
 - Mixed 5-min / 30-min step support in the forecast timeline
@@ -42,6 +42,18 @@ Current version: **v3.6.3**
 - Sticky column headers — tabs, status bar and column headers remain fixed while data rows scroll
 - **State-Watch Updates** — automatically updates when `automation.update_energy_manager_decision_sensor` state changes; "time ago" badge refreshes every second
 - Two-column legend with colour swatches
+
+---
+
+## Installation
+
+This card is part of the [EMS Events Card](https://github.com/Roving-Ronin/EMS-Events-Card) bundle. Install it from the **Marketplace** (Home Assistant 2026.11 and newer) or **HACS** (2026.10 and older); see the [main README](../README.md#installation-methods) for one-click buttons and steps. To add the card into a dashboard, use:
+
+```yaml
+type: custom:em-events-card
+grid_options:
+  columns: full
+```
 
 ---
 
@@ -214,3 +226,11 @@ Right-aligned alert pills (shown only when applicable, Forced before Grid):
 `v[major].[minor].[patch]` — patch = minor fix, minor = medium update, major = rewrite. Version is displayed in the legend footer.
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
+
+<!-- Card version (from versions.json) -->
+
+[em-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.em&label=&style=flat-square&color=grey
+
+<!-- References -->
+
+[energy-manager-url]: https://github.com/ha-energymanager/ha-energymanager
