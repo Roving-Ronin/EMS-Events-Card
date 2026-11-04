@@ -64,9 +64,10 @@ jobs:
           GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         run: |
           mkdir -p ~/.config/rclone
-          # Expired placeholder access token: rclone refreshes it from the refresh token
+          # Expired placeholder access token: rclone refreshes it from the refresh token.
+          # It must be non-empty — rclone ignores a token with an empty access_token.
           TOKEN=$(jq -cn --arg rt "$GDRIVE_REFRESH_TOKEN" \
-            '{access_token:"", token_type:"Bearer", refresh_token:$rt, expiry:"2000-01-01T00:00:00Z"}')
+            '{access_token:"placeholder", token_type:"Bearer", refresh_token:$rt, expiry:"2000-01-01T00:00:00Z"}')
           cat > ~/.config/rclone/rclone.conf <<EOF
           [gdrive]
           type = drive
