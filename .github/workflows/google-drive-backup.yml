@@ -1,6 +1,7 @@
 name: Backup to Google Drive
 
-# Uploads a full git bundle (all branches, tags and history) to Google Drive
+# Uploads a zip (full git bundle of all branches, tags and history, plus a
+# browsable snapshot of the files on main) to Google Drive
 # with rclone, then applies retention: always keep the newest 10 backups, and
 # trash any older ones that are more than 90 days old.
 #
@@ -84,21 +85,45 @@ jobs:
             exit 1
           }
 
-      - name: Create git bundle
+      - name: Create zip (git bundle + source snapshot)
         run: |
+          REPO="${{ github.event.repository.name }}"
+          BASE="${PREFIX}$(TZ=Australia/Sydney date +'%Y-%m-%d_%H%M%S')"
+          STAGE="$RUNNER_TEMP/$BASE"
+          mkdir -p "$STAGE/source"
+
           # Make every remote branch a local branch so the bundle restores cleanly
           for b in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v '^HEAD$'); do
             git show-ref --verify --quiet "refs/heads/$b" || git branch --quiet "$b" "origin/$b"
           done
-          NAME="${PREFIX}$(TZ=Australia/Sydney date +'%Y-%m-%d_%H%M%S').bundle"
-          git bundle create "$NAME" HEAD --branches --tags
-          git bundle verify "$NAME"
-          ls -lh "$NAME"
-          echo "BUNDLE=$NAME" >> "$GITHUB_ENV"
+
+          # 1. Full history: all branches and tags
+          git bundle create "$STAGE/$REPO.bundle" HEAD --branches --tags
+          git bundle verify "$STAGE/$REPO.bundle"
+
+          # 2. Browsable copy of the files on main, as they are now
+          git archive HEAD | tar -x -C "$STAGE/source"
+
+          cat > "$STAGE/RESTORE.txt" <<EOF
+          Backup of github.com/${{ github.repository }}
+          Created: $(TZ=Australia/Sydney date +'%Y-%m-%d %H:%M:%S %Z')
+          Commit:  $(git rev-parse HEAD) (main)
+
+          source/       Files on main at the time of the backup (no git history).
+          $REPO.bundle  Full git repository: every branch, tag and commit.
+
+          To restore the full repository:
+            git clone $REPO.bundle $REPO
+          EOF
+
+          (cd "$STAGE" && zip -q -r -9 "$GITHUB_WORKSPACE/$BASE.zip" .)
+          unzip -tq "$BASE.zip"
+          ls -lh "$BASE.zip"
+          echo "ARCHIVE=$BASE.zip" >> "$GITHUB_ENV"
 
       - name: Upload to Google Drive
         run: |
-          rclone copyto "$BUNDLE" "$REMOTE_DIR/$BUNDLE" --progress=false --stats-one-line -v
+          rclone copyto "$ARCHIVE" "$REMOTE_DIR/$ARCHIVE" --progress=false --stats-one-line -v
 
       - name: Apply retention (keep newest 10, trash others older than 90 days)
         run: |
@@ -107,7 +132,7 @@ jobs:
           echo "Backups in Drive: $(jq --arg p "$PREFIX" '[.[] | select(.Name | startswith($p))] | length' listing.json)"
 
           jq -r --arg p "$PREFIX" --argjson keep "$KEEP_MIN" --argjson cutoff "$CUTOFF" '
-            [ .[] | select((.Name | startswith($p)) and (.Name | endswith(".bundle"))) ]
+            [ .[] | select((.Name | startswith($p)) and (.Name | endswith(".zip"))) ]
             | sort_by(.ModTime) | reverse
             | .[$keep:]
             | .[] | select((.ModTime | sub("\\.[0-9]+"; "") | fromdateiso8601) < $cutoff)
