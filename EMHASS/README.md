@@ -1,8 +1,8 @@
 # EMHASS Events Card
 
-A custom Home Assistant Lovelace card for [EMHASS](https://emhass.readthedocs.io/) (Energy Management for Home Assistant) that displays MPC optimizer forecasts and historical energy events in a rich, colour-coded table.
+A custom Home Assistant Lovelace card for [EMHASS][emhass-url] (Energy Management for Home Assistant) that displays MPC optimizer forecasts and historical energy events in a rich, colour-coded table.
 
-Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me](https://sigenergy.annable.me/emhass/), with three-tier sensor fallback so it also works with standard EMHASS installations and in the settings modal you can define your EMHASS and Inverter/Battery sensors if they are different.
+Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annable.me][annable-me-emhass-url], with three-tier sensor fallback so it also works with standard EMHASS installations and in the settings modal you can define your EMHASS and Inverter/Battery sensors if they are different.
 
 ---
 
@@ -44,24 +44,14 @@ Designed for the **Sigenergy + EMHASS MPC** setup documented at [sigenergy.annab
 
 ## Requirements
 
-- Home Assistant with a working [EMHASS](https://github.com/davidusb-geek/emhass) installation running `naive-mpc-optim`
+- Home Assistant with a working [EMHASS][emhass-url] installation running `naive-mpc-optim`
 - No additional frontend dependencies — pure vanilla JS
 
 ---
 
 ## Installation
 
-### Manual
-
-1. Copy `emhass-events-card.js` to `/config/www/emhass-events-card.js`
-2. In Home Assistant go to **Settings → Dashboards → Resources** and add:
-   - URL: `/local/emhass-events-card.js`
-   - Type: **JavaScript Module**
-3. Hard-refresh your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
-
-### HACS (not yet listed)
-
-Manual installation only for now. HACS submission planned.
+This card is part of the [EMS Events Card](https://github.com/Roving-Ronin/EMS-Events-Card) bundle. Install it from the **Marketplace** (Home Assistant 2026.11 and newer) or **HACS** (2026.10 and older); see the [main README](../README.md#installation-methods) for one-click buttons and steps.
 
 ---
 
@@ -118,7 +108,7 @@ recorder:
 
 ### Why MPC sensors record sparse history
 
-EMHASS MPC sensors only write a new HA state when their value **changes** between optimization runs:
+EMHASS MPC sensors only write a new HA state when their value **changes** between optimisation runs:
 
 - **Power sensors** (`mpc_batt_power`, `mpc_load_power` etc.) — record a new state each time EMHASS publishes a different value
 - **Price sensors** (`mpc_general_price`, `mpc_feed_in_price`) — only change when the spot price moves; can be very sparse
@@ -184,7 +174,7 @@ Events are classified from the combination of PV, battery, grid and load power a
 
 ## Modes Column
 
-The Mode column describes the optimizer's inferred control action, derived from power values. Shown in both Future Decisions and Past Events tabs.
+The Mode column describes the optimizer’s inferred control action, derived from power values. Shown in both Future Decisions and Past Events tabs.
 
 | Mode | Description |
 |---|---|
@@ -228,18 +218,22 @@ The Past Events tab has a toggle switch in the header bar:
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: **v2.9.0**.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current version: ![version][emhass-version-badge]
 
 ---
 
 ## Related Projects
 
-- [EMHASS](https://github.com/davidusb-geek/emhass) — Energy Management for Home Assistant
-- [Sigenergy + EMHASS guide](https://sigenergy.annable.me/emhass/) — annable.me setup guide this card is designed for
-- [HAEO Events Card](https://github.com/Roving-Ronin/EMS-Events-Card) — the HAEO optimizer card this was modelled on
+- [EMHASS][emhass-url] — Energy Management for Home Assistant
+- [Sigenergy + EMHASS guide][annable-me-emhass-url] — annable.me setup guide this card is designed for
 
----
+<!-- Card versions (from versions.json) -->
 
-## License
+[em-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.em&label=&style=flat-square&color=grey
+[haeo-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.haeo&label=&style=flat-square&color=grey
+[emhass-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.emhass&label=&style=flat-square&color=grey
 
-MIT License — see [LICENSE](LICENSE) for details.
+[energy-manager-url]: https://energymanager.com.au/
+[haeo-url]: https://github.com/hass-energy/haeo
+[emhass-url]: https://github.com/davidusb-geek/emhass
+[annable-me-emhass-url]: https://sigenergy.annable.me/emhass/
