@@ -1,0 +1,75 @@
+name: Secure Backup to Google Drive with Retention
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Dated Zip Archive
+        id: info
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          REPO_NAME="${{ github.event.repository.name }}"
+          ZIP_NAME="Github-${REPO_NAME}-${DATE}.zip"
+          
+          git bundle create "$REPO_NAME.bundle" --all
+          zip "$ZIP_NAME" "$REPO_NAME.bundle"
+          rm "$REPO_NAME.bundle"
+          
+          # Store the zip filename so subsequent steps can find it
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload Zip to Google Drive
+        uses: Jodebu/upload-to-drive@master
+        with:
+          target: '${{ steps.info.outputs.zip_name }}' 
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          folder: ${{ secrets.GDRIVE_FOLDER_ID }}
+
+      - name: Apply Complex Retention Rules (90 Days or 10 Backups)
+        name: Run Retention Script
+        shell: python
+        run: |
+          import json, os, datetime
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          # 1. Parse Credentials & Authenticate with Google Drive API
+          gdrive_creds = json.loads('''${{ secrets.GDRIVE_CREDENTIALS }}''')
+          folder_id = "${{ secrets.GDRIVE_FOLDER_ID }}"
+          
+          scopes = ['https://googleapis.com']
+          creds = service_account.Credentials.from_service_account_info(gdrive_creds, scopes=scopes)
+          service = build('drive', 'v3', credentials=creds)
+
+          # 2. Query all ZIP files inside your specific backup folder
+          query = f"'{folder_id}' in parents and name name contains 'Github-' and name name contains '.zip' and trashed = false"
+          results = service.files().list(q=query, fields="files(id, name, createdTime)", orderBy="createdTime desc").execute()
+          files = results.get('files', [])
+
+          print(f"Found {len(files)} total backups in Google Drive.")
+
+          # 3. Calculate retention policy parameters
+          cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=90)
+          
+          # Iterate backwards starting with the oldest backups
+          for index, file in enumerate(files):
+              # Skip evaluating if it falls within the absolute minimum count safeguard (10 backups)
+              if index < 10:
+                  continue
+              
+              # Parse file creation date (Google API returns ISO timestamp strings)
+              created_time = datetime.datetime.fromisoformat(file['createdTime'].replace('Z', '+00:00'))
+              
+              # If the file is older than 90 days AND we already have more than 10 backups preserved, trash it
+              if created_time < cutoff_date:
+                  print(f"Retention breach: Trashing old backup '{file['name']}' (ID: {file['id']})")
+                  service.files().update(fileId=file['id'], body={'trashed': True}).execute()
