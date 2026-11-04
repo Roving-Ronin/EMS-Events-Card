@@ -13,6 +13,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate Secret Configurations
+        run: |
+          if [ -z "${{ secrets.GDRIVE_CREDENTIALS }}" ]; then
+            echo "❌ ERROR: GDRIVE_CREDENTIALS secret is missing or empty!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.GDRIVE_FOLDER_ID }}" ]; then
+            echo "❌ ERROR: GDRIVE_FOLDER_ID secret is missing or empty!"
+            exit 1
+          fi
+          echo "✅ Configuration validation successful."
+
+      - name: Create Dated Zip Archive
+        id: info
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          REPO_NAME="${{ github.event.repository.name }}"
+
       - name: Create Dated Zip Archive
         id: info
         run: |
