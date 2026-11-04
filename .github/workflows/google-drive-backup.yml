@@ -34,8 +34,11 @@ jobs:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           folder: ${{ secrets.GDRIVE_FOLDER_ID }}
 
+      - name: Install Google API Dependencies
+        run: |
+          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
       - name: Apply Complex Retention Rules (90 Days or 10 Backups)
-        name: Run Retention Script
         shell: python
         run: |
           import json, os, datetime
@@ -51,7 +54,7 @@ jobs:
           service = build('drive', 'v3', credentials=creds)
 
           # 2. Query all ZIP files inside your specific backup folder
-          query = f"'{folder_id}' in parents and name name contains 'Github-' and name name contains '.zip' and trashed = false"
+          query = f"'{folder_id}' in parents and name contains 'Github-' and name contains '.zip' and trashed = false"
           results = service.files().list(q=query, fields="files(id, name, createdTime)", orderBy="createdTime desc").execute()
           files = results.get('files', [])
 
