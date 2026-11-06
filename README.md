@@ -84,6 +84,8 @@ grid_options:
 A small, icon-header table of the next 10 plan slots with curtailment and expected cost / profit — a drop-in replacement for a markdown "Future Decisions" table.
 ```yaml
 type: custom:em-forecast-card
+grid_options:
+  columns: full
 ```
 
 ### HAEO

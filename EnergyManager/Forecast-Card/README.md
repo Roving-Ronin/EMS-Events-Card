@@ -8,9 +8,7 @@ Current version: ![version][em-forecast-version-badge]
 
 ---
 
-<!-- Screenshot: add EM-Forecast-Card.png to this folder, then uncomment
-![Energy Manager - Forecast Card](EM-Forecast-Card.png)
--->
+![Energy Manager - Forecast Card](em-forecast-card.png)
 
 ## Features
 
@@ -38,18 +36,22 @@ Current version: ![version][em-forecast-version-badge]
 | 🚗 | EV charging (auto) | kW |
 | 🔋 | Battery (charge +, discharge −) | kW |
 | 🔋 | Battery SoC at slot start | % |
-| 💲 | Expected cost / profit | |
+| 💲 | Expected cost / profit | $ |
 
 ## Configuration
 
 ```yaml
 type: custom:em-forecast-card
+grid_options:
+  columns: full
 ```
 
 All options are optional — defaults shown:
 
 ```yaml
 type: custom:em-forecast-card
+grid_options:
+  columns: full
 entity: sensor.energy_manager_plan
 provider_entity: input_select.electricity_provider
 title: 🔮 Future Decisions
