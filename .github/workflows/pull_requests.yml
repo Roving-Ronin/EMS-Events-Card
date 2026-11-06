@@ -86,6 +86,7 @@ jobs:
             fi
           done <<'EOF'
           src/em-events-card.js|_EMEC_VERSION|EnergyManager/CHANGELOG.md
+          src/em-forecast-card.js|_EMFC_VERSION|EnergyManager/Forecast-Card/CHANGELOG.md
           src/haeo-events-card.js|_HAEO_VERSION|HAEO/CHANGELOG.md
           src/emhass-events-card.js|_EMHASS_VERSION|EMHASS/CHANGELOG.md
           EOF

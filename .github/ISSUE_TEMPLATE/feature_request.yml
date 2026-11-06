@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea for the EM, HAEO or EMHASS Events Card
+description: Suggest an idea for the EM, HAEO or EMHASS Events Card, or the EM Forecast Card
 labels: ['type/feature']
 body:
   - type: markdown

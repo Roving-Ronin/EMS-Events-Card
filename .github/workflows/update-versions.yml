@@ -10,6 +10,7 @@ on:
       - main
     paths:
       - src/em-events-card.js
+      - src/em-forecast-card.js
       - src/haeo-events-card.js
       - src/emhass-events-card.js
       - versions.json
@@ -44,13 +45,14 @@ jobs:
           }
 
           EM=$(read_version src/em-events-card.js _EMEC_VERSION)
+          EMFC=$(read_version src/em-forecast-card.js _EMFC_VERSION)
           HAEO=$(read_version src/haeo-events-card.js _HAEO_VERSION)
           EMHASS=$(read_version src/emhass-events-card.js _EMHASS_VERSION)
 
-          printf '{\n  "em": "%s",\n  "haeo": "%s",\n  "emhass": "%s"\n}\n' \
-            "$EM" "$HAEO" "$EMHASS" > versions.json
+          printf '{\n  "em": "%s",\n  "em_forecast": "%s",\n  "haeo": "%s",\n  "emhass": "%s"\n}\n' \
+            "$EM" "$EMFC" "$HAEO" "$EMHASS" > versions.json
 
-          echo "EM: $EM  HAEO: $HAEO  EMHASS: $EMHASS"
+          echo "EM: $EM  EM Forecast: $EMFC  HAEO: $HAEO  EMHASS: $EMHASS"
           cat versions.json
 
       - name: Commit versions.json if it changed

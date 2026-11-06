@@ -21,6 +21,7 @@ jobs:
           gh release upload "${{ github.event.release.tag_name }}" \
             src/cards.js \
             src/em-events-card.js \
+            src/em-forecast-card.js \
             src/emhass-events-card.js \
             src/haeo-events-card.js \
             --clobber
