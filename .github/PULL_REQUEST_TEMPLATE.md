@@ -7,10 +7,10 @@
 
 ## Card(s) affected
 
-- [ ] EM Events Card (`src/em-events-card.js`)
-- [ ] EM Forecast Card (`src/em-forecast-card.js`)
-- [ ] HAEO Events Card (`src/haeo-events-card.js`)
-- [ ] EMHASS Events Card (`src/emhass-events-card.js`)
+- [ ] Energy Manager - Events Card (`src/em-events-card.js`)
+- [ ] Energy Manager - Forecast Card (`src/em-forecast-card.js`)
+- [ ] HAEO - Events Card (`src/haeo-events-card.js`)
+- [ ] EMHASS - Events Card (`src/emhass-events-card.js`)
 - [ ] Bundle / repo only (`src/cards.js`, README, workflows)
 
 ## Related issues

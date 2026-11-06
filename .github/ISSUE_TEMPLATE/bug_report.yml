@@ -25,10 +25,10 @@ body:
       label: Which card?
       description: Which card is affected?
       options:
-        - EM Events Card (Energy Manager)
-        - EM Forecast Card
-        - HAEO Events Card
-        - EMHASS Events Card
+        - Energy Manager - Events Card
+        - Energy Manager - Forecast Card
+        - HAEO - Events Card
+        - EMHASS - Events Card
         - More than one / Not sure
     validations:
       required: true
