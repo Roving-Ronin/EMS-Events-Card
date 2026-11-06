@@ -8,7 +8,13 @@ Current version: ![version][em-forecast-version-badge]
 
 ---
 
-![Energy Manager - Forecast Card](em-forecast-card.png)
+### Icon-only decisions (default)
+
+![Energy Manager - Forecast Card, icon-only decisions](em-forecast-card-icon-decisions.png)
+
+### Icon + text decisions (**Aa** switch on)
+
+![Energy Manager - Forecast Card, icon and text decisions](em-forecast-card.png)
 
 ## Features
 
