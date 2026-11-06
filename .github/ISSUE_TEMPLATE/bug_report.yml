@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with the EM, HAEO or EMHASS Events Card
+description: Report a problem with the EM, HAEO or EMHASS Events Card, or the EM Forecast Card
 labels: ['type/bug']
 body:
   - type: markdown
@@ -7,7 +7,7 @@ body:
       value: |
         **NOTE:** Before you start, please check the following.
 
-        - Read the README for the card you are using ([Energy Manager](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md), [HAEO](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md), [EMHASS](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md)) to ensure the correct setup.
+        - Read the README for the card you are using ([Energy Manager](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/README.md), [EM Forecast](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/Forecast-Card/README.md), [HAEO](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/README.md), [EMHASS](https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/README.md)) to ensure the correct setup.
         - Make sure no [similar issues (including closed ones)](https://github.com/Roving-Ronin/EMS-Events-Card/issues?q=is%3Aissue+label%3Atype%2Fbug) exist.
         - Make sure you are on the latest release, and have refreshed your browser cache (Ctrl+F5 / Cmd+Shift+R) after updating.
 
@@ -26,6 +26,7 @@ body:
       description: Which card is affected?
       options:
         - EM Events Card (Energy Manager)
+        - EM Forecast Card (Energy Manager)
         - HAEO Events Card
         - EMHASS Events Card
         - More than one / Not sure

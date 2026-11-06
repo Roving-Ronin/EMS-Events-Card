@@ -4,6 +4,8 @@ A custom Home Assistant card for the Home Assistant **[Energy Manager][energy-ma
 
 Current version: ![version][em-version-badge]
 
+> Want a compact view for a dashboard tile? See the **[EM Forecast Card](./Forecast-Card/)** — the next 10 slots with curtailment and cost / profit in a small icon-header table.
+
 ⚠️ **Security Notice** — v3.6.0 includes **critical XSS vulnerability fixes**. All entity-derived values are now HTML-escaped before rendering to prevent injection attacks. Users on v3.5.1 or earlier should update immediately; v3.6.1 closes two further EV-related vectors. See [SECURITY_ADVISORY_v3.6.0.md](./SECURITY_ADVISORY_v3.6.0.md) for details.
 
 ---

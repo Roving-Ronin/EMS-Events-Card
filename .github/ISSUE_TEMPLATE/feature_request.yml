@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea for the EM, HAEO or EMHASS Events Card
+description: Suggest an idea for the EM, HAEO or EMHASS Events Card, or the EM Forecast Card
 labels: ['type/feature']
 body:
   - type: markdown
@@ -20,6 +20,7 @@ body:
       description: Which card should this feature apply to?
       options:
         - EM Events Card (Energy Manager)
+        - EM Forecast Card (Energy Manager)
         - HAEO Events Card
         - EMHASS Events Card
         - All cards

@@ -8,7 +8,7 @@
 [![license][license-badge]][license-url]
 
 ___
-> **Install once via the Marketplace (or HACS) — all three cards are registered as dashboard resources automatically.**
+> **Install once via the Marketplace (or HACS) — all cards are registered as dashboard resources automatically.**
  
 A collection of custom Home Assistant Lovelace cards for the following Energy Management Systems (EMS):
 
@@ -35,6 +35,7 @@ For more detailed views and information for each specific card, please refer to 
 | Card | Type | For | Version |
 |------|------|-----|---------|
 | <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/" target="_blank">EM Events Card</a> | `custom:em-events-card` | [Energy Manager][energy-manager-referral] | ![EM version][em-version-badge] |
+| <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EnergyManager/Forecast-Card/" target="_blank">EM Forecast Card</a> | `custom:em-forecast-card` | [Energy Manager][energy-manager-referral] | ![EM Forecast version][em-forecast-version-badge] |
 | <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/HAEO/" target="_blank">HAEO Events Card</a> | `custom:haeo-events-card` | [Home Assistant Energy Optimiser][haeo-url] | ![HAEO version][haeo-version-badge] |
 | <a href="https://github.com/Roving-Ronin/EMS-Events-Card/blob/main/EMHASS/" target="_blank">EMHASS Events Card</a> | `custom:emhass-events-card` | [Energy Management for Home Assistant][emhass-url] | ![EMHASS version][emhass-version-badge] |
 
@@ -64,7 +65,7 @@ Or install manually from HACS:
 3. Click **Download**
 4. Hard-refresh your browser (`Ctrl+Shift+R` / `Cmd+Shift+R`)
 
-All three card types will be available immediately — add whichever you need to your dashboard.
+All card types will be available immediately — add whichever you need to your dashboard.
 
 ---
 
@@ -77,6 +78,12 @@ Once installed, add whichever card(s) apply to your setup:
 type: custom:em-events-card
 grid_options:
   columns: full
+```
+
+### Energy Manager — compact forecast
+A small, icon-header table of the next 10 plan slots with curtailment and expected cost / profit — a drop-in replacement for a markdown "Future Decisions" table.
+```yaml
+type: custom:em-forecast-card
 ```
 
 ### HAEO
@@ -118,6 +125,7 @@ You are free to use, modify and share these cards. If you distribute them or any
 <!-- Card versions (from versions.json) -->
 
 [em-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.em&label=&style=flat-square&color=grey
+[em-forecast-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.em_forecast&label=&style=flat-square&color=grey
 [haeo-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.haeo&label=&style=flat-square&color=grey
 [emhass-version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FRoving-Ronin%2FEMS-Events-Card%2Fmain%2Fversions.json&query=%24.emhass&label=&style=flat-square&color=grey
 
