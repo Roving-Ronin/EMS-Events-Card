@@ -18,6 +18,8 @@ const _EMFC_COLOURS = {
   pink:   { bg: '#ffe0e0', txt: '#333333', cost: '#cc3333' },
 };
 
+const _EMFC_DECTEXT_KEY = 'em_forecast_card_decision_text';
+
 const _EMFC_DEFAULTS = {
   entity: 'sensor.energy_manager_plan',
   provider_entity: 'input_select.electricity_provider',
@@ -28,6 +30,8 @@ const _EMFC_DEFAULTS = {
   show_curtailed: true,
   show_ev: 'auto',            // true | false | 'auto' (shown only if any EV kW in the rows)
   show_totals: true,
+  decision_text: false,       // default Decision style: false = icons only, true = original icon + text labels
+  show_decision_toggle: true, // small "Aa" switch beside the title; choice remembered per browser
   buy_decimals: 3,
   sell_decimals: 3,
   grid_threshold_w: 50,       // same defaults as EM Events Card settings
@@ -129,13 +133,38 @@ function _emfc_classify(mode, solarKw, impKw, expKw, battCKw, battDKw, curtail, 
 // Fallback when the plan row has an unrecognised mode (matches the old markdown logic)
 function _emfc_classifyFallback(pv, imp, exp, chg, dis) {
   const T = 0.05;
-  if (exp > T) return { label: '⚡ Export → Grid', color: 'yellow' };
-  if (imp > T && chg > T) return { label: '⚡ Grid → Battery', color: 'pink' };
-  if (pv > T && chg > T) return { label: '☀️ Solar → Battery', color: 'green' };
-  if (pv > T) return { label: '☀️ Solar → Home', color: 'green' };
-  if (dis > T) return { label: '🔋 Battery → Home', color: 'teal' };
-  if (imp > T) return { label: '⚡ Grid → Home', color: 'pink' };
+  if (exp > T) return { label: '🏠 Home → ⚡ Grid', color: 'yellow' };
+  if (imp > T && chg > T) return { label: '⚡ Grid → 🔋 Battery', color: 'pink' };
+  if (pv > T && chg > T) return { label: '🌞 Solar → 🔋 Battery', color: 'green' };
+  if (pv > T) return { label: '🌞 Solar → 🏠 Home', color: 'green' };
+  if (dis > T) return { label: '🔋 Battery → 🏠 Home', color: 'teal' };
+  if (imp > T) return { label: '⚡ Grid → 🏠 Home', color: 'pink' };
   return { label: '⏸️ Standby', color: '' };
+}
+
+// Icon-only rendering of a decision label. Full label stays in the tooltip.
+// "⚡ Grid" as a source (import) → red import tower; as a destination (export, incl. Surplus PV) → green export tower.
+const _EMFC_TOWER_IMP = '<ha-icon class="mdi imp" icon="mdi:transmission-tower-import"></ha-icon>';
+const _EMFC_TOWER_EXP = '<ha-icon class="mdi exp" icon="mdi:transmission-tower-export"></ha-icon>';
+
+function _emfc_decisionIcons(label) {
+  const forced = /\(Force\)/.test(label);
+  const token = (t, isDest) => {
+    if (/\bEV\b/.test(t)) return '🚗';                       // before Grid/Surplus: EV mode text can say "Surplus PV"
+    if (/\bGrid\b/.test(t)) return isDest ? _EMFC_TOWER_EXP : _EMFC_TOWER_IMP;
+    if (/\bSolar\b/.test(t)) return '🌞';
+    if (/\bBattery\b/.test(t)) return '🔋';
+    if (/\bHome\b/.test(t)) return '🏠';
+    const first = t.trim().split(/\s+/)[0] || '';
+    return _emfc_esc(first);                                   // e.g. ⏸️ Standby
+  };
+  const parts = String(label || '').split('→');
+  const side = (txt, isDest) => txt.split(' + ').map((t) => t.trim()).filter(Boolean)
+    .map((t) => token(t, isDest)).join('<span class="plus">+</span>');
+  let html = side(parts[0], false);
+  if (parts.length > 1) html += '<span class="arr">→</span>' + side(parts.slice(1).join('→'), true);
+  if (forced) html += '<span class="force" title="Forced">💪</span>';
+  return html;
 }
 
 function _emfc_evModeDesc(mode, readyBy, maxPrice, cur) {
@@ -160,7 +189,21 @@ class EmForecastCard extends HTMLElement {
     this._config = { ..._EMFC_DEFAULTS, ...(config || {}) };
     this._sig = null;
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = `<style>${EmForecastCard.styles}</style><ha-card><div class="hdr"><div class="ttl"></div><div class="tot"></div></div><div class="wrap"></div></ha-card>`;
+    this.shadowRoot.innerHTML = `<style>${EmForecastCard.styles}</style><ha-card><div class="hdr"><div class="tl"><div class="ttl"></div><button class="dtog" type="button">Aa</button></div><div class="tot"></div></div><div class="wrap"></div></ha-card>`;
+
+    // Decision style: saved browser choice wins over the YAML default
+    this._decText = !!this._config.decision_text;
+    try {
+      const saved = localStorage.getItem(_EMFC_DECTEXT_KEY);
+      if (saved === '1' || saved === '0') this._decText = saved === '1';
+    } catch (e) { /* storage unavailable — use YAML default */ }
+
+    this.shadowRoot.querySelector('.dtog').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this._decText = !this._decText;
+      try { localStorage.setItem(_EMFC_DECTEXT_KEY, this._decText ? '1' : '0'); } catch (e) { /* ignore */ }
+      this._render();
+    });
     if (this._hass) this._render();
   }
 
@@ -199,9 +242,14 @@ class EmForecastCard extends HTMLElement {
     const wrap = this.shadowRoot.querySelector('.wrap');
     const ttl = hdr.querySelector('.ttl');
     const tot = hdr.querySelector('.tot');
+    const tog = hdr.querySelector('.dtog');
     ttl.textContent = c.title || '';
     tot.innerHTML = '';
-    hdr.style.display = (c.title || c.show_totals !== false) ? '' : 'none';
+    const showTog = c.show_decision_toggle !== false;
+    tog.style.display = showTog ? '' : 'none';
+    tog.classList.toggle('on', this._decText);
+    tog.title = this._decText ? 'Decisions: icons + text (click for icons only)' : 'Decisions: icons only (click for icons + text)';
+    hdr.style.display = (c.title || c.show_totals !== false || showTog) ? '' : 'none';
 
     const plan = this._plan();
     if (!plan) { wrap.innerHTML = `<div class="msg">⚠️ ${_emfc_esc(c.entity)} not found</div>`; return; }
@@ -320,7 +368,9 @@ class EmForecastCard extends HTMLElement {
       const t = new Date(d.ts).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
       body += `<tr${style}>` +
         `<td>${t}</td>` +
-        `<td class="l" title="${_emfc_esc(d.cls.note || '')}">${_emfc_esc(d.cls.label)}</td>` +
+        (this._decText
+          ? `<td class="l txt" title="${_emfc_esc(d.cls.note || '')}">${_emfc_esc(d.cls.label)}</td>`
+          : `<td class="l" title="${_emfc_esc(d.cls.label + (d.cls.note ? ' — ' + d.cls.note : ''))}"><span class="dec">${_emfc_decisionIcons(d.cls.label)}</span></td>`) +
         `<td>${price(d.buyP, c.buy_decimals)}</td>` +
         `<td>${price(d.sellP, c.sell_decimals)}${d.capHit ? ' <span title="Globird super-export cap reached">⚠</span>' : ''}</td>` +
         `<td>${fmt(d.load, 0.005)}</td>` +
@@ -362,7 +412,12 @@ class EmForecastCard extends HTMLElement {
     return `
       ha-card { padding: 8px 10px 10px; overflow: hidden; }
       .hdr { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; padding: 4px 2px 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(200, 200, 200, 0.45); }
+      .tl { display: flex; align-items: center; gap: 8px; }
       .ttl { font-size: 16px; font-weight: 600; white-space: nowrap; }
+      .dtog { font: inherit; font-size: 10px; font-weight: 600; line-height: 1; padding: 2px 5px; border-radius: 4px; cursor: pointer;
+              background: transparent; color: var(--secondary-text-color); border: 1px solid var(--divider-color); opacity: 0.6; }
+      .dtog:hover { opacity: 1; }
+      .dtog.on { opacity: 1; color: var(--primary-color); border-color: var(--primary-color); }
       .wrap { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
       th { font-weight: 600; text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--divider-color); white-space: nowrap; }
@@ -370,7 +425,13 @@ class EmForecastCard extends HTMLElement {
       th { vertical-align: bottom; line-height: 1.25; }
       th .u { font-weight: 400; font-size: 10px; opacity: 0.65; }
       th:first-child, td:first-child { text-align: left; }
-      .l { text-align: left; white-space: normal; min-width: 170px; }
+      .l { text-align: left; white-space: nowrap; }
+      .l.txt { white-space: normal; min-width: 170px; }   /* original text labels can wrap */
+      .dec { display: inline-flex; align-items: center; gap: 2px; }
+      .dec .arr { opacity: 0.7; padding: 0 3px; }
+      .dec .plus { opacity: 0.55; font-size: 10px; padding: 0 1px; }
+      .dec .force { padding-left: 4px; }
+      .dec ha-icon.mdi { vertical-align: baseline; display: inline-flex; }
       th, th:first-child, th.l { text-align: center; }   /* headers centred; data cells keep their alignment */
       .dim { opacity: 0.45; }
       .money { font-weight: 700; }
@@ -384,6 +445,8 @@ class EmForecastCard extends HTMLElement {
       ha-icon.mdi { --mdc-icon-size: 16px; vertical-align: -3px; color: #ff9800; }
       ha-icon.mdi.imp { color: #f44336; }
       ha-icon.mdi.exp { color: #4caf50; }
+      tr[style] ha-icon.mdi.imp { color: #c62828; }   /* darker on EM row tints for contrast */
+      tr[style] ha-icon.mdi.exp { color: #1b5e20; }
       .tot ha-icon.mdi { vertical-align: baseline; display: inline-flex; }   /* flex-centred on the kWh text */
       .msg { padding: 8px; opacity: 0.8; }
     `;

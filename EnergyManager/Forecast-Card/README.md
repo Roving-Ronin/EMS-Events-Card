@@ -14,6 +14,7 @@ Current version: ![version][em-forecast-version-badge]
 
 - **Next N slots** from `sensor.energy_manager_plan` (`energy_plan.timeline`); slots that have already started are skipped, and the table refreshes when the plan changes and once a minute
 - **Decision labels and row colours** identical to the EM Events Card Future Decisions tab, including `(Surplus PV)` and `+ 🚗 EV (mode)` suffixes
+- **Icon-only decisions by default** (grid import / export as red / green transmission towers, 💪 for forced modes, full label on hover); the **Aa** switch beside the title flips to the original icon + text labels
 - **Provider-aware prices** via `input_select.electricity_provider` — Globird and Flow Power tariffs from their helpers, other providers from the plan; Globird super-export daily cap applied (⚠ shown on the sell price)
 - **✂️ Curtailed kW** per slot: `max(0, PV − (Load + Battery charge + Export))`
 - **💲 Cost / Profit** per slot: `(Import × Buy − Export × Sell) × interval`; cost in red with a minus sign, profit in green
@@ -61,6 +62,8 @@ row_colours: true          # false = theme colours, no EM event tints
 show_curtailed: true
 show_ev: auto              # true | false | auto
 show_totals: true
+decision_text: false       # true = original icon + text labels by default
+show_decision_toggle: true # Aa switch beside the title (remembered per browser)
 buy_decimals: 3
 sell_decimals: 3
 grid_threshold_w: 50       # same defaults as the EM Events Card settings
