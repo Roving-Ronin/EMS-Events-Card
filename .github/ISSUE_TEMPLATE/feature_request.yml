@@ -19,10 +19,10 @@ body:
       label: Which card?
       description: Which card should this feature apply to?
       options:
-        - EM Events Card (Energy Manager)
-        - EM Forecast Card (Energy Manager)
-        - HAEO Events Card
-        - EMHASS Events Card
+        - Energy Manager - Events Card
+        - Energy Manager - Forecast Card
+        - HAEO - Events Card
+        - EMHASS - Events Card
         - All cards
     validations:
       required: true
