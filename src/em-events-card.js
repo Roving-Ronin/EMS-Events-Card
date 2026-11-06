@@ -83,6 +83,33 @@ function _emec_escapeHtml(text) {
   return text.replace(/[&<>"']/g, (char) => map[char]);
 }
 
+// ============================================================================
+// Inline SVG helpers — MDI transmission tower icons (works in shadow DOM)
+// ============================================================================
+function _emec_svgIcon(iconName) {
+  // Real transmission tower SVG path from SVG Repo
+  const towerPath = 'M80.138,113.646c0-0.107-0.014-0.22-0.056-0.322L71.765,94.25l-6.347-31.429V46.769h8.289v1.51h-1.279c-0.541,0-0.979,0.441-0.979,0.982c0,0.541,0.438,0.982,0.979,0.982h1.279v0.898h-1.279c-0.541,0-0.979,0.441-0.979,0.982c0,0.541,0.438,0.982,0.979,0.982h1.279v2.7c0,0.362,0.294,0.653,0.653,0.653h3.276c0.359,0,0.653-0.292,0.653-0.653v-2.7h1.498c0.546,0,0.984-0.441,0.984-0.982c0-0.542-0.438-0.982-0.984-0.982h-1.498v-0.898h1.498c0.546,0,0.984-0.441,0.984-0.982c0-0.542-0.438-0.982-0.984-0.982h-1.498v-1.51h3.001c0.373,0,0.704-0.255,0.793-0.619c0.094-0.364-0.07-0.742-0.406-0.922l-16.26-8.783V25.389h6.492v1.346h-1.288c-0.537,0-0.98,0.439-0.98,0.982c0,0.537,0.443,0.98,0.98,0.98h1.288v0.901h-1.288c-0.537,0-0.98,0.441-0.98,0.982s0.443,0.98,0.98,0.98h1.288v2.702c0,0.362,0.289,0.656,0.653,0.656h3.271c0.364,0,0.653-0.294,0.653-0.656v-2.702h1.503c0.546,0,0.98-0.438,0.98-0.98s-0.435-0.982-0.98-0.982h-1.503v-0.901h1.503c0.546,0,0.98-0.438,0.98-0.98c0-0.546-0.435-0.982-0.98-0.982h-1.503v-1.346h1.857c0.373,0,0.695-0.25,0.794-0.612c0.093-0.357-0.065-0.737-0.393-0.919l-13.329-7.54v-0.877c0-0.163-0.052-0.317-0.14-0.453l-5.918-8.96V0.817C59.361,0.364,58.994,0,58.542,0s-0.817,0.364-0.817,0.817v5.211l-5.92,8.96c-0.089,0.133-0.14,0.29-0.14,0.453v0.735l-13.385,7.682c-0.322,0.185-0.48,0.565-0.385,0.922c0.098,0.359,0.42,0.609,0.792,0.609h2.723v1.346h-1.281c-0.543,0-0.982,0.439-0.982,0.982c0,0.537,0.439,0.98,0.982,0.98h1.281v0.901h-1.281c-0.543,0-0.982,0.441-0.982,0.982s0.439,0.98,0.982,0.98h1.281v2.702c0,0.362,0.294,0.656,0.656,0.656h3.276c0.359,0,0.651-0.294,0.651-0.656v-2.702h1.503c0.541,0,0.98-0.438,0.98-0.98s-0.439-0.982-0.98-0.982h-1.503v-0.901h1.503c0.541,0,0.98-0.438,0.98-0.98c0-0.546-0.439-0.982-0.98-0.982h-1.503v-1.346h5.673v10.899l-16.318,8.942c-0.329,0.182-0.492,0.558-0.399,0.922c0.094,0.361,0.42,0.616,0.794,0.616h3.213v1.67h-1.281c-0.541,0-0.982,0.441-0.982,0.982s0.441,0.985,0.982,0.985h1.281v0.901h-1.281c-0.541,0-0.982,0.438-0.982,0.98c0,0.544,0.441,0.982,0.982,0.982h1.281v2.7c0,0.364,0.292,0.655,0.653,0.655h3.274c0.361,0,0.655-0.292,0.655-0.655v-2.7h1.503c0.537,0,0.98-0.438,0.98-0.982c0-0.542-0.443-0.98-0.98-0.98h-1.503v-0.901h1.503c0.537,0,0.98-0.443,0.98-0.985s-0.443-0.982-0.98-0.982h-1.503v-1.67h8.128v16.043l-7.325,31.433l-8.319,19.079c-0.046,0.103-0.063,0.215-0.063,0.322h-2.296v2.398h12.277v-2.398h-2.929l12.846-18.332h4.387l12.689,18.332h-2.818v2.398h12.27v-2.398H80.138L80.138,113.646z M79.789,51.797c0.187,0,0.331,0.145,0.331,0.327c0,0.18-0.145,0.329-0.331,0.329h-7.36c-0.182,0-0.326-0.149-0.326-0.329c0-0.182,0.145-0.327,0.326-0.327H79.789z M79.789,48.932c0.187,0,0.331,0.149,0.331,0.329s-0.145,0.327-0.331,0.327h-7.36c-0.182,0-0.326-0.147-0.326-0.327s0.145-0.329,0.326-0.329H79.789z M77.992,30.25c0.182,0,0.331,0.149,0.331,0.332c0,0.18-0.149,0.324-0.331,0.324h-7.369c-0.178,0-0.322-0.145-0.322-0.324c0-0.182,0.145-0.332,0.322-0.332H77.992z M77.992,27.389c0.182,0,0.331,0.145,0.331,0.325c0,0.182-0.149,0.329-0.331,0.329h-7.369c-0.178,0-0.322-0.147-0.322-0.329c0-0.18,0.145-0.325,0.322-0.325H77.992z M47.495,30.25c0.18,0,0.329,0.149,0.329,0.332c0,0.18-0.147,0.324-0.329,0.324H40.13c-0.18,0-0.329-0.145-0.329-0.324c0-0.182,0.145-0.332,0.329-0.332H47.495z M47.495,27.389c0.18,0,0.329,0.145,0.329,0.325c0,0.182-0.147,0.329-0.329,0.329H40.13c-0.18,0-0.329-0.147-0.329-0.329c0,0.18,0.145-0.325,0.329-0.325H47.495z M45.04,51.958c0.18,0,0.324,0.147,0.324,0.329s-0.145,0.327-0.324,0.327h-7.367c-0.177,0-0.326-0.145-0.326-0.327s0.145-0.329,0.326-0.329H45.04z M45.04,49.095c0.18,0,0.324,0.147,0.324,0.327c0,0.182-0.145,0.329-0.324,0.329h-7.367c-0.177,0-0.326-0.147-0.326-0.329c0-0.18,0.145-0.327,0.326-0.327H45.04z M48.785,93.68l9.181-4.14l8.77,4.14H48.785z M48.19,84.929l8.216,3.878L46.218,93.4L48.19,84.929z M59.563,23.419l4.217-4.025v4.356h-3.874L59.563,23.419z M63.738,17.623l-5.124,4.893l-5.125-4.893H63.738z M53.305,19.254l4.361,4.166l-0.346,0.331h-4.016V19.254z M59.729,25.389l3.986,3.811l-5.251,6.718l-5.12-6.557l4.158-3.972H59.729z M53.305,61.977c0.112-0.047,0.219-0.117,0.294-0.224l4.987-7.188l4.873,7.024c0.084,0.116,0.195,0.182,0.322,0.229v0.271H53.305V61.977z M59.384,53.417l4.397-6.333V59.75L59.384,53.417z M53.305,44.645l5.159-6.604l5.293,6.772l-0.215,0.317h-9.911l-0.329-0.471v-0.014H53.305z M62.401,46.769l-3.815,5.5l-3.818-5.5H62.401z M63.781,42.713l-4.485-5.736l4.485-5.731V42.713z M57.636,36.977l-4.331,5.54V31.442L57.636,36.977z M57.79,53.417l-4.485,6.464V46.956L57.79,53.417z M53.135,63.722h10.794l0.715,3.561h-12.34L53.135,63.722z M60.035,79.45l6.522-2.711l1.218,6.011L60.035,79.45z M67.21,83.935l-9.233,4.163L49.2,83.954l9.145-3.799L67.21,83.935z M58.355,78.736l-7.071-3.015l7.131-3.557l7.199,3.552L58.355,78.736z M59.888,71.432l5.087-2.534l1.125,5.601L59.888,71.432z M58.416,70.704l-4.296-2.114h8.54L58.416,70.704z M51.912,68.963l5.029,2.474l-6.34,3.164L51.912,68.963z M50.122,76.645l6.541,2.786l-7.962,3.313L50.122,76.645z M69.8,93.68l-10.267-4.85l8.676-3.906l1.769,8.756H69.8L69.8,93.68z M78.057,45.13H65.418v-6.823L78.057,45.13z M63.781,27.447l-2.156-2.058h2.156V27.447z M75.238,23.75h-9.819v-5.551L75.238,23.75z M58.542,7.757l5.239,7.927v0.607c-0.005,0.009-0.015,0.012-0.023,0.021H53.368c-0.019-0.047-0.021-0.096-0.047-0.14c-0.007-0.009-0.012-0.012-0.019-0.019v-0.469L58.542,7.757z M41.756,23.75l9.908-5.687v5.687H41.756z M55.606,25.389l-2.303,2.198v-2.198H55.606z M38.935,45.13l12.729-6.977v6.977H38.935z M41.583,112.829h-3.563l7.635-17.515h8.205L41.583,112.829z M70.445,95.314l7.636,17.515h-3.725L62.231,95.314H70.445z';
+
+  let color = '#ff9800';  // orange for grid
+  let arrowSvg = '';
+
+  if (iconName === 'transmission-tower-import') {
+    color = '#f44336';  // red
+    // Arrow pointing AT tower + tower (3x larger arrow, tight spacing)
+    const arrow = `<svg style="width:1.8em;height:1.3em;vertical-align:-0.3em;display:inline-block;margin-right:-0.4em;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4,12L20,12M17,9L20,12L17,15" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const tower = `<svg style="width:1.3em;height:1.3em;vertical-align:-0.3em;display:inline-block;margin-right:4px;" viewBox="0 0 116.044 116.044" xmlns="http://www.w3.org/2000/svg"><path fill="${color}" d="${towerPath}"/></svg>`;
+    return arrow + tower;
+  } else if (iconName === 'transmission-tower-export') {
+    color = '#4caf50';  // green
+    // Tower + arrow pointing AWAY from tower (3x larger arrow, tight spacing)
+    const tower = `<svg style="width:1.3em;height:1.3em;vertical-align:-0.3em;display:inline-block;margin-right:-0.4em;" viewBox="0 0 116.044 116.044" xmlns="http://www.w3.org/2000/svg"><path fill="${color}" d="${towerPath}"/></svg>`;
+    const arrow = `<svg style="width:1.8em;height:1.3em;vertical-align:-0.3em;display:inline-block;margin-right:4px;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4,12L20,12M17,9L20,12L17,15" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    return tower + arrow;
+  }
+
+  return `<svg style="width:1.3em;height:1.3em;vertical-align:-0.3em;display:inline-block;margin-right:4px;" viewBox="0 0 116.044 116.044" xmlns="http://www.w3.org/2000/svg"><path fill="${color}" d="${towerPath}"/></svg>`;
+}
+
 // EV Mode description mapper
 function _emec_getEvModeDescription(evMode, readyByTime, readyByMaxPrice) {
   if (!evMode) return 'Unknown';
@@ -251,7 +278,7 @@ function _emec_buildTheadFuture(colSettings) {
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>💲/kWh</th>',
     '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🏠 Base Load</th>',
     '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">☀️ Solar</th>',
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">⚡ Grid</th>',
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">' + _emec_svgIcon('transmission-tower') + ' Grid</th>',
   ];
   
   // CONDITIONAL: Add Curtailed header only if enabled
@@ -325,7 +352,7 @@ function _emec_buildTheadPast(colSettings) {
     '<th rowspan="2" style="text-align:center;vertical-align:bottom;box-shadow:inset 1px 0 0 #555;">Sell<br>💲/kWh</th>',
     '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">🏠 Base Load</th>',
     '<th colspan="3" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">☀️ Solar</th>',
-    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">⚡ Grid</th>',
+    '<th colspan="2" style="text-align:center;box-shadow:inset 2px 0 0 #666;border-bottom:1px solid #666;">' + _emec_svgIcon('transmission-tower') + ' Grid</th>',
   ];
 
   // CONDITIONAL: Add Curtailed header only if enabled
@@ -1921,8 +1948,8 @@ class EmEventsCard extends HTMLElement {
       '<span>💲 Buy: <span class="pill" style="background:' + (nowBuyP <= 0.00 ? '#00FF00;color:#000;' : '#555;') + '">' + _emec_escapeHtml(this._fmtPrice(nowBuyP, 'buy')) + '</span></span>' +
       '<span>💲 Sell: <span class="pill" style="background:' + (nowSellP <= 0.00 ? '#ff5252;color:#000;' : '#555;') + '">' + _emec_escapeHtml(this._fmtPrice(nowSellP, 'sell')) + '</span></span>' +
       '<span>💰 Net: <span class="pill" style="background:' + netBgColor + ';color:#000;" title="Today\'s net cost. Positive (green) = credit owed to you. Negative (red) = cost to you">' + _emec_escapeHtml(netFormatted) + '</span></span>' +
-      '<span>📥 Imported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(importFormatted) + ' | ' + _emec_escapeHtml(dailyImportedEnergy) + ' kWh</span></span>' +
-      '<span>📤 Exported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(exportFormatted) + ' | ' + _emec_escapeHtml(dailyExportedEnergy) + ' kWh</span></span>';
+      '<span>' + _emec_svgIcon('transmission-tower-import') + ' Imported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(importFormatted) + ' | ' + _emec_escapeHtml(dailyImportedEnergy) + ' kWh</span></span>' +
+      '<span>' + _emec_svgIcon('transmission-tower-export') + ' Exported: <span class="pill" style="background:#555;">' + _emec_escapeHtml(exportFormatted) + ' | ' + _emec_escapeHtml(dailyExportedEnergy) + ' kWh</span></span>';
     
     return html;
   }

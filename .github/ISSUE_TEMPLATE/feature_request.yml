@@ -20,6 +20,7 @@ body:
       description: Which card should this feature apply to?
       options:
         - EM Events Card (Energy Manager)
+        - EM Forecast Card
         - HAEO Events Card
         - EMHASS Events Card
         - All cards
