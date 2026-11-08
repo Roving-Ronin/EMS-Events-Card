@@ -1,11 +1,14 @@
 # Energy Management Systems — Events Card
 
-[![hacs][hacs-badge]][hacs-url]
+<!-- ![HA version][ha-version-badge] -->
+[![Marketplace][marketplace-badge]][hacs-url]
 [![release][release-badge]][release-url]
 [![downloads][downloads-badge]][release-url]
+![Repo stars][repo-stars-badge]
 [![maintained][maintained-badge]][commits-url]
 [![activity][activity-badge]][commits-url]
 [![license][license-badge]][license-url]
+
 
 ___
 > **Install once via the Marketplace (or HACS) — all cards are registered as dashboard resources automatically.**
@@ -133,19 +136,21 @@ You are free to use, modify and share these cards. If you distribute them or any
 
 <!-- Badges -->
 
-[hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=Roving-Ronin&repository=EMS-Events-Card&category=plugin
-[hacs-badge]: https://img.shields.io/badge/hacs-default-orange.svg?style=flat-square
-[release-badge]: https://img.shields.io/github/v/release/Roving-Ronin/EMS-Events-Card?style=flat-square&color=green
-[downloads-badge]: https://img.shields.io/github/downloads/Roving-Ronin/EMS-Events-Card/total?style=flat-square
-[maintained-badge]: https://img.shields.io/badge/maintained-yes-brightgreen?style=flat-square
-[activity-badge]: https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square
-[license-badge]: https://img.shields.io/github/license/Roving-Ronin/EMS-Events-Card?style=flat-square
+[ha-version-badge]: https://img.shields.io/badge/Home%20Assistant-2024.6%2B-blue?style=flat-square&color=%2300c29e&logo=homeassistant&logoColor=white
+[marketplace-badge]: https://img.shields.io/badge/Marketplace%20-%20Default-orange?style=flat-square
+[release-badge]: https://img.shields.io/github/v/release/Roving-Ronin/EMS-Events-Card?style=flat-square&color=blue&label=Release
+[downloads-badge]: https://img.shields.io/github/downloads/Roving-Ronin/EMS-Events-Card/total?style=flat-square&label=Downloads
+[maintained-badge]: https://img.shields.io/badge/Maintained-yes-brightgreen?style=flat-square
+[activity-badge]: https://img.shields.io/github/commit-activity/y/Roving-Ronin/EMS-Events-Card?style=flat-square&label=Commit%20Activity
+[license-badge]: https://img.shields.io/github/license/Roving-Ronin/EMS-Events-Card?style=flat-square&label=License
+[repo-stars-badge]: https://img.shields.io/github/stars/Roving-Ronin/EMS-Events-Card?style=flat-square&logo=github&label=Repo%20Stars&link=https%3A%2F%2Fgithub.com%2FRoving-Ronin%2FEMS-Events-Card
 
 <!-- Install buttons -->
 
 [marketplace-button]: https://my.home-assistant.io/badges/marketplace_repository.svg
 [marketplace-url]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=Roving-Ronin&repository=EMS-Events-Card
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=Roving-Ronin&repository=EMS-Events-Card&category=plugin
 
 <!-- References -->
 
