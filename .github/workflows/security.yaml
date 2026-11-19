@@ -1,0 +1,69 @@
+name: Security
+
+# actionlint checks the workflows' syntax and zizmor their security (injection, permissions,
+# credentials); CodeQL scans the code and workflows
+# and reports in the Security tab. Weekly as well, so new CodeQL queries reach unchanged code.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 17 * * 1"  # Mondays 17:23 UTC (early Tuesday in Sydney)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: Workflow audit (zizmor)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # Findings fail the job and show as annotations on the workflow lines (config: .github/zizmor.yml)
+      - uses: zizmorcore/zizmor-action@v0.8.1
+        with:
+          advanced-security: false
+          annotations: true
+
+  actionlint:
+    name: Workflow syntax (actionlint)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # Catches keys in the wrong place (e.g. permissions under a trigger), unknown inputs and bad
+      # expressions, which zizmor doesn't check. Pinned so a new release can't fail a build by itself.
+      - run: pip install actionlint-py==1.7.12.25
+      - run: actionlint
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

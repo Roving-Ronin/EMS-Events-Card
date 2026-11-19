@@ -1,0 +1,53 @@
+name: Close Incomplete Issues
+
+# Adapted from 3dg1luk43/ha_washdata. Issues labelled `question` (GitHub's default
+# "Further information is requested") get a reminder after 2 days and are closed
+# after 5. The clock starts when the label was last added, by the validator or by hand.
+
+on:
+  schedule:
+    - cron: '0 22 * * *'  # daily, 09:00 AEDT
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  close-incomplete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remind, then close, issues still waiting for information
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const WARN_AFTER_DAYS = 2, CLOSE_AFTER_DAYS = 5, LABEL = 'question';
+            const REMINDER = '<!-- incomplete-reminder -->';
+            const { owner, repo } = context.repo;
+            const now = Date.now();
+            const issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', labels: LABEL, per_page: 100 });
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+              const events = await github.paginate(github.rest.issues.listEvents, { owner, repo, issue_number: issue.number, per_page: 100 });
+              const flag = events.filter(e => e.event === 'labeled' && e.label && e.label.name === LABEL).pop();
+              if (!flag) continue;
+              const flaggedAt = new Date(flag.created_at);
+              const days = (now - flaggedAt) / 86400000;
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+              const replied = comments.some(c => c.user.type !== 'Bot' && c.user.login === issue.user.login && new Date(c.created_at) > flaggedAt);
+              if (replied) { console.log(`#${issue.number}: reporter replied since flag, leaving for maintainer.`); continue; }
+
+              if (days >= CLOSE_AFTER_DAYS) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
+                  body: `Closing after **${CLOSE_AFTER_DAYS} days** without the information requested above.\n\n` +
+                        'If this is still a problem, edit your post with the missing details and comment `/reopen`. 🙏' });
+                await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'not_planned' });
+              } else if (days >= WARN_AFTER_DAYS) {
+                const warned = comments.some(c => c.body && c.body.includes(REMINDER) && new Date(c.created_at) > flaggedAt);
+                if (warned) continue;
+                const left = CLOSE_AFTER_DAYS - WARN_AFTER_DAYS;
+                await github.rest.issues.createComment({ owner, repo, issue_number: issue.number,
+                  body: `${REMINDER}\n👋 @${issue.user.login}, this issue is still waiting for the information requested above. ` +
+                        `It will be closed in **${left} days** if there's no update.\n\n` +
+                        '> To update your report: ⋯ menu at the top right of your original post → *Edit*.' });
+              }
+            }

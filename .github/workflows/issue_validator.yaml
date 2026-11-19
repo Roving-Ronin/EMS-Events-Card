@@ -1,0 +1,254 @@
+name: Issue Validator
+
+# Adapted from 3dg1luk43/ha_washdata. Uses only GitHub's default labels:
+#   bug / enhancement  applied by the issue templates
+#   question           "Further information is requested": set when a bug report is
+#                      missing required details (close_incomplete_issues.yaml closes it
+#                      after 5 days without an update)
+# Owners, members, collaborators and bots are never auto-closed.
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  # zizmor: ignore[dangerous-triggers] only reads the comment through github-script (never in a
+  # shell command), checks out no code, and needs no secrets beyond the issues token.
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+concurrency:
+  group: issue-validator-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  close-templateless-issues:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'reopened') &&
+      github.event.issue.author_association != 'OWNER' &&
+      github.event.issue.author_association != 'MEMBER' &&
+      github.event.issue.author_association != 'COLLABORATOR' &&
+      github.event.issue.user.type != 'Bot'
+    steps:
+      - name: Close issue when no template was used
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const TEMPLATES = {"bug": {"file": "bug_report.yml", "name": "🐛 Bug report", "headings": ["Which card?", "Current Behaviour", "Steps To Reproduce", "Expected Behaviour", "Card Version", "Energy Manager / HAEO / EMHASS Version", "Home Assistant Version", "Browser / App", "Card Configuration", "Browser Console Errors"], "distinctive": ["Steps To Reproduce", "Expected Behaviour", "Card Version", "Home Assistant Version", "Browser Console Errors"]}, "enhancement": {"file": "feature_request.yml", "name": "✨ Feature request", "headings": ["Which card?", "Current Behaviour", "Desired Behaviour", "Possible Solutions", "Context / Reason"], "distinctive": ["Desired Behaviour", "Possible Solutions", "Context / Reason"]}};
+            const EXEMPT_LABELS = [];
+            const EXEMPT_MARKER = "";
+            const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Any heading level: the web form renders `###`, hand-written bodies often use `##`.
+            const headingRe = h => new RegExp('^#{1,6}[ \\t]+' + escapeRe(h) + '(?=[ \\t]|$)', 'im');
+            const labelsOf = issue => (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+            const isExempt = issue => labelsOf(issue).some(l => EXEMPT_LABELS.includes(l))
+              || (EXEMPT_MARKER && (issue.body || '').includes(EXEMPT_MARKER));
+            const issue = context.payload.issue;
+            const { owner, repo } = context.repo;
+            const body = issue.body || '';
+            if (isExempt(issue)) return;
+
+            // Close only when BOTH signals are missing: no template label AND no template heading.
+            const hasLabel = labelsOf(issue).some(l => l in TEMPLATES);
+            const hasHeading = Object.values(TEMPLATES).some(t => t.headings.some(h => headingRe(h).test(body)));
+            if (hasLabel || hasHeading) {
+              console.log(`#${issue.number}: template detected - leaving open.`);
+              return;
+            }
+
+            const MARKER = '<!-- templateless-issue-autoclose -->';
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+            if (!comments.some(c => c.body && c.body.includes(MARKER))) {
+              const links = Object.values(TEMPLATES)
+                .map(t => `- [${t.name}](https://github.com/${owner}/${repo}/issues/new?template=${t.file})`);
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: [
+                  MARKER,
+                  `Hi @${issue.user.login}, this issue was opened **without one of our issue templates**, so it has been closed automatically.`,
+                  '',
+                  'The templates collect the details needed (versions, battery, logs, steps to reproduce) before anything can be investigated. Please open a new issue using one of them:',
+                  ...links,
+                  '',
+                  `For a question or an idea, please use [Discussions](https://github.com/${owner}/${repo}/discussions) instead.`,
+                ].join('\n'),
+              });
+            }
+            if (issue.state === 'open') {
+              await github.rest.issues.update({ owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'not_planned' });
+            }
+
+  restore-template-label:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    # Issue-form labels are applied only through the web form. An issue created over the
+    # API with a pasted template body arrives unlabelled; restore it from its headings.
+    if: >
+      github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'reopened') &&
+      github.event.issue.pull_request == null
+    steps:
+      - name: Restore the label the issue form would have applied
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const TEMPLATES = {"bug": {"file": "bug_report.yml", "name": "🐛 Bug report", "headings": ["Which part?", "Current Behaviour", "Steps To Reproduce", "Expected Behaviour", "BatteryLedger Version", "Home Assistant Version", "Battery", "Inverter integration", "Sensor details", "Log Output"], "distinctive": ["Steps To Reproduce", "Expected Behaviour", "BatteryLedger Version", "Home Assistant Version", "Battery", "Log Output"]}, "enhancement": {"file": "feature_request.yml", "name": "✨ Feature request", "headings": ["Which part?", "Current Behaviour", "Desired Behaviour", "Possible Solutions", "Context / Reason"], "distinctive": ["Desired Behaviour", "Possible Solutions", "Context / Reason"]}};
+            const EXEMPT_LABELS = [];
+            const EXEMPT_MARKER = "";
+            const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Any heading level: the web form renders `###`, hand-written bodies often use `##`.
+            const headingRe = h => new RegExp('^#{1,6}[ \\t]+' + escapeRe(h) + '(?=[ \\t]|$)', 'im');
+            const labelsOf = issue => (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+            const isExempt = issue => labelsOf(issue).some(l => EXEMPT_LABELS.includes(l))
+              || (EXEMPT_MARKER && (issue.body || '').includes(EXEMPT_MARKER));
+            const issue = context.payload.issue;
+            const { owner, repo } = context.repo;
+            const body = issue.body || '';
+            if (isExempt(issue) || labelsOf(issue).some(l => l in TEMPLATES)) return;
+            const scored = Object.entries(TEMPLATES)
+              .map(([label, t]) => [label, t.distinctive.filter(h => headingRe(h).test(body)).length])
+              .sort((a, b) => b[1] - a[1]);
+            const [best, hits] = scored[0];
+            const runnerUp = scored[1] ? scored[1][1] : 0;
+            if (hits < 2 || hits === runnerUp) {
+              console.log(`#${issue.number}: no clear template (${JSON.stringify(scored)}).`);
+              return;
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: [best] });
+            console.log(`#${issue.number}: restored "${best}".`);
+
+  validate-bug-report:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    needs: restore-template-label
+    if: >
+      always() && github.event_name == 'issues' && github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open'
+    steps:
+      - name: Check required details
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const TEMPLATES = {"bug": {"file": "bug_report.yml", "name": "🐛 Bug report", "headings": ["Which part?", "Current Behaviour", "Steps To Reproduce", "Expected Behaviour", "BatteryLedger Version", "Home Assistant Version", "Battery", "Inverter integration", "Sensor details", "Log Output"], "distinctive": ["Steps To Reproduce", "Expected Behaviour", "BatteryLedger Version", "Home Assistant Version", "Battery", "Log Output"]}, "enhancement": {"file": "feature_request.yml", "name": "✨ Feature request", "headings": ["Which part?", "Current Behaviour", "Desired Behaviour", "Possible Solutions", "Context / Reason"], "distinctive": ["Desired Behaviour", "Possible Solutions", "Context / Reason"]}};
+            const EXEMPT_LABELS = [];
+            const EXEMPT_MARKER = "";
+            const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Any heading level: the web form renders `###`, hand-written bodies often use `##`.
+            const headingRe = h => new RegExp('^#{1,6}[ \\t]+' + escapeRe(h) + '(?=[ \\t]|$)', 'im');
+            const labelsOf = issue => (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+            const isExempt = issue => labelsOf(issue).some(l => EXEMPT_LABELS.includes(l))
+              || (EXEMPT_MARKER && (issue.body || '').includes(EXEMPT_MARKER));
+            const { owner, repo } = context.repo;
+            // Re-read: the event payload predates restore-template-label.
+            const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number: context.payload.issue.number });
+            if (!labelsOf(issue).includes('bug')) return;
+            const body = issue.body || '';
+            const LABEL = 'question';
+            const MARKER = '<!-- issue-validator -->';
+            const REQUIRED = [["BatteryLedger Version", [], "**BatteryLedger Version** is missing. It's shown in the Marketplace (or HACS), or under Settings → Devices & services → BatteryLedger."], ["Home Assistant Version", [], "**Home Assistant Version** is missing. You can find it in Settings → About."], ["Battery", [], "**Battery** is missing: brand, model and number of modules, e.g. `Sigenergy SigenStor BAT 8.0 × 6`."]];
+            const VERSION_FIELD = "BatteryLedger Version";
+
+            const fieldLine = label => {
+              const m = body.match(new RegExp('^#{1,6}[ \\t]+' + escapeRe(label) + '[ \\t]*\\r?\\n+([^\\n#]+)', 'im'));
+              const v = m ? m[1].trim() : '';
+              return v === '_No response_' ? '' : v;
+            };
+
+            const problems = [];
+            for (const [heading, placeholders, message] of REQUIRED) {
+              const v = fieldLine(heading);
+              if (!v || placeholders.includes(v)) problems.push(message);
+            }
+
+            // Outdated version: compare with the latest stable release (if any).
+            const reported = fieldLine(VERSION_FIELD);
+            if (reported) {
+              try {
+                const { data: releases } = await github.rest.repos.listReleases({ owner, repo, per_page: 20 });
+                const latest = releases.find(r => !r.draft && !r.prerelease);
+                const parts = v => v.replace(/^v/i, '').split(/[.-]/).slice(0, 3).map(n => parseInt(n, 10) || 0);
+                if (latest) {
+                  const a = parts(latest.tag_name), b = parts(reported);
+                  const newer = a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+                  if (newer > 0) problems.push(
+                    `**Outdated version** (\`${reported}\`): the current release is \`${latest.tag_name}\`. ` +
+                    'Please update and check the problem still happens, then edit this field with the version you tested.');
+                }
+              } catch (e) { console.log('Release lookup failed:', e.message); }
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issue.number, per_page: 100 });
+            const mine = comments.findLast(c => c.user.type === 'Bot' && c.body && c.body.includes(MARKER));
+            const hasLabel = labelsOf(issue).includes(LABEL);
+
+            if (problems.length === 0) {
+              if (mine && hasLabel) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: LABEL }).catch(() => {});
+                await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id,
+                  body: `${MARKER}\n✅ Thanks @${issue.user.login}, everything needed is here now. @${owner} will take a look.` });
+              }
+              return;
+            }
+
+            const text = [
+              MARKER,
+              `Hi @${issue.user.login}, thanks for the report! A few details are missing that we need before we can investigate:`,
+              '',
+              ...problems.map(p => `- ${p}`),
+              '',
+              '**Edit your original post** (⋯ menu at its top right → *Edit*) to add them; this check runs again automatically. ' +
+              'Issues still missing details after 5 days are closed.',
+            ].join('\n');
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body: text });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: text });
+            if (!hasLabel) await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: [LABEL] });
+
+  handle-fine-command:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    # Maintainers comment `/fine` to clear the needs-info flag by hand.
+    if: >
+      github.event_name == 'issue_comment' &&
+      startsWith(github.event.comment.body, '/fine') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    steps:
+      - name: Clear the question label
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'question' }).catch(() => {});
+            await github.rest.reactions.createForIssueComment({ owner, repo, comment_id: context.payload.comment.id, content: '+1' });
+
+  handle-reporter-response:
+    permissions:
+      issues: write
+    runs-on: ubuntu-latest
+    # A reporter answering in a comment (rather than editing the post) shouldn't be
+    # auto-closed: clear the flag and hand it to the maintainer.
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.comment.user.type != 'Bot' &&
+      github.event.comment.user.login == github.event.issue.user.login &&
+      !startsWith(github.event.comment.body, '/') &&
+      contains(github.event.issue.labels.*.name, 'question')
+    steps:
+      - name: Hand back to the maintainer
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            await github.rest.issues.removeLabel({ owner, repo, issue_number, name: 'question' }).catch(() => {});
+            await github.rest.issues.createComment({ owner, repo, issue_number,
+              body: `Thanks @${context.payload.comment.user.login}. @${owner}, the reporter has replied; over to you.` });
