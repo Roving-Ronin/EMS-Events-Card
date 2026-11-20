@@ -2,8 +2,6 @@
   <img src="https://raw.githubusercontent.com/Roving-Ronin/EMS-Events-Card/main/brand/header.png" alt="EMS Events Card — Home Energy Management Systems (HEMS) plan view cards by Roving-Ronin" width="100%">
 </p>
 
-# Energy Management Systems — Events Card
-
 <!-- ![HA version][ha-version-badge] -->
 [![Marketplace][marketplace-badge]][hacs-url]
 [![release][release-badge]][release-url]
